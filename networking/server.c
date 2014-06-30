@@ -120,9 +120,7 @@ int main(int argc, char *argv[])
 				for(j = i; j < nfds; j++)
 				{
 					fds[j].fd = fds[j + 1].fd;
-					clients[j].is_logged = clients[j + 1].is_logged;
-					strcpy(clients[j].host, clients[j + 1].host);
-					strcpy(clients[j].serv, clients[j + 1].serv);
+					memcpy(&clients[j], &clients[j + 1], sizeof(struct cli_t));
 				}
 				i--;
 				nfds--;
@@ -134,7 +132,7 @@ end_server:
 	for (i = 0; i < nfds; i++)
 	{
 		if(fds[i].fd >= 0)
-			close(fds[i].fd);
+			close_conn(i);
 	}
 	return 0;
 }
@@ -233,6 +231,7 @@ int clinet_command(int id)
 {
 	char c;
 	int rc;
+	size_t len;
 
 	if (read_byte(fds[id].fd, &c) <= 0)
 		return -1;
@@ -296,16 +295,16 @@ int clinet_command(int id)
 		if (write_byte(fds[id].fd, OK) != 1)
 			return -1;
 
+		update_users_file();
 		break;
 
 	case CC:
-		if ((rc = read_block(fds[id].fd, buf, sizeof(buf))) <= 0)
+		len = sizeof(buf);
+		if ((rc = read_block(fds[id].fd, buf, &len)) <= 0)
 			return -1;
 
 		print_cli_addr(id);
-		printf("Caption block, size: ");
-		fwrite(buf, INT_LEN, sizeof(char), stdout);
-		printf("\n");
+		printf("Caption block, size: %d\n", len);
 
 		if (0 != flock(fileno(clients[id].buf_fp), LOCK_EX)) {
 			perror("flock() error");
@@ -313,18 +312,9 @@ int clinet_command(int id)
 			return -1;
 		}
 
-
-		char t[INT_LEN] = {0};
-		sprintf(t, "%d", clients[id].current_time);
-		fwrite(t, sizeof(char), INT_LEN, clients[id].buf_fp);
-		fwrite(buf, sizeof(char), rc, clients[id].buf_fp);
-
-		/* XXX: remove first line from buf_fp when current_time > BUF_FILE_LINES */
-		if (clients[id].current_time >= BUF_FILE_LINES)
-		{
-			if (delete_first_buf_line(id) < 0)
-				return -1;
-		}
+		fprintf(clients[id].buf_fp, "%d %d ", clients[id].cur_line, len);
+		fwrite(buf, sizeof(char), len, clients[id].buf_fp);
+		fprintf(clients[id].buf_fp, "\r\n");
 
 		if (0 != flock(fileno(clients[id].buf_fp), LOCK_UN)) {
 			perror("flock() error");
@@ -332,7 +322,7 @@ int clinet_command(int id)
 			return -1;
 		}
 
-		clients[id].current_time++;
+		clients[id].cur_line++;
 
 		if (write_byte(fds[id].fd, OK) != 1)
 			return -1;
@@ -344,59 +334,6 @@ int clinet_command(int id)
 		fprintf(stderr, "Unsupported command: %d\n", (int)c);
 
 		write_byte(fds[id].fd, WRONG_COMMAND);
-		return -1;
-	}
-
-	return 1;
-}
-
-int delete_first_buf_line(int id)
-{
-	char *line = NULL;
-	size_t len = 0;
-	int rc;
-	int n;
-
-	rewind(clients[id].buf_fp);
-
-	/* offset first line */
-	char line_str[INT_LEN];
-	fread(line_str, sizeof(char), INT_LEN, clients[id].buf_fp);
-	fflush(clients[id].buf_fp);
-
-	char buf[BUFFER_SIZE];
-	rc = read_block(fileno(clients[id].buf_fp), buf, sizeof(buf)); 
-
-	FILE *tmp = fopen(TMP_FILE_PATH, "w+");
-	if (setvbuf(tmp, NULL, _IOLBF, 0) < 0) {
-		perror("setvbuf() error");
-		return -1;
-	}
-
-	while(1)
-	{
-		memset(line_str, 0, INT_LEN);
-		if (fread(line_str, sizeof(char), INT_LEN, clients[id].buf_fp) != INT_LEN)
-			break;
-
-		fflush(clients[id].buf_fp);
-
-		if ((rc = read_block(fileno(clients[id].buf_fp), buf, sizeof(buf))) == 0)
-			break;
-		else if (rc < 0)
-			return -1;
-
-		fwrite(line_str, sizeof(char), INT_LEN, tmp);
-		fwrite(buf, sizeof(char), rc, tmp);
-	}
-
-	fclose(clients[id].buf_fp);
-	clients[id].buf_fp = tmp;
-
-	if (rename(TMP_FILE_PATH, clients[id].buf_file_path) != 0)
-	{
-		perror("rename() error");
-		write_byte(fds[id].fd, SERV_ERROR);
 		return -1;
 	}
 
@@ -423,6 +360,23 @@ void close_conn(int id)
 
 	close(fds[id].fd);
 	fds[id].fd = -1;
-	clients[id].is_logged = 0;
-	clients[id].buf_fp = NULL;
+	memset(&clients[id], 0, sizeof(struct cli_t));
+
+	update_users_file();
+}
+
+int update_users_file()
+{
+	FILE *fp = fopen(USERS_FILE_PATH, "w+");
+
+	int i;
+	for (i = 1; i < MAX_CONN; i++) /* 0 for listener sock */
+	{
+		if (!clients[i].is_logged)
+			continue;
+		
+		fprintf(fp, "%s:%s\n", clients[i].host, clients[i].serv);
+	}
+
+	fclose(fp);
 }

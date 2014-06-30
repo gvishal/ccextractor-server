@@ -20,6 +20,7 @@
 #define BUF_FILE_LINES 20
 #define TMP_FILE_PATH "./tmp/buf_tmp"
 
+#define USERS_FILE_PATH "connections.txt"
 
 struct cli_t
 {
@@ -29,17 +30,17 @@ struct cli_t
 
 	char buf_file_path[BUF_FILE_PATH_LEN];
 	FILE *buf_fp;
-	int current_time;
+	int cur_line;
 
 }; 
 
 int clinet_command(int id);
 
+int update_users_file();
+
 void close_conn(int id);
 
 void print_cli_addr(int id);
-
-int delete_first_buf_line(int id);
 
 /*
  * Returns socket that can accept connections. Socket is binded to any

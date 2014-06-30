@@ -71,36 +71,51 @@ writen(int fd, const void *vptr, size_t n)
 }
 
 ssize_t
-read_block(int fd, char *buf, size_t buf_len)
+read_block(int fd, char *buf, size_t *buf_len)
 {
-	memset(buf, 0, INT_LEN + 1);
-	ssize_t nread = readn(fd, buf, INT_LEN); 
-	if (nread < 0) {
+	ssize_t rc;
+	ssize_t nread = 0;
+
+	char len_str[INT_LEN] = {0};
+	if ((rc = readn(fd, len_str, INT_LEN)) < 0) {
 		return -1;
-	} else if (nread != INT_LEN) {
+	} else if (rc != INT_LEN) {
 		return 0;
 	}
+	nread += rc;
 
-    size_t len = atoi(buf);
+    size_t len = atoi(len_str);
 	if (0 == len) {
 		fprintf(stderr, "read_block() error: Wrong block size\n");
 		return -1;
 	}
 
-	if (len > buf_len) {
-		len = buf_len;
+	if (len > *buf_len) {
+		len = *buf_len; //XXX: why?
 	}
 
-	buf += INT_LEN;
-
-	nread = readn(fd, buf, len);
-	if (nread < 0) {
+	if ((rc = readn(fd, buf, len)) < 0) {
 		return -1;
-	} else if ((size_t) nread != len) {
+	} else if ((size_t) rc != len) {
 		return 0;
 	}
+	nread += rc;
+	*buf_len = len;
 
-	return nread + INT_LEN;
+	char end[2] = {0}; // for \r\n
+	if ((rc = readn(fd, end, 2)) < 0) {
+		return -1;
+	} else if ((size_t) rc != 2) {
+		return 0;
+	}
+	nread += rc;
+
+	if (end[0] != '\r' || end[1] != '\n') {
+		fprintf(stderr, "read_block() error: No end marker present\n");
+		return -1;
+	}
+
+	return nread;
 }
 
 ssize_t

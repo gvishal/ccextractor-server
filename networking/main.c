@@ -61,20 +61,24 @@ main(int argc, char *argv[])
 
 	while(1)
 	{
-		if (0 != fseek(fp, 0, SEEK_SET)) {
+		if (0 != fseek(fp, 3, SEEK_SET)) { //skip bom
 			perror("fseek");
 			exit(EXIT_FAILURE);
 		}
 
 		while ((read = getline(&line, &len, fp)) != -1) {
+			read -= 2; // for \r\n
+
 			char s[INT_LEN] = {0};
 			sprintf(s, "%d", read);
 
 			write_byte(sockfd, CC);
 			write(sockfd, s, INT_LEN);
 			write(sockfd, line, read);
+			write_byte(sockfd, '\r');
+			write_byte(sockfd, '\n');
 
-			fwrite(line, sizeof(char), read, stdout);
+			fwrite(line, sizeof(char), read + 2, stdout);
 			fflush(stdout);
 
 			char ok;

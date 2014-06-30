@@ -4,6 +4,7 @@ all: server client
 
 server: server.c server.h networking.c networking.h
 	gcc $(FLAGS) networking.c server.c -o server
+	cp server ../server
 
 client: client.c main.c client.h networking.c networking.h
 	gcc $(FLAGS) networking.c main.c client.c -o client
