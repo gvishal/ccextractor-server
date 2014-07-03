@@ -8,9 +8,11 @@
 #define FALSE 0
 #define TRUE 1
 
+#define PASSW_LEN 16
+
 struct pollfd fds[MAX_CONN];
 struct cli_t clients[MAX_CONN];
-char passw[MAX_PASSWORD_LEN + 1] = {0};
+char passw[PASSW_LEN + 1] = {0};
 
 int main(int argc, char *argv[])
 {
@@ -100,6 +102,8 @@ int main(int argc, char *argv[])
 					printf("Connected\n");
 
 					nfds++;
+
+					write_byte(new_sd, PASSW);
 				}
 
 				if (EWOULDBLOCK != errno) /* accepted all of connections */
@@ -222,7 +226,7 @@ int bind_server(const char *port)
 void gen_passw(char *p)
 {
 	size_t i;
-	size_t len = rand() % (1 + MAX_PASSWORD_LEN - 6) + 6;
+	size_t len = rand() % (1 + PASSW_LEN - 6) + 6;
 	for (i = 0; i < len; i++)
 	{
 		p[i] = rand() % (1 + 'z' - 'a') + 'a';
@@ -241,7 +245,7 @@ int clinet_command(int id)
 	if ((rc = read_block(fds[id].fd, &c, buf, &len)) <= 0)
 		return -1;
 
-	if (clients[id].is_muted)
+	if (clients[id].muted_since > 0)
 		return 0;
 
 	if (c != PASSW && !clients[id].is_logged)
@@ -265,7 +269,7 @@ int clinet_command(int id)
 			printf("Wrong password");
 			printf("\n");
 
-			clients[id].is_muted = 1;
+			clients[id].muted_since = time(NULL);
 
 			alarm(WRONG_PASSW_DELAY);
 
@@ -390,10 +394,18 @@ void unmute_clients()
 	int i;
 	for (i = 1; i < MAX_CONN; i++) /* 0 for listener sock */
 	{
-		if (clients[i].is_logged)
+		if (clients[i].is_logged || fds[i].fd == 0 || 
+				clients[i].muted_since == 0)
+		{
 			continue;
-		
-		clients[i].is_muted = 0;
+		}
+
+		if (time(NULL) - clients[i].muted_since < WRONG_PASSW_DELAY) 
+			continue;
+
+		clients[i].muted_since = 0;
+		/* Ask for password */
+		write_byte(fds[i].fd, PASSW); 
 	}
 }
 

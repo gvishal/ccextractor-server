@@ -14,16 +14,15 @@
 
 #include <assert.h>
 
-#define MAX_PASSWORD_LEN 16
 #define INT_LEN 10
 
+#define PASSW 10
+#define CC 11
+#define WAIT 5
 #define SERV_ERROR 4
 #define WRONG_COMMAND 3
 #define WRONG_PASSW 2
 #define OK 1
-
-#define PASSW 10
-#define CC 11
 
 #define BUFFER_SIZE 40860
 #define TMP_FILE_PATH_MAX_LEN 

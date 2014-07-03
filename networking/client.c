@@ -86,10 +86,13 @@ check_passwd(int fd)
 	int i;
 	char *pw = NULL;
 
-
 	char ok;
 
 	do {
+		do {
+			read_byte(fd, &ok);
+		} while(ok != PASSW);
+
 		printf("Enter password: ");
 
 		if (tcgetattr(STDIN_FILENO, &old) != 0) 
@@ -124,7 +127,7 @@ check_passwd(int fd)
 			printf("Wrong password\n");
 		}
 
-	} while(WRONG_PASSW == ok);
+	} while(OK != ok);
 
 	return;
 }

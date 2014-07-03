@@ -3,6 +3,8 @@
 ssize_t 
 readn(int fd, void *vptr, size_t n) 
 {
+	assert(n >= 0);
+
 	size_t nleft;
 	ssize_t nread;
 	char *ptr;
@@ -47,6 +49,7 @@ readn(int fd, void *vptr, size_t n)
 ssize_t 
 writen(int fd, const void *vptr, size_t n)
 {
+	assert(vptr != NULL);
 	assert(n > 0);
 
 	size_t nleft;
@@ -153,9 +156,15 @@ read_block(int fd, char *command, char *buf, size_t *buf_len)
 	return nread;
 }
 
+/* block format: */
+/* command | lenght        | data         | \r\n */
+/* 1 byte  | INT_LEN bytes | lenght bytes | 2 bytes */
 ssize_t
 write_block(int fd, char command, const char *buf, size_t buf_len)
 {
+	assert(buf != NULL);
+	assert(buf_len > 0);
+
 	int rc;
 	ssize_t nwritten = 0;
 
@@ -195,15 +204,17 @@ write_block(int fd, char command, const char *buf, size_t buf_len)
 }
 
 ssize_t 
-write_byte(int fd, char status)
+write_byte(int fd, char ch)
 {
-	return writen(fd, &status, 1);
+	return writen(fd, &ch, 1);
 }
 
 ssize_t 
-read_byte(int fd, char *status)
+read_byte(int fd, char *ch)
 {
-	return readn(fd, status, 1);
+	assert(ch != 0);
+
+	return readn(fd, ch, 1);
 }
 
 void 
