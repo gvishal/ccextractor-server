@@ -11,9 +11,8 @@
 
 #include <sys/file.h>
 
+// TODO: remove this shit
 #define MAX_CONN 10
-
-#define WRONG_PASSW_DELAY 1
 
 #define BUF_FILE_DIR "./tmp"
 #define BUF_FILE_PATH_LEN 50
@@ -22,16 +21,18 @@
 
 #define USERS_FILE_PATH "connections.txt"
 
+#define WRONG_PASSW_DELAY 2
+
 struct cli_t
 {
 	unsigned is_logged : 1;
+	unsigned is_muted : 1;
 	char host[NI_MAXHOST];
 	char serv[NI_MAXSERV];
 
 	char buf_file_path[BUF_FILE_PATH_LEN];
 	FILE *buf_fp;
 	int cur_line;
-
 }; 
 
 int clinet_command(int id);
@@ -41,6 +42,8 @@ int update_users_file();
 void close_conn(int id);
 
 void print_cli_addr(int id);
+
+void unmute_clients();
 
 /*
  * Returns socket that can accept connections. Socket is binded to any

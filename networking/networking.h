@@ -12,6 +12,8 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
+#include <assert.h>
+
 #define MAX_PASSWORD_LEN 16
 #define INT_LEN 10
 
@@ -36,8 +38,8 @@ ssize_t writen(int fd, const void *vptr, size_t n);
 ssize_t write_byte(int fd, char status);
 ssize_t read_byte(int fd, char *status);
 
-ssize_t read_block(int fd, char *buf, size_t *buf_len);
-ssize_t write_block(int fd, const char *buf, size_t buf_len);
+ssize_t read_block(int fd, char *command, char *buf, size_t *buf_len);
+ssize_t write_block(int fd, char command, const char *buf, size_t buf_len);
 
 void print_address(const struct sockaddr *sa, socklen_t salen);
 

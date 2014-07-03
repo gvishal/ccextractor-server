@@ -16,6 +16,8 @@
 #include <sys/stat.h>
 #include <string.h>
 
+#include <termios.h>
+
 #include "networking.h"
 #include "client.h"
 
@@ -77,15 +79,44 @@ int connect_to_addr(const char *host, const char *port)
 void
 check_passwd(int fd)
 {
-	char pw[MAX_PASSWORD_LEN + 1] = {0};
+	struct termios old, new;
+	int rc;
+	size_t len = 0;
+	char len_str[INT_LEN] = {0};
+	int i;
+	char *pw = NULL;
+
+
 	char ok;
 
 	do {
 		printf("Enter password: ");
-		scanf("%s", pw);
 
-		write_byte(fd, PASSW);
-		writen(fd, pw, MAX_PASSWORD_LEN);
+		if (tcgetattr(STDIN_FILENO, &old) != 0) 
+		{
+			perror("tcgetattr() error");
+			exit(EXIT_FAILURE);
+		}
+
+		new = old;
+		new.c_lflag &= ~ECHO;
+		if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &new) != 0)
+		{
+			perror("tcgetattr() error");
+			exit(EXIT_FAILURE);
+		}
+
+		rc = getline(&pw, &len, stdin);
+		rc--; /* -1 for \n */
+
+		if (tcsetattr (STDIN_FILENO, TCSAFLUSH, &old) != 0)
+		{
+			perror("tcgetattr() error");
+			exit(EXIT_FAILURE);
+		}
+		printf("\n");
+
+		write_block(fd, PASSW, pw, rc);
 
 		read_byte(fd, &ok);
 

@@ -69,14 +69,7 @@ main(int argc, char *argv[])
 		while ((read = getline(&line, &len, fp)) != -1) {
 			read -= 2; // for \r\n
 
-			char s[INT_LEN] = {0};
-			sprintf(s, "%d", read);
-
-			write_byte(sockfd, CC);
-			write(sockfd, s, INT_LEN);
-			write(sockfd, line, read);
-			write_byte(sockfd, '\r');
-			write_byte(sockfd, '\n');
+			write_block(sockfd, CC, line, read);
 
 			fwrite(line, sizeof(char), read + 2, stdout);
 			fflush(stdout);

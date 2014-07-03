@@ -3,8 +3,7 @@
 #include <poll.h>
 #include <stropts.h>
 #include <sys/ioctl.h>
-
-int client_sock;
+#include <limits.h> 
 
 #define FALSE 0
 #define TRUE 1
@@ -35,6 +34,8 @@ int main(int argc, char *argv[])
 	gen_passw(passw);
 	printf("Password: %s\n", passw);
 
+	my_signal(SIGALRM, unmute_clients);
+
 	fds[0].fd = listen_sd;
 	fds[0].events = POLLIN;
 	clients[0].is_logged = 1;
@@ -48,8 +49,11 @@ int main(int argc, char *argv[])
 
 	while (1)
 	{
-		if (poll(fds, nfds, -1) < 0) /* no timeout */
+		if (poll(fds, nfds, -1) < 0) 
 		{ 
+			if (EINTR == errno) 
+				continue;
+
 			perror("poll() error");
 			break;
 		}
@@ -231,10 +235,14 @@ int clinet_command(int id)
 {
 	char c;
 	int rc;
-	size_t len;
+	size_t len = BUFFER_SIZE;
 
-	if (read_byte(fds[id].fd, &c) <= 0)
+	char buf[BUFFER_SIZE] = {0};
+	if ((rc = read_block(fds[id].fd, &c, buf, &len)) <= 0)
 		return -1;
+
+	if (clients[id].is_muted)
+		return 0;
 
 	if (c != PASSW && !clients[id].is_logged)
 	{
@@ -243,24 +251,23 @@ int clinet_command(int id)
 		return -1;
 	}
 
-	char buf[BUFFER_SIZE] = {0};
-
 	switch (c)
 	{
 	case PASSW:
-		if (readn(fds[id].fd, buf, MAX_PASSWORD_LEN) <= 0)
-			return -1;
-
 		print_cli_addr(id);
 		printf("Password: ");
-		fwrite(buf, MAX_PASSWORD_LEN, sizeof(char), stdout);
+		fwrite(buf, len, sizeof(char), stdout);
 		printf("\n");
 
-		if (0 != memcmp(passw, buf, MAX_PASSWORD_LEN))
+		if (0 != strcmp(passw, buf))
 		{
 			print_cli_addr(id);
 			printf("Wrong password");
 			printf("\n");
+
+			clients[id].is_muted = 1;
+
+			alarm(WRONG_PASSW_DELAY);
 
 			if (write_byte(fds[id].fd, WRONG_PASSW) != 1)
 				return -1;
@@ -286,7 +293,8 @@ int clinet_command(int id)
 
 		if (setvbuf(clients[id].buf_fp, NULL, _IOLBF, 0) < 0) {
 			perror("setvbuf() error");
-			exit(EXIT_FAILURE);
+			write_byte(fds[id].fd, SERV_ERROR);
+			return -1;
 		}
 
 		print_cli_addr(id);
@@ -299,10 +307,6 @@ int clinet_command(int id)
 		break;
 
 	case CC:
-		len = sizeof(buf);
-		if ((rc = read_block(fds[id].fd, buf, &len)) <= 0)
-			return -1;
-
 		print_cli_addr(id);
 		printf("Caption block, size: %d\n", len);
 
@@ -379,4 +383,31 @@ int update_users_file()
 	}
 
 	fclose(fp);
+}
+
+void unmute_clients()
+{
+	int i;
+	for (i = 1; i < MAX_CONN; i++) /* 0 for listener sock */
+	{
+		if (clients[i].is_logged)
+			continue;
+		
+		clients[i].is_muted = 0;
+	}
+}
+
+void my_signal(int sig, void (*func)(int)) 
+{
+	struct sigaction act;
+	act.sa_handler = func;
+	sigemptyset(&act.sa_mask);
+	act.sa_flags = 0;
+
+	if (sigaction(sig, &act, NULL)) {
+		perror("sigaction() error");
+		exit(EXIT_FAILURE);
+	}
+
+	return;
 }
