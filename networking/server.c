@@ -16,25 +16,30 @@ char passw[PASSW_LEN + 1] = {0};
 
 int main(int argc, char *argv[])
 {
-	if (2 != argc) {
+	if (2 != argc) 
+	{
 		fprintf(stderr, "Usage: %s port \n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
 
 	/* line buffering in stdout */
-    if (setvbuf(stdout, NULL, _IOLBF, 0) < 0) {
-        perror("setvbuf() error");
+    if (setvbuf(stdout, NULL, _IOLBF, 0) < 0) 
+    {
+		_log(0, "setvbuf() error: %s\n", strerror(errno));
         exit(EXIT_FAILURE);
     }
 
 	int listen_sd = bind_server(argv[1]);
-	if (listen_sd < 0) {
+	if (listen_sd < 0) 
+	{
 		exit(EXIT_FAILURE);
 	}
 
 	printf("Server is binded to %s\n", argv[1]);
 	gen_passw(passw);
-	printf("Password: %s\n", passw);
+	printf("Password: %s\n\n", passw);
+
+	open_log_file();
 
 	my_signal(SIGALRM, unmute_clients);
 
@@ -56,7 +61,7 @@ int main(int argc, char *argv[])
 			if (EINTR == errno) 
 				continue;
 
-			perror("poll() error");
+			_log(0, "poll() error: %s\n", strerror(errno));
 			break;
 		}
 
@@ -74,7 +79,7 @@ int main(int argc, char *argv[])
 
 			if (fds[i].revents & POLLERR) 
 			{
-				printf("Error! Poll revents: %d\n", fds[i].revents);
+				_log(0, "poll() error: Revents %d\n", fds[i].revents);
 			}
 
 			if (fds[i].fd == listen_sd) 
@@ -90,16 +95,15 @@ int main(int argc, char *argv[])
 							clients[nfds].serv, sizeof(clients[nfds].serv), 
 							0)))
 					{
-						fprintf(stderr, "getnameinfo() error: %s\n",
-								gai_strerror(rc));
+						_log(0, "getnameinfo() error: %s\n", gai_strerror(rc));
 					}
 
 					fds[nfds].fd = new_sd;
 					fds[nfds].events = POLLIN;
 					clients[nfds].is_logged = 0;
 
-					print_cli_addr(nfds);
-					printf("Connected\n");
+					_log(0, "Connected [%d] (%s: %s)\n",
+							nfds, clients[nfds].host, clients[nfds].serv);
 
 					nfds++;
 
@@ -108,7 +112,7 @@ int main(int argc, char *argv[])
 
 				if (EWOULDBLOCK != errno) /* accepted all of connections */
 				{
-					perror("accept() failed");
+					_log(0, "accept() error: %s\n", strerror(errno));
 					goto end_server;
 				}
 			}
@@ -170,7 +174,7 @@ int bind_server(const char *port)
 
 		if (-1 == sockfd) 
 		{
-			perror("socket() error");
+			_log(0, "socket() error: %s\n", strerror(errno));
 			fprintf(stderr, "Skipping...\n");
 
 			continue;
@@ -180,7 +184,7 @@ int bind_server(const char *port)
 		if (setsockopt(sockfd, SOL_SOCKET,  SO_REUSEADDR,
 				(char *)&opt_val, sizeof(opt_val)) < 0) 
 		{
-			perror("setsockopt() error");
+			_log(0, "setsockopt() error: %s\n", strerror(errno));
 			close(sockfd);
 
 			fprintf(stderr, "Skipping...\n");
@@ -189,7 +193,7 @@ int bind_server(const char *port)
 
 		if (ioctl(sockfd, FIONBIO, (char *)&opt_val) < 0)
 		{
-			perror("ioctl() error");
+			_log(0, "ioctl() error: %s\n", strerror(errno));
 			close(sockfd);
 
 			fprintf(stderr, "Skipping...\n");
@@ -199,7 +203,7 @@ int bind_server(const char *port)
 		if (0 == bind(sockfd, p->ai_addr, p->ai_addrlen))
 			break;
 
-		perror("bind() error");
+		_log(0, "bind() error: %s\n", strerror(errno));
 		fprintf(stderr, "Skipping...\n");
 
 		close(sockfd);
@@ -215,7 +219,7 @@ int bind_server(const char *port)
 
 	if (0 != listen(sockfd, SOMAXCONN))
 	{
-		perror("listen() error");
+		_log(0, "listen() error: %s\n", strerror(errno));
 		return -1;
 	}
 
@@ -243,31 +247,28 @@ int clinet_command(int id)
 
 	char buf[BUFFER_SIZE] = {0};
 	if ((rc = read_block(fds[id].fd, &c, buf, &len)) <= 0)
+	{
+		e_log(id, rc);
 		return -1;
+	}
 
 	if (clients[id].muted_since > 0)
 		return 0;
 
 	if (c != PASSW && !clients[id].is_logged)
 	{
-		print_cli_addr(id);
-		fprintf(stderr, "No password presented\n");
+		_log(id, "No password presented\n");
 		return -1;
 	}
 
 	switch (c)
 	{
 	case PASSW:
-		print_cli_addr(id);
-		printf("Password: ");
-		fwrite(buf, len, sizeof(char), stdout);
-		printf("\n");
+		_log(id, "Password: %s\n", buf);
 
 		if (0 != strcmp(passw, buf))
 		{
-			print_cli_addr(id);
-			printf("Wrong password");
-			printf("\n");
+			_log(id, "Wrong password\n", buf);
 
 			clients[id].muted_since = time(NULL);
 
@@ -281,8 +282,7 @@ int clinet_command(int id)
 
 		clients[id].is_logged = 1;
 
-		print_cli_addr(id);
-		printf("Correct password\n");
+		_log(id, "Correct password\n", buf);
 
 		snprintf(clients[id].buf_file_path, BUF_FILE_PATH_LEN, 
 				"%s/%s:%s.txt", BUF_FILE_DIR, clients[id].host, clients[id].serv);
@@ -290,19 +290,18 @@ int clinet_command(int id)
 		clients[id].buf_fp = fopen(clients[id].buf_file_path, "w+");
 		if (clients[id].buf_fp == NULL)
 		{
-			perror("fopen() error");
+			_log(0, "fopen() error: %s\n", strerror(errno));
 			write_byte(fds[id].fd, SERV_ERROR);
 			return -1;
 		}
 
 		if (setvbuf(clients[id].buf_fp, NULL, _IOLBF, 0) < 0) {
-			perror("setvbuf() error");
+			_log(0, "setvbuf() error: %s\n", strerror(errno));
 			write_byte(fds[id].fd, SERV_ERROR);
 			return -1;
 		}
 
-		print_cli_addr(id);
-		printf("tmp file: %s\n", clients[id].buf_file_path);
+		_log(id, "tmp file: %s\n", clients[id].buf_file_path);
 
 		if (write_byte(fds[id].fd, OK) != 1)
 			return -1;
@@ -311,11 +310,10 @@ int clinet_command(int id)
 		break;
 
 	case CC:
-		print_cli_addr(id);
-		printf("Caption block, size: %d\n", len);
+		_log(id, "Caption block, size: %d\n", len);
 
 		if (0 != flock(fileno(clients[id].buf_fp), LOCK_EX)) {
-			perror("flock() error");
+			_log(0, "flock() error: %s\n", strerror(errno));
 			write_byte(fds[id].fd, SERV_ERROR);
 			return -1;
 		}
@@ -325,7 +323,7 @@ int clinet_command(int id)
 		fprintf(clients[id].buf_fp, "\r\n");
 
 		if (0 != flock(fileno(clients[id].buf_fp), LOCK_UN)) {
-			perror("flock() error");
+			_log(0, "flock() error: %s\n", strerror(errno));
 			write_byte(fds[id].fd, SERV_ERROR);
 			return -1;
 		}
@@ -338,8 +336,7 @@ int clinet_command(int id)
 		break;
 
 	default:
-		print_cli_addr(id);
-		fprintf(stderr, "Unsupported command: %d\n", (int)c);
+		_log(id, "Unsupported command: %d\n", (int) c);
 
 		write_byte(fds[id].fd, WRONG_COMMAND);
 		return -1;
@@ -348,21 +345,55 @@ int clinet_command(int id)
 	return 1;
 }
 
-void print_cli_addr(int id)
+void _log(int cli_id, const char *fmt, ...)
 {
-	printf("%s:%s [%d] ", clients[id].host, clients[id].serv, fds[id].fd);
-	/* printf("%d (%s:%s) ", fds[id].fd, clients[id].host, clients[id].serv); */
+	va_list args;
+    va_start(args, fmt);	
+
+	if (cli_id == 0)
+		fprintf(stderr, "[S] ");
+	else 
+		fprintf(stderr, "[%d] ", cli_id);
+
+	vfprintf(stderr, fmt, args);
+
+	fflush(stderr);
+
+    va_end(args);
+}
+
+void e_log(int cli_id, int ret_val)
+{
+	if (cli_id == 0)
+		fprintf(stderr, "[S] ");
+	else 
+		fprintf(stderr, "[%d] ", cli_id);
+
+	switch(ret_val)
+	{
+		case BLK_SIZE:
+			fprintf(stderr, "read_block() error: Wrong block size\n");
+			break;
+		case END_MARKER:
+			fprintf(stderr, "read_block() error: No end marker present\n");
+			break;
+		default:
+			fprintf(stderr, "%s\n", strerror(errno));
+			break;
+	}
+
+	fflush(stderr);
 }
 
 void close_conn(int id)
 {
-	print_cli_addr(id);
-	printf("Disconnected\n");
+	_log(0, "Disconnected [%d] (%s: %s)\n",
+			id, clients[id].host, clients[id].serv);
 
 	if (clients[id].buf_fp != NULL)
 	{
 		if (unlink(clients[id].buf_file_path) < 0) 
-			perror("unlink() error");
+			_log(0, "unlink() error: %s\n", strerror(errno));
 		fclose(clients[id].buf_fp);
 	}
 
@@ -376,6 +407,11 @@ void close_conn(int id)
 int update_users_file()
 {
 	FILE *fp = fopen(USERS_FILE_PATH, "w+");
+	if (fp == NULL)
+	{
+		_log(0, "fopen() error: %s\n", strerror(errno));
+		return -1;
+	}
 
 	int i;
 	for (i = 1; i < MAX_CONN; i++) /* 0 for listener sock */
@@ -387,6 +423,8 @@ int update_users_file()
 	}
 
 	fclose(fp);
+
+	return 0;
 }
 
 void unmute_clients()
@@ -417,9 +455,28 @@ void my_signal(int sig, void (*func)(int))
 	act.sa_flags = 0;
 
 	if (sigaction(sig, &act, NULL)) {
-		perror("sigaction() error");
+		_log(0, "sigaction() error: %s\n", strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 
 	return;
+}
+
+void open_log_file()
+{
+	time_t t = time(NULL);
+	struct tm *t_tm = localtime(&t);
+	char time_buf[30] = {0};
+	strftime(time_buf, 30, "%F=%H-%M-%S", t_tm);
+
+	char log_filepath[PATH_MAX] = {0};
+	snprintf(log_filepath, PATH_MAX, "%s/%s.log", LOG_DIR, time_buf);
+
+	if (freopen(log_filepath, "w", stderr) == NULL) { 
+		/* output to stderr won't work */
+		printf("freopen() error: %s\n", strerror(errno)); 
+		exit(EXIT_FAILURE);
+	}
+
+	printf("strerr is redirected to log file: %s\n", log_filepath);
 }

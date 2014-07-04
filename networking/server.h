@@ -10,6 +10,7 @@
 #include <sys/wait.h>
 
 #include <sys/file.h>
+#include <stdarg.h>
 
 #define MAX_CONN 10
 
@@ -19,6 +20,8 @@
 #define TMP_FILE_PATH "./tmp/buf_tmp"
 
 #define USERS_FILE_PATH "connections.txt"
+
+#define LOG_DIR "./logs"
 
 #define WRONG_PASSW_DELAY 2
 
@@ -40,9 +43,12 @@ int update_users_file();
 
 void close_conn(int id);
 
-void print_cli_addr(int id);
-
 void unmute_clients();
+
+void open_log_file();
+
+void _log(int cli_id, const char *fmt, ...);
+void e_log(int cli_id, int ret_val);
 
 /*
  * Returns socket that can accept connections. Socket is binded to any

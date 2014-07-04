@@ -99,29 +99,27 @@ read_block(int fd, char *command, char *buf, size_t *buf_len)
 	ssize_t nread = 0;
 
 	if ((rc = readn(fd, command, 1)) < 0)
-		return -1;
+		return ERRNO;
 	else if ((size_t) rc != 1) 
 		return 0;
 	nread += rc;
 
 	char len_str[INT_LEN] = {0};
 	if ((rc = readn(fd, len_str, INT_LEN)) < 0)
-		return -1;
+		return ERRNO;
 	else if (rc != INT_LEN)
 		return 0;
 	nread += rc;
 
     size_t len = atoi(len_str);
 	if (len <= 0) 
-	{
-		fprintf(stderr, "read_block() error: Wrong block size\n");
-		return -1;
-	}
+		return BLK_SIZE;
 
 	int ign_bytes = 0;
 	if (len > *buf_len) 
 	{
 		ign_bytes = len - *buf_len;
+		/* XXX: Don't ignore */
 		fprintf(stderr, 
 				"read_block() warning: Buffer overflow, ignoring %d bytes\n",
 				ign_bytes);
@@ -129,29 +127,27 @@ read_block(int fd, char *command, char *buf, size_t *buf_len)
 	}
 
 	if ((rc = readn(fd, buf, len)) < 0)
-		return -1;
+		return ERRNO;
 	else if ((size_t) rc != len)
 		return 0;
 	nread += rc;
 	*buf_len = len;
 
 	if ((rc = readn(fd, 0, ign_bytes)) < 0)
-		return -1;
+		return ERRNO;
 	else if ((size_t) rc != ign_bytes)
 		return 0;
 	nread += rc;
 
 	char end[2] = {0}; 
 	if ((rc = readn(fd, end, sizeof(end))) < 0)
-		return -1;
+		return ERRNO;
 	else if ((size_t) rc != sizeof(end))
 		return 0;
 	nread += rc;
 
-	if (end[0] != '\r' || end[1] != '\n') {
-		fprintf(stderr, "read_block() error: No end marker present\n");
-		return -1;
-	}
+	if (end[0] != '\r' || end[1] != '\n')
+		return END_MARKER;
 
 	return nread;
 }

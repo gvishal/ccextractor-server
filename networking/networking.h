@@ -27,6 +27,11 @@
 #define BUFFER_SIZE 40860
 #define TMP_FILE_PATH_MAX_LEN 
 
+/* Function Errors: */
+#define ERRNO -1
+#define BLK_SIZE -2
+#define END_MARKER -3
+
 /* Reads n bytes from descriptor*/
 ssize_t readn(int fd, void *vptr, size_t n);
 
