@@ -90,7 +90,8 @@ check_passwd(int fd)
 
 	do {
 		do {
-			read_byte(fd, &ok);
+			if (read_byte(fd, &ok) <= 0)
+				return;
 		} while(ok != PASSW);
 
 		printf("Enter password: ");

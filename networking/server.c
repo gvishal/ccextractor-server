@@ -39,7 +39,8 @@ int main(int argc, char *argv[])
 	gen_passw(passw);
 	printf("Password: %s\n\n", passw);
 
-	open_log_file();
+	if (CREATE_LOGS)
+		open_log_file();
 
 	my_signal(SIGALRM, unmute_clients);
 
@@ -110,7 +111,7 @@ int main(int argc, char *argv[])
 					write_byte(new_sd, PASSW);
 				}
 
-				if (EWOULDBLOCK != errno) /* accepted all of connections */
+				if (errno != EWOULDBLOCK) /* accepted all of connections */
 				{
 					_log(0, "accept() error: %s\n", strerror(errno));
 					goto end_server;
@@ -284,25 +285,6 @@ int clinet_command(int id)
 
 		_log(id, "Correct password\n", buf);
 
-		snprintf(clients[id].buf_file_path, BUF_FILE_PATH_LEN, 
-				"%s/%s:%s.txt", BUF_FILE_DIR, clients[id].host, clients[id].serv);
-
-		clients[id].buf_fp = fopen(clients[id].buf_file_path, "w+");
-		if (clients[id].buf_fp == NULL)
-		{
-			_log(0, "fopen() error: %s\n", strerror(errno));
-			write_byte(fds[id].fd, SERV_ERROR);
-			return -1;
-		}
-
-		if (setvbuf(clients[id].buf_fp, NULL, _IOLBF, 0) < 0) {
-			_log(0, "setvbuf() error: %s\n", strerror(errno));
-			write_byte(fds[id].fd, SERV_ERROR);
-			return -1;
-		}
-
-		_log(id, "tmp file: %s\n", clients[id].buf_file_path);
-
 		if (write_byte(fds[id].fd, OK) != 1)
 			return -1;
 
@@ -312,23 +294,8 @@ int clinet_command(int id)
 	case CC:
 		_log(id, "Caption block, size: %d\n", len);
 
-		if (0 != flock(fileno(clients[id].buf_fp), LOCK_EX)) {
-			_log(0, "flock() error: %s\n", strerror(errno));
-			write_byte(fds[id].fd, SERV_ERROR);
+		if (store_cc(id, buf, len) < 0)
 			return -1;
-		}
-
-		fprintf(clients[id].buf_fp, "%d %d ", clients[id].cur_line, len);
-		fwrite(buf, sizeof(char), len, clients[id].buf_fp);
-		fprintf(clients[id].buf_fp, "\r\n");
-
-		if (0 != flock(fileno(clients[id].buf_fp), LOCK_UN)) {
-			_log(0, "flock() error: %s\n", strerror(errno));
-			write_byte(fds[id].fd, SERV_ERROR);
-			return -1;
-		}
-
-		clients[id].cur_line++;
 
 		if (write_byte(fds[id].fd, OK) != 1)
 			return -1;
@@ -399,6 +366,10 @@ void close_conn(int id)
 
 	close(fds[id].fd);
 	fds[id].fd = -1;
+
+	if (clients[id].arch_fp != NULL)
+		fclose(clients[id].arch_fp);
+
 	memset(&clients[id], 0, sizeof(struct cli_t));
 
 	update_users_file();
@@ -479,4 +450,147 @@ void open_log_file()
 	}
 
 	printf("strerr is redirected to log file: %s\n", log_filepath);
+}
+
+int open_buf_file(int id)
+{
+	assert(clients[id].buf_fp == NULL);
+
+	snprintf(clients[id].buf_file_path, BUF_FILE_PATH_LEN, 
+			"%s/%s:%s.txt", BUF_FILE_DIR, clients[id].host, clients[id].serv);
+
+	clients[id].buf_fp = fopen(clients[id].buf_file_path, "w+");
+	if (clients[id].buf_fp == NULL)
+	{
+		_log(0, "fopen() error: %s\n", strerror(errno));
+		write_byte(fds[id].fd, SERV_ERROR);
+		return -1;
+	}
+
+	if (setvbuf(clients[id].buf_fp, NULL, _IOLBF, 0) < 0) {
+		_log(0, "setvbuf() error: %s\n", strerror(errno));
+		write_byte(fds[id].fd, SERV_ERROR);
+		return -1;
+	}
+
+	_log(id, "tmp file: %s\n", clients[id].buf_file_path);
+}
+
+int open_arch_file(int id)
+{
+	assert(clients[id].arch_fp == NULL);
+
+	time_t t = time(NULL);
+	struct tm *t_tm = localtime(&t);
+	char time_buf[30] = {0};
+	strftime(time_buf, 30, "%G/%m-%b/%d", t_tm);
+
+	char dir[PATH_MAX] = {0};
+	snprintf(dir, PATH_MAX, "%s/%s", ARCHIVE_DIR, time_buf);
+
+    errno = 0;
+    if (_mkdir(dir, S_IRWXU) < 0) {
+		_log(0, "_mkdir() error: %s\n", strerror(errno));
+		return -1;
+    }
+
+	clients[id].prgrm_statr = t;
+	memset(time_buf, 0, sizeof(time_buf));
+	strftime(time_buf, 30, "%H:%M", t_tm);
+
+	/* XXX: name should be unique */
+	snprintf(clients[id].arch_filepath, PATH_MAX, 
+			"%s/%s--%s:%s[%d].txt", 
+			dir, 
+			time_buf,
+			clients[id].host, 
+			clients[id].serv,
+			id); 
+
+	clients[id].arch_fp = fopen(clients[id].arch_filepath, "w+");
+	if (NULL == clients[id].arch_fp)
+	{
+		_log(0, "fopen() error: %s\n", strerror(errno));
+		write_byte(fds[id].fd, SERV_ERROR);
+		return -1;
+	}
+
+	if (setvbuf(clients[id].arch_fp, NULL, _IOLBF, 0) < 0) {
+		_log(0, "setvbuf() error: %s\n", strerror(errno));
+		write_byte(fds[id].fd, SERV_ERROR);
+		return -1;
+	}
+
+	_log(id, "archive file: %s\n", clients[id].arch_filepath);
+
+	return 0;
+}
+
+int store_cc(int id, char *buf, size_t len)
+{
+	assert(buf != 0);
+	assert(len > 0);
+
+	if ((NULL == clients[id].buf_fp) && (open_buf_file(id) < 0))
+		return -1;
+
+	if (0 != flock(fileno(clients[id].buf_fp), LOCK_EX)) {
+		_log(0, "flock() error: %s\n", strerror(errno));
+		write_byte(fds[id].fd, SERV_ERROR);
+		return -1;
+	}
+
+	fprintf(clients[id].buf_fp, "%d %d ", clients[id].cur_line, len);
+	fwrite(buf, sizeof(char), len, clients[id].buf_fp);
+	fprintf(clients[id].buf_fp, "\r\n");
+
+	if (0 != flock(fileno(clients[id].buf_fp), LOCK_UN)) {
+		_log(0, "flock() error: %s\n", strerror(errno));
+		write_byte(fds[id].fd, SERV_ERROR);
+		return -1;
+	}
+
+	clients[id].cur_line++;
+
+	if ((NULL == clients[id].arch_fp) && (open_arch_file(id) < 0))
+		return -1;
+
+	fwrite(buf, sizeof(char), len, clients[id].arch_fp);
+	fprintf(clients[id].arch_fp, "\r\n");
+
+	return 0;
+}
+
+int _mkdir(const char *dir, mode_t mode) 
+{
+	char tmp[256];
+	char *p = NULL;
+	size_t len;
+
+	snprintf(tmp, sizeof(tmp), "%s", dir);
+	len = strlen(tmp);
+	if ('/' == tmp[len - 1])
+		tmp[len - 1] = 0;
+
+	for (p = tmp + 1; *p; p++) 
+	{
+		if (*p != '/')
+			continue;
+
+		*p = 0;
+		if (mkdir(tmp, mode) < 0 ) 
+		{
+			if (errno != EEXIST)
+				return -1;
+		}
+		*p = '/';
+	}
+
+	if (mkdir(tmp, mode) < 0) 
+	{
+		if (errno != EEXIST)
+			return -1;
+	}
+
+	return 0;
 }
