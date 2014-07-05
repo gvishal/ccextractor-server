@@ -1,17 +1,48 @@
-#include "networking.h"
 #include "server.h"
-#include <poll.h>
-#include <stropts.h>
-#include <sys/ioctl.h>
-#include <limits.h> 
+#include "utils.h"
+#include "networking.h"
 
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+#include <unistd.h>
+#include <netdb.h>
+#include <signal.h>
+#include <time.h>
+#include <poll.h>
+#include <limits.h> 
+#include <assert.h>
+#include <errno.h>
+
+#include <sys/file.h>
+
+/* TODO: remove it, or move to utils.h and apply everywhere */
 #define FALSE 0
 #define TRUE 1
 
 #define PASSW_LEN 16
 
+struct cli_t
+{
+	unsigned is_logged : 1;
+	time_t muted_since;
+	char host[NI_MAXHOST];
+
+	char serv[NI_MAXSERV];
+
+	char cur_program[PROGRAM_NAME_LEN];
+	time_t prgrm_statr;
+
+	char buf_file_path[BUF_FILE_PATH_LEN];
+	FILE *buf_fp;
+	int cur_line;
+
+	char arch_filepath[ARCHIVE_FILEPATH_LEN];
+	FILE *arch_fp;
+} clients[MAX_CONN]; 
+
 struct pollfd fds[MAX_CONN];
-struct cli_t clients[MAX_CONN];
 char passw[PASSW_LEN + 1] = {0};
 
 int main(int argc, char *argv[])
@@ -42,7 +73,7 @@ int main(int argc, char *argv[])
 	if (CREATE_LOGS)
 		open_log_file();
 
-	my_signal(SIGALRM, unmute_clients);
+	_signal(SIGALRM, unmute_clients);
 
 	fds[0].fd = listen_sd;
 	fds[0].events = POLLIN;
@@ -150,83 +181,6 @@ end_server:
 	return 0;
 }
 
-int bind_server(const char *port) 
-{
-	struct addrinfo hints;
-	memset(&hints, 0, sizeof(struct addrinfo));
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_flags = AI_PASSIVE;
-
-	struct addrinfo *ai;
-	int result = getaddrinfo(NULL, port, &hints, &ai);
-	if (0 != result) 
-	{
-		fprintf(stderr, "getaddrinfo() error: %s\n", gai_strerror(result));
-		return -1;
-	}
-
-	struct addrinfo *p;
-	int sockfd;
-	/* Try each address until we sucessfully bind */
-	for (p = ai; p != NULL; p = p->ai_next) 
-	{
-		sockfd = socket(p->ai_family, SOCK_STREAM, p->ai_protocol);
-
-		if (-1 == sockfd) 
-		{
-			_log(0, "socket() error: %s\n", strerror(errno));
-			fprintf(stderr, "Skipping...\n");
-
-			continue;
-		}
-
-		int opt_val = 1;
-		if (setsockopt(sockfd, SOL_SOCKET,  SO_REUSEADDR,
-				(char *)&opt_val, sizeof(opt_val)) < 0) 
-		{
-			_log(0, "setsockopt() error: %s\n", strerror(errno));
-			close(sockfd);
-
-			fprintf(stderr, "Skipping...\n");
-			continue;
-		}
-
-		if (ioctl(sockfd, FIONBIO, (char *)&opt_val) < 0)
-		{
-			_log(0, "ioctl() error: %s\n", strerror(errno));
-			close(sockfd);
-
-			fprintf(stderr, "Skipping...\n");
-			continue;
-		}
-
-		if (0 == bind(sockfd, p->ai_addr, p->ai_addrlen))
-			break;
-
-		_log(0, "bind() error: %s\n", strerror(errno));
-		fprintf(stderr, "Skipping...\n");
-
-		close(sockfd);
-	}
-
-	if (NULL == p)
-	{
-		fprintf(stderr, "Could not bind to %s\n", port);
-		return -1;
-	}
-
-	freeaddrinfo(ai);
-
-	if (0 != listen(sockfd, SOMAXCONN))
-	{
-		_log(0, "listen() error: %s\n", strerror(errno));
-		return -1;
-	}
-
-	return sockfd;
-}
-
 
 void gen_passw(char *p)
 {
@@ -312,46 +266,6 @@ int clinet_command(int id)
 	return 1;
 }
 
-void _log(int cli_id, const char *fmt, ...)
-{
-	va_list args;
-    va_start(args, fmt);	
-
-	if (cli_id == 0)
-		fprintf(stderr, "[S] ");
-	else 
-		fprintf(stderr, "[%d] ", cli_id);
-
-	vfprintf(stderr, fmt, args);
-
-	fflush(stderr);
-
-    va_end(args);
-}
-
-void e_log(int cli_id, int ret_val)
-{
-	if (cli_id == 0)
-		fprintf(stderr, "[S] ");
-	else 
-		fprintf(stderr, "[%d] ", cli_id);
-
-	switch(ret_val)
-	{
-		case BLK_SIZE:
-			fprintf(stderr, "read_block() error: Wrong block size\n");
-			break;
-		case END_MARKER:
-			fprintf(stderr, "read_block() error: No end marker present\n");
-			break;
-		default:
-			fprintf(stderr, "%s\n", strerror(errno));
-			break;
-	}
-
-	fflush(stderr);
-}
-
 void close_conn(int id)
 {
 	_log(0, "Disconnected [%d] (%s: %s)\n",
@@ -416,21 +330,6 @@ void unmute_clients()
 		/* Ask for password */
 		write_byte(fds[i].fd, PASSW); 
 	}
-}
-
-void my_signal(int sig, void (*func)(int)) 
-{
-	struct sigaction act;
-	act.sa_handler = func;
-	sigemptyset(&act.sa_mask);
-	act.sa_flags = 0;
-
-	if (sigaction(sig, &act, NULL)) {
-		_log(0, "sigaction() error: %s\n", strerror(errno));
-		exit(EXIT_FAILURE);
-	}
-
-	return;
 }
 
 void open_log_file()
@@ -557,40 +456,6 @@ int store_cc(int id, char *buf, size_t len)
 
 	fwrite(buf, sizeof(char), len, clients[id].arch_fp);
 	fprintf(clients[id].arch_fp, "\r\n");
-
-	return 0;
-}
-
-int _mkdir(const char *dir, mode_t mode) 
-{
-	char tmp[256];
-	char *p = NULL;
-	size_t len;
-
-	snprintf(tmp, sizeof(tmp), "%s", dir);
-	len = strlen(tmp);
-	if ('/' == tmp[len - 1])
-		tmp[len - 1] = 0;
-
-	for (p = tmp + 1; *p; p++) 
-	{
-		if (*p != '/')
-			continue;
-
-		*p = 0;
-		if (mkdir(tmp, mode) < 0 ) 
-		{
-			if (errno != EEXIST)
-				return -1;
-		}
-		*p = '/';
-	}
-
-	if (mkdir(tmp, mode) < 0) 
-	{
-		if (errno != EEXIST)
-			return -1;
-	}
 
 	return 0;
 }

@@ -1,25 +1,65 @@
+#include "networking.h"
+#include "utils.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <assert.h>
 
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <netdb.h>
-
 #include <arpa/inet.h>
-
-#include <locale.h>
-
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <string.h>
-
 #include <termios.h>
+#include <unistd.h>
 
-#include "networking.h"
-#include "client.h"
+#include <sys/ioctl.h>
+
+/* block format: */
+/* command | lenght        | data         | \r\n */
+/* 1 byte  | INT_LEN bytes | lenght bytes | 2 bytes */
+ssize_t
+write_block(int fd, char command, const char *buf, size_t buf_len)
+{
+	assert(buf != NULL);
+	assert(buf_len > 0);
+
+	int rc;
+	ssize_t nwritten = 0;
+
+	if ((rc = write_byte(fd, command)) < 0)
+		return -1;
+	else if (rc != 1)
+		return 0;
+	nwritten++;
+
+	char len_str[INT_LEN] = {0};
+	snprintf(len_str, INT_LEN, "%d", buf_len);
+	if ((rc = writen(fd, len_str, INT_LEN)) < 0)
+		return -1;
+	else if (rc != INT_LEN)
+		return 0;
+	nwritten += rc;
+
+	if ((rc = writen(fd, buf, buf_len)) < 0)
+		return -1;
+	else if (rc != buf_len)
+		return 0;
+	nwritten += rc;
+
+	if ((rc = write_byte(fd, '\r')) < 0)
+		return -1;
+	else if (rc != 1)
+		return 0;
+
+	nwritten++;
+	if ((rc = write_byte(fd, '\n')) < 0)
+		return -1;
+	else if (rc != 1)
+		return 0;
+	nwritten++;
+
+	return nwritten;
+}
 
 int connect_to_addr(const char *host, const char *port)
 {

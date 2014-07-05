@@ -1,33 +1,16 @@
-#include <stdio.h>
+#include "client.h"
+#include "utils.h"
+#include "networking.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-
-#include <arpa/inet.h>
-
 #include <locale.h>
 
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <string.h>
-#include <time.h>
-
-#include <sys/wait.h>
-#include <sys/types.h>
-#include <sys/file.h>
-#include <unistd.h>
-#include <signal.h>
-
-#include <wchar.h>
-
-#include "networking.h"
-#include "client.h"
+#include <sys/socket.h>
+#include <netdb.h>
+#include <arpa/inet.h>
 
 int 
 main(int argc, char *argv[])
@@ -56,6 +39,7 @@ main(int argc, char *argv[])
 	}
 
 	char *line;
+
 	size_t len = 0;
 	int read;
 
