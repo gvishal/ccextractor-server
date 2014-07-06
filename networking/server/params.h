@@ -20,12 +20,13 @@ struct cfg_t
 	int port;
 	int max_conn;
 	char *pwd;
-	// unsigned custom_pwd : 1;
 	int wrong_pwd_delay;
 	char *buf_dir;
 	char *arch_dir;
 	unsigned create_logs : 1;
 	char *log_dir;
+
+	unsigned is_inited : 1;
 } cfg;
 
 int init_cfg();

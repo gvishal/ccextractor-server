@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <signal.h>
+#include <netdb.h>
 #include <sys/stat.h>
 
 ssize_t 
@@ -155,6 +156,12 @@ void e_log(int cli_id, int ret_val)
 			break;
 		case CFG_UNKNOWN:
 			fprintf(stderr, "parse_config_file() error: Unknown key-value pair\n");
+			break;
+		case B_SRV_GAI:
+			fprintf(stderr, "getaddrinfo() error: %s\n", gai_strerror(errno));
+			break;
+		case B_SRV_ERR:
+			fprintf(stderr, "bind_server() error: Coudn't bind to the port\n");
 			break;
 		default:
 			fprintf(stderr, "%s\n", strerror(errno));

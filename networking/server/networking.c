@@ -47,8 +47,7 @@ read_block(int fd, char *command, char *buf, size_t *buf_len)
 	{
 		ign_bytes = len - *buf_len;
 		/* XXX: Don't ignore */
-		fprintf(stderr, 
-				"read_block() warning: Buffer overflow, ignoring %d bytes\n",
+		_log(0, "read_block() warning: Buffer overflow, ignoring %d bytes\n",
 				ign_bytes);
 		len = *buf_len; 
 	}
@@ -91,11 +90,11 @@ int bind_server(int port)
 	snprintf(port_str, INT_LEN, "%d", port);
 
 	struct addrinfo *ai;
-	int result = getaddrinfo(NULL, port_str, &hints, &ai);
-	if (0 != result) 
+	int rc = getaddrinfo(NULL, port_str, &hints, &ai);
+	if (0 != rc) 
 	{
-		fprintf(stderr, "getaddrinfo() error: %s\n", gai_strerror(result));
-		return -1;
+		errno = rc;
+		return B_SRV_GAI;
 	}
 
 	struct addrinfo *p;
@@ -108,7 +107,7 @@ int bind_server(int port)
 		if (-1 == sockfd) 
 		{
 			_log(0, "socket() error: %s\n", strerror(errno));
-			fprintf(stderr, "Skipping...\n");
+			_log(0, "trying next address");
 
 			continue;
 		}
@@ -118,18 +117,18 @@ int bind_server(int port)
 				(char *)&opt_val, sizeof(opt_val)) < 0) 
 		{
 			_log(0, "setsockopt() error: %s\n", strerror(errno));
+			_log(0, "trying next address");
 			close(sockfd);
 
-			fprintf(stderr, "Skipping...\n");
 			continue;
 		}
 
 		if (ioctl(sockfd, FIONBIO, (char *)&opt_val) < 0)
 		{
 			_log(0, "ioctl() error: %s\n", strerror(errno));
+			_log(0, "trying next address");
 			close(sockfd);
 
-			fprintf(stderr, "Skipping...\n");
 			continue;
 		}
 
@@ -137,24 +136,17 @@ int bind_server(int port)
 			break;
 
 		_log(0, "bind() error: %s\n", strerror(errno));
-		fprintf(stderr, "Skipping...\n");
-
+		_log(0, "trying next address");
 		close(sockfd);
-	}
-
-	if (NULL == p)
-	{
-		fprintf(stderr, "Could not bind to %d\n", port);
-		return -1;
 	}
 
 	freeaddrinfo(ai);
 
+	if (NULL == p)
+		return B_SRV_ERR;
+
 	if (0 != listen(sockfd, SOMAXCONN))
-	{
-		_log(0, "listen() error: %s\n", strerror(errno));
-		return -1;
-	}
+		return ERRNO;
 
 	return sockfd;
 }

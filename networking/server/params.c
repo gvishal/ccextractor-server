@@ -17,18 +17,21 @@ int init_cfg()
 	cfg.create_logs = DFT_CREATE_LOGS;
 	cfg.log_dir = DFT_LOG_DIR;
 
-	/* cfg.custom_pwd = 0; */
 	if ((cfg.pwd = (char *) malloc(DFT_PASSW_LEN + 1)) == NULL) /* +1 for '\0' */
 		return ERRNO;
 
 	memset(cfg.pwd, 0, DFT_PASSW_LEN + 1);
 	rand_str(cfg.pwd, DFT_PASSW_LEN);
 
+	cfg.is_inited = TRUE;
+
 	return 0;
 }
 
 int parse_config_file()
 {
+	assert(cfg.is_inited);
+
 	FILE *fp = fopen(DFT_CONFIG_FILE, "r");
 	if (fp == NULL)
 	{
@@ -88,12 +91,12 @@ int parse_config_file()
 		if (strncmp(value, "true", value_len) == 0)
 		{
 			val_type = boolean;
-			val_bool = 1;
+			val_bool = TRUE;
 		}
 		else if (strncmp(value, "false", value_len) == 0)
 		{
 			val_type = boolean;
-			val_bool = 0;
+			val_bool = FALSE;
 		}
 		else if (*value == '"' && value[value_len - 1] == '"')
 		{

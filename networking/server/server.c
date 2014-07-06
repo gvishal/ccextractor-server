@@ -18,32 +18,25 @@
 
 #include <sys/file.h>
 
-/* TODO: remove it, or move to utils.h and apply everywhere */
-#define FALSE 0
-#define TRUE 1
-
-#define PASSW_LEN 16
-
-#define MAX_CONN 10
-
 struct cli_t
 {
-	unsigned is_logged : 1;
-	time_t muted_since;
-	char host[NI_MAXHOST];
-	char serv[NI_MAXSERV];
+	char *host;
+	char *serv;
 
+	unsigned is_logged : 1;
+
+	time_t muted_since;
 	time_t prgrm_statr;
 
-	char buf_file_path[PATH_MAX];
+	char *buf_file_path;
 	FILE *buf_fp;
 	int cur_line;
 
-	char arch_filepath[PATH_MAX];
+	char *arch_filepath;
 	FILE *arch_fp;
-} clients[MAX_CONN]; 
+} *clients; 
 
-struct pollfd fds[MAX_CONN];
+struct pollfd *fds;
 
 int main(int argc, char *argv[])
 {
@@ -77,6 +70,7 @@ int main(int argc, char *argv[])
 	int listen_sd = bind_server(cfg.port);
 	if (listen_sd < 0) 
 	{
+		e_log(0, listen_sd);
 		exit(EXIT_FAILURE);
 	}
 
@@ -88,6 +82,20 @@ int main(int argc, char *argv[])
 
 	_signal(SIGALRM, unmute_clients);
 
+	clients = (struct cli_t *) malloc((sizeof(struct cli_t)) * cfg.max_conn);
+	if (NULL == clients)
+	{
+		_log(0, "malloc() error: %s\n", strerror(errno));
+		exit(EXIT_FAILURE);
+	}
+
+	fds = (struct pollfd *) malloc((sizeof(struct pollfd)) * cfg.max_conn);
+	if (NULL == clients)
+	{
+		_log(0, "malloc() error: %s\n", strerror(errno));
+		exit(EXIT_FAILURE);
+	}
+
 	fds[0].fd = listen_sd;
 	fds[0].events = POLLIN;
 	clients[0].is_logged = 1;
@@ -97,7 +105,6 @@ int main(int argc, char *argv[])
 	int compress_array;
 
 	char buffer[BUFFER_SIZE];
-
 	while (1)
 	{
 		if (poll(fds, nfds, -1) < 0) 
@@ -106,7 +113,7 @@ int main(int argc, char *argv[])
 				continue;
 
 			_log(0, "poll() error: %s\n", strerror(errno));
-			break;
+			goto end_server;
 		}
 
 		int current_size = nfds;
@@ -134,20 +141,15 @@ int main(int argc, char *argv[])
 				int new_sd;
 				while((new_sd = accept(listen_sd, &cliaddr, &clilen)) >= 0) 
 				{
-					if (0 != (rc = getnameinfo(&cliaddr, clilen, 
-							clients[nfds].host, sizeof(clients[nfds].host), 
-							clients[nfds].serv, sizeof(clients[nfds].serv), 
-							0)))
-					{
-						_log(0, "getnameinfo() error: %s\n", gai_strerror(rc));
-					}
-
 					fds[nfds].fd = new_sd;
 					fds[nfds].events = POLLIN;
-					clients[nfds].is_logged = 0;
 
-					_log(0, "Connected [%d] (%s: %s)\n",
-							nfds, clients[nfds].host, clients[nfds].serv);
+					if (add_new_cli(nfds, &cliaddr, clilen) < 0)
+					{
+						compress_array = TRUE;
+						close_conn(i);
+						continue;
+					}
 
 					nfds++;
 
@@ -177,6 +179,7 @@ int main(int argc, char *argv[])
 				{
 					fds[j].fd = fds[j + 1].fd;
 					memcpy(&clients[j], &clients[j + 1], sizeof(struct cli_t));
+					memset(&clients[j + 1], 0, sizeof(struct cli_t));
 				}
 				i--;
 				nfds--;
@@ -190,7 +193,48 @@ end_server:
 		if(fds[i].fd >= 0)
 			close_conn(i);
 	}
+
 	return 0;
+}
+
+int add_new_cli(int id, struct sockaddr *cliaddr, socklen_t clilen)
+{
+	assert(clients[id].host == NULL);
+	assert(clients[id].serv == NULL);
+
+	char host[NI_MAXHOST] = {0};
+	char serv[NI_MAXSERV] = {0};
+
+	int rc;
+	if ((rc = getnameinfo(cliaddr, clilen, 
+					host, sizeof(host), serv, sizeof(serv), 0)) != 0)
+	{
+		_log(id, "getnameinfo() error: %s\n", gai_strerror(rc));
+		return -1;
+	}
+
+	int host_len = strlen(host) + 1; /* +1 for'\0' */
+	clients[id].host = (char *) malloc(host_len); 
+	if (NULL == clients[id].host)
+	{
+		_log(0, "malloc() error: %s\n", strerror(errno));
+		return -1;
+	}
+	memcpy(clients[id].host, host, host_len);
+
+	int serv_len = strlen(serv) + 1;
+	clients[id].serv = (char *) malloc(serv_len);
+	if (NULL == clients[id].serv)
+	{
+		_log(0, "malloc() error: %s\n", strerror(errno));
+		return -1;
+	}
+	memcpy(clients[id].serv, serv, serv_len);
+
+	clients[id].is_logged = 0;
+
+	_log(0, "Connected [%d] (%s: %s)\n",
+			id, clients[id].host, clients[id].serv);
 }
 
 int clinet_command(int id)
@@ -202,7 +246,7 @@ int clinet_command(int id)
 	char buf[BUFFER_SIZE] = {0};
 	if ((rc = read_block(fds[id].fd, &c, buf, &len)) <= 0)
 	{
-		e_log(id, rc);
+		/* e_log(id, rc); */
 		return -1;
 	}
 
@@ -270,18 +314,31 @@ void close_conn(int id)
 	_log(0, "Disconnected [%d] (%s: %s)\n",
 			id, clients[id].host, clients[id].serv);
 
+	if (clients[id].host != NULL)
+		free(clients[id].host);
+	if (clients[id].serv != NULL)
+		free(clients[id].serv);
+
 	if (clients[id].buf_fp != NULL)
 	{
+		assert(clients[id].buf_file_path != NULL);
+
+		fclose(clients[id].buf_fp);
 		if (unlink(clients[id].buf_file_path) < 0) 
 			_log(0, "unlink() error: %s\n", strerror(errno));
-		fclose(clients[id].buf_fp);
+
+		free(clients[id].buf_file_path);
+	}
+
+	if (clients[id].arch_fp != NULL)
+	{
+		fclose(clients[id].arch_fp);
+		assert(clients[id].arch_filepath != NULL);
+		free(clients[id].arch_filepath);
 	}
 
 	close(fds[id].fd);
 	fds[id].fd = -1;
-
-	if (clients[id].arch_fp != NULL)
-		fclose(clients[id].arch_fp);
 
 	memset(&clients[id], 0, sizeof(struct cli_t));
 
@@ -298,7 +355,7 @@ int update_users_file()
 	}
 
 	int i;
-	for (i = 1; i < MAX_CONN; i++) /* 0 for listener sock */
+	for (i = 1; i < cfg.max_conn; i++) /* 0 for listener sock */
 	{
 		if (!clients[i].is_logged)
 			continue;
@@ -314,7 +371,7 @@ int update_users_file()
 void unmute_clients()
 {
 	int i;
-	for (i = 1; i < MAX_CONN; i++) /* 0 for listener sock */
+	for (i = 1; i < cfg.max_conn; i++) /* 0 for listener sock */
 	{
 		if (clients[i].is_logged || fds[i].fd == 0 || 
 				clients[i].muted_since == 0)
@@ -353,6 +410,13 @@ void open_log_file()
 int open_buf_file(int id)
 {
 	assert(clients[id].buf_fp == NULL);
+	assert(clients[id].arch_filepath == NULL);
+
+	if ((clients[id].buf_file_path = (char *) malloc (PATH_MAX)) == NULL) 
+	{
+		_log(0, "malloc() error: %s\n", strerror(errno));
+		return -1;
+	}
 
 	snprintf(clients[id].buf_file_path, PATH_MAX, 
 			"%s/%s:%s.txt", cfg.buf_dir, clients[id].host, clients[id].serv);
@@ -371,12 +435,19 @@ int open_buf_file(int id)
 		return -1;
 	}
 
-	_log(id, "tmp file: %s\n", clients[id].buf_file_path);
+	_log(id, "Buffer file: %s\n", clients[id].buf_file_path);
 }
 
 int open_arch_file(int id)
 {
 	assert(clients[id].arch_fp == NULL);
+	assert(clients[id].arch_filepath == NULL);
+
+	if ((clients[id].arch_filepath = (char *) malloc (PATH_MAX)) == NULL) 
+	{
+		_log(0, "malloc() error: %s\n", strerror(errno));
+		return -1;
+	}
 
 	time_t t = time(NULL);
 	struct tm *t_tm = localtime(&t);

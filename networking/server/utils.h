@@ -3,15 +3,23 @@
 
 #include <sys/types.h>
 
+#define FALSE 0
+#define TRUE 1
+
 /* Returned errors: */
 #define ERRNO -1 /* Use errno value */
+/* read_block(): */
 #define BLK_SIZE -2 /* Wrong block size */
 #define END_MARKER -3 /* No end marker present */
+/* parse_config_file(): */
 #define CFG_ERR -4 /* Can't parse config file */
 #define CFG_NUM -5 /* Number expected */
 #define CFG_STR -6 /* String expected */
 #define CFG_BOOL -7 /* true/false expected */
 #define CFG_UNKNOWN -8 /* Unknown key-value pair */
+/* bind_server(): */
+#define B_SRV_GAI -9 /* getaddrinfo() error val in errno */
+#define B_SRV_ERR -10 /* Could bind */
 
 /* Reads n bytes from descriptor */
 ssize_t readn(int fd, void *vptr, size_t n);
