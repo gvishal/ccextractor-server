@@ -5,9 +5,11 @@
 #include <stdarg.h>
 #include <string.h>
 
+#include <unistd.h>
 #include <assert.h>
 #include <errno.h>
 #include <signal.h>
+#include <sys/stat.h>
 
 ssize_t 
 readn(int fd, void *vptr, size_t n) 
@@ -110,7 +112,7 @@ read_byte(int fd, char *ch)
 void _log(int cli_id, const char *fmt, ...)
 {
 	va_list args;
-    va_start(args, fmt);	
+	va_start(args, fmt);	
 
 	if (cli_id == 0)
 		fprintf(stderr, "[S] ");
@@ -121,7 +123,7 @@ void _log(int cli_id, const char *fmt, ...)
 
 	fflush(stderr);
 
-    va_end(args);
+	va_end(args);
 }
 
 void e_log(int cli_id, int ret_val)
@@ -138,6 +140,21 @@ void e_log(int cli_id, int ret_val)
 			break;
 		case END_MARKER:
 			fprintf(stderr, "read_block() error: No end marker present\n");
+			break;
+		case CFG_ERR:
+			fprintf(stderr, "parse_config_file() error: Can't parse config file\n");
+			break;
+		case CFG_NUM:
+			fprintf(stderr, "parse_config_file() error: Number expected\n");
+			break;
+		case CFG_STR:
+			fprintf(stderr, "parse_config_file() error: String expected\n");
+			break;
+		case CFG_BOOL:
+			fprintf(stderr, "parse_config_file() error: Boolean expected\n");
+			break;
+		case CFG_UNKNOWN:
+			fprintf(stderr, "parse_config_file() error: Unknown key-value pair\n");
 			break;
 		default:
 			fprintf(stderr, "%s\n", strerror(errno));
@@ -194,4 +211,12 @@ int _mkdir(const char *dir, mode_t mode)
 	}
 
 	return 0;
+}
+
+void rand_str(char *s, size_t len)
+{
+	for (size_t i = 0; i < len; i++)
+		s[i] = rand() % (1 + 'z' - 'a') + 'a';
+
+	return;
 }

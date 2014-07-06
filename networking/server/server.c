@@ -1,6 +1,7 @@
 #include "server.h"
 #include "utils.h"
 #include "networking.h"
+#include "params.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -23,30 +24,37 @@
 
 #define PASSW_LEN 16
 
+#define MAX_CONN 10
+
 struct cli_t
 {
 	unsigned is_logged : 1;
 	time_t muted_since;
 	char host[NI_MAXHOST];
-
 	char serv[NI_MAXSERV];
 
-	char cur_program[PROGRAM_NAME_LEN];
 	time_t prgrm_statr;
 
-	char buf_file_path[BUF_FILE_PATH_LEN];
+	char buf_file_path[PATH_MAX];
 	FILE *buf_fp;
 	int cur_line;
 
-	char arch_filepath[ARCHIVE_FILEPATH_LEN];
+	char arch_filepath[PATH_MAX];
 	FILE *arch_fp;
 } clients[MAX_CONN]; 
 
 struct pollfd fds[MAX_CONN];
-char passw[PASSW_LEN + 1] = {0};
 
 int main(int argc, char *argv[])
 {
+	int rc;
+
+	if ((rc = init_cfg()) < 0)
+	{
+		e_log(0, rc);
+		exit(EXIT_FAILURE);
+	}
+
 	if (2 != argc) 
 	{
 		fprintf(stderr, "Usage: %s port \n", argv[0]);
@@ -60,17 +68,22 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-	int listen_sd = bind_server(argv[1]);
+	if ((rc = parse_config_file()) < 0)
+	{
+		e_log(0, rc);
+		exit(EXIT_FAILURE);
+	}
+
+	int listen_sd = bind_server(cfg.port);
 	if (listen_sd < 0) 
 	{
 		exit(EXIT_FAILURE);
 	}
 
-	printf("Server is binded to %s\n", argv[1]);
-	gen_passw(passw);
-	printf("Password: %s\n\n", passw);
+	printf("Server is binded to %d\n", cfg.port);
+	printf("Password: %s\n\n", cfg.pwd);
 
-	if (CREATE_LOGS)
+	if (cfg.create_logs)
 		open_log_file();
 
 	_signal(SIGALRM, unmute_clients);
@@ -81,7 +94,6 @@ int main(int argc, char *argv[])
 	nfds_t nfds = 1;
 
 	int i, j;
-	int rc;
 	int compress_array;
 
 	char buffer[BUFFER_SIZE];
@@ -181,19 +193,6 @@ end_server:
 	return 0;
 }
 
-
-void gen_passw(char *p)
-{
-	size_t i;
-	size_t len = rand() % (1 + PASSW_LEN - 6) + 6;
-	for (i = 0; i < len; i++)
-	{
-		p[i] = rand() % (1 + 'z' - 'a') + 'a';
-	}
-
-	return;
-}
-
 int clinet_command(int id)
 {
 	char c;
@@ -221,13 +220,13 @@ int clinet_command(int id)
 	case PASSW:
 		_log(id, "Password: %s\n", buf);
 
-		if (0 != strcmp(passw, buf))
+		if (0 != strcmp(cfg.pwd, buf))
 		{
 			_log(id, "Wrong password\n", buf);
 
 			clients[id].muted_since = time(NULL);
 
-			alarm(WRONG_PASSW_DELAY);
+			alarm(cfg.wrong_pwd_delay);
 
 			if (write_byte(fds[id].fd, WRONG_PASSW) != 1)
 				return -1;
@@ -323,7 +322,7 @@ void unmute_clients()
 			continue;
 		}
 
-		if (time(NULL) - clients[i].muted_since < WRONG_PASSW_DELAY) 
+		if (time(NULL) - clients[i].muted_since < cfg.wrong_pwd_delay) 
 			continue;
 
 		clients[i].muted_since = 0;
@@ -340,7 +339,7 @@ void open_log_file()
 	strftime(time_buf, 30, "%F=%H-%M-%S", t_tm);
 
 	char log_filepath[PATH_MAX] = {0};
-	snprintf(log_filepath, PATH_MAX, "%s/%s.log", LOG_DIR, time_buf);
+	snprintf(log_filepath, PATH_MAX, "%s/%s.log", cfg.log_dir, time_buf);
 
 	if (freopen(log_filepath, "w", stderr) == NULL) { 
 		/* output to stderr won't work */
@@ -355,8 +354,8 @@ int open_buf_file(int id)
 {
 	assert(clients[id].buf_fp == NULL);
 
-	snprintf(clients[id].buf_file_path, BUF_FILE_PATH_LEN, 
-			"%s/%s:%s.txt", BUF_FILE_DIR, clients[id].host, clients[id].serv);
+	snprintf(clients[id].buf_file_path, PATH_MAX, 
+			"%s/%s:%s.txt", cfg.buf_dir, clients[id].host, clients[id].serv);
 
 	clients[id].buf_fp = fopen(clients[id].buf_file_path, "w+");
 	if (clients[id].buf_fp == NULL)
@@ -385,7 +384,7 @@ int open_arch_file(int id)
 	strftime(time_buf, 30, "%G/%m-%b/%d", t_tm);
 
 	char dir[PATH_MAX] = {0};
-	snprintf(dir, PATH_MAX, "%s/%s", ARCHIVE_DIR, time_buf);
+	snprintf(dir, PATH_MAX, "%s/%s", cfg.arch_dir, time_buf);
 
     errno = 0;
     if (_mkdir(dir, S_IRWXU) < 0) {

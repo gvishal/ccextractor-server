@@ -7,6 +7,11 @@
 #define ERRNO -1 /* Use errno value */
 #define BLK_SIZE -2 /* Wrong block size */
 #define END_MARKER -3 /* No end marker present */
+#define CFG_ERR -4 /* Can't parse config file */
+#define CFG_NUM -5 /* Number expected */
+#define CFG_STR -6 /* String expected */
+#define CFG_BOOL -7 /* true/false expected */
+#define CFG_UNKNOWN -8 /* Unknown key-value pair */
 
 /* Reads n bytes from descriptor */
 ssize_t readn(int fd, void *vptr, size_t n);
@@ -29,5 +34,8 @@ void _signal(int sig, void (*func)(int));
 
 /* Recursive mkdir */
 int _mkdir(const char *dir, mode_t mode);
+
+/* Generates string of random chars */
+void rand_str(char *s, size_t len);
 
 #endif /* end of include guard: UTILS_H */

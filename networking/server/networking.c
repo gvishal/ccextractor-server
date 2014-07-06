@@ -1,10 +1,12 @@
 #include "networking.h"
 #include "utils.h"
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
+#include <unistd.h>
 
 #include <netdb.h>
 #include <sys/ioctl.h>
@@ -77,7 +79,7 @@ read_block(int fd, char *command, char *buf, size_t *buf_len)
 	return nread;
 }
 
-int bind_server(const char *port) 
+int bind_server(int port) 
 {
 	struct addrinfo hints;
 	memset(&hints, 0, sizeof(struct addrinfo));
@@ -85,8 +87,11 @@ int bind_server(const char *port)
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
 
+	char port_str[INT_LEN] = {0};
+	snprintf(port_str, INT_LEN, "%d", port);
+
 	struct addrinfo *ai;
-	int result = getaddrinfo(NULL, port, &hints, &ai);
+	int result = getaddrinfo(NULL, port_str, &hints, &ai);
 	if (0 != result) 
 	{
 		fprintf(stderr, "getaddrinfo() error: %s\n", gai_strerror(result));
@@ -139,7 +144,7 @@ int bind_server(const char *port)
 
 	if (NULL == p)
 	{
-		fprintf(stderr, "Could not bind to %s\n", port);
+		fprintf(stderr, "Could not bind to %d\n", port);
 		return -1;
 	}
 
