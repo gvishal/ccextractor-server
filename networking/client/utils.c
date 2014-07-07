@@ -7,6 +7,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <unistd.h>
 #include <signal.h>
 
 ssize_t 

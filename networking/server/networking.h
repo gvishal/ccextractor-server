@@ -5,8 +5,9 @@
 
 #define INT_LEN 10
 
-#define PASSW 10
+#define NEW_PRG 12
 #define CC 11
+#define PASSW 10
 #define WAIT 5
 #define SERV_ERROR 4
 #define WRONG_COMMAND 3

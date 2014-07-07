@@ -28,7 +28,9 @@ struct cli_t
 	unsigned unique_id;
 
 	time_t muted_since;
+
 	time_t prgrm_statr;
+	char *program_name;
 
 	char *buf_file_path;
 	FILE *buf_fp;
@@ -42,19 +44,14 @@ unsigned last_unique_id;
 
 struct pollfd *fds;
 
-int main(int argc, char *argv[])
+/* int main(int argc, char *argv[]) */
+int main()
 {
 	int rc;
 
 	if ((rc = init_cfg()) < 0)
 	{
 		e_log(rc);
-		exit(EXIT_FAILURE);
-	}
-
-	if (2 != argc) 
-	{
-		fprintf(stderr, "Usage: %s port \n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
 
@@ -80,7 +77,8 @@ int main(int argc, char *argv[])
 	}
 
 	printf("Server is binded to %d\n", cfg.port);
-	printf("Password: %s\n\n", cfg.pwd);
+	if (cfg.use_pwd)
+		printf("Password: %s\n\n", cfg.pwd);
 
 	if (cfg.create_logs)
 		open_log_file();
@@ -156,9 +154,18 @@ int main(int argc, char *argv[])
 						continue;
 					}
 
-					nfds++;
+					if (cfg.use_pwd)
+					{
+						write_byte(new_sd, PASSW);
+					}
+					else if (cli_logged_in(nfds) < 0)
+					{
+						compress_array = TRUE;
+						close_conn(nfds);
+						continue;
+					}
 
-					write_byte(new_sd, PASSW);
+					nfds++;
 				}
 
 				if (errno != EWOULDBLOCK) /* accepted all of connections */
@@ -238,8 +245,7 @@ int add_new_cli(int id, struct sockaddr *cliaddr, socklen_t clilen)
 
 	clients[id].is_logged = 0;
 
-	_log("Connected [%d] (%s: %s)\n",
-			clients[id].unique_id, clients[id].host, clients[id].serv);
+	_log("Connected %s: %s\n", clients[id].host, clients[id].serv);
 }
 
 int clinet_command(int id)
@@ -267,11 +273,14 @@ int clinet_command(int id)
 	switch (c)
 	{
 	case PASSW:
+		if (!cfg.use_pwd)
+			return -1; /* We didn't ask for it */
+
 		c_log(clients[id].unique_id, "Password: %s\n", buf);
 
 		if (0 != strcmp(cfg.pwd, buf))
 		{
-			c_log(clients[id].unique_id, "Wrong password\n", buf);
+			c_log(clients[id].unique_id, "Wrong password\n");
 
 			clients[id].muted_since = time(NULL);
 
@@ -283,28 +292,11 @@ int clinet_command(int id)
 			return 0;
 		}
 
-		c_log(clients[id].unique_id, "Correct password\n", buf);
+		c_log(clients[id].unique_id, "Correct password\n");
 
-		clients[id].is_logged = 1;
-
-		if (write_byte(fds[id].fd, OK) != 1)
+		if (cli_logged_in(id) < 0)
 			return -1;
 
-new_id:
-		last_unique_id++;
-		if (0 == last_unique_id)
-			last_unique_id = 1;
-		for (int i = 0; i < cfg.max_conn; i++) {
-			if (!clients[i].is_logged)
-				continue;
-
-			if (clients[i].unique_id == last_unique_id)
-				goto new_id; /* Yes, I like goto */
-		}
-
-		clients[id].unique_id = last_unique_id;
-
-		update_users_file();
 		break;
 
 	case CC:
@@ -314,6 +306,41 @@ new_id:
 			return -1;
 
 		if (write_byte(fds[id].fd, OK) != 1)
+			return -1;
+
+		break;
+
+	case NEW_PRG:
+		c_log(clients[id].unique_id, "New program: %s\n", buf);
+		assert(clients[id].arch_fp != NULL);
+		assert(clients[id].arch_filepath != NULL);
+
+		if (clients[id].program_name != NULL)
+		{
+			free(clients[id].program_name);
+			clients[id].program_name = NULL;
+		}
+
+		/* XXX: don't malloc, use memory from prev. */
+		clients[id].program_name = (char *) malloc(len + 1); /* +1 for '\0' */
+		if (NULL == clients[id].program_name) 
+		{
+			_log("malloc() error: %s\n", strerror(errno));
+			return -1;
+		}
+		memcpy(clients[id].program_name, buf, len);
+		clients[id].program_name[len] = '\0';
+
+		fclose(clients[id].arch_fp);
+		clients[id].arch_fp = NULL;
+
+		free(clients[id].arch_filepath);
+		clients[id].arch_filepath = NULL;
+
+		if (open_arch_file(id) < 0)
+			return -1;
+
+		if (update_users_file() < 0)
 			return -1;
 
 		break;
@@ -330,8 +357,7 @@ new_id:
 
 void close_conn(int id)
 {
-	_log("Disconnected [%d] (%s: %s)\n",
-			clients[id].unique_id, clients[id].host, clients[id].serv);
+	_log("Disconnected %s:%s\n", clients[id].host, clients[id].serv);
 
 	if (clients[id].host != NULL)
 		free(clients[id].host);
@@ -379,7 +405,12 @@ int update_users_file()
 		if (!clients[i].is_logged)
 			continue;
 		
-		fprintf(fp, "%s:%s\n", clients[i].host, clients[i].serv);
+		fprintf(fp, "%u %s:%s %d %s\n", 
+				clients[i].unique_id,
+				clients[i].host, 
+				clients[i].serv,
+				(int)clients[i].prgrm_statr,
+				clients[i].program_name); /* should print (null) */
 	}
 
 	fclose(fp);
@@ -484,15 +515,10 @@ int open_arch_file(int id)
 
 	clients[id].prgrm_statr = t;
 	memset(time_buf, 0, sizeof(time_buf));
-	strftime(time_buf, 30, "%H:%M", t_tm);
+	strftime(time_buf, 30, "%H:%M:%S", t_tm);
 
-	snprintf(clients[id].arch_filepath, PATH_MAX, 
-			"%s/%s--%s:%s[%d].txt", 
-			dir, 
-			time_buf,
-			clients[id].host, 
-			clients[id].serv,
-			clients[id].unique_id); 
+	snprintf(clients[id].arch_filepath, PATH_MAX, "%s/%s--%d.txt", 
+			dir, time_buf, clients[id].unique_id); 
 
 	clients[id].arch_fp = fopen(clients[id].arch_filepath, "w+");
 	if (NULL == clients[id].arch_fp)
@@ -508,7 +534,8 @@ int open_arch_file(int id)
 		return -1;
 	}
 
-	c_log(clients[id].unique_id, "archive file: %s\n", clients[id].arch_filepath);
+	if (append_to_arch_info(id) < 0)
+		return -1;
 
 	return 0;
 }
@@ -544,6 +571,73 @@ int store_cc(int id, char *buf, size_t len)
 
 	fwrite(buf, sizeof(char), len, clients[id].arch_fp);
 	fprintf(clients[id].arch_fp, "\r\n");
+
+	return 0;
+}
+
+int cli_logged_in(int id)
+{
+	clients[id].is_logged = 1;
+
+new_id:
+	last_unique_id++;
+	if (0 == last_unique_id)
+		last_unique_id = 1;
+	for (int i = 0; i < cfg.max_conn; i++) {
+		if (!clients[i].is_logged)
+			continue;
+
+		if (clients[i].unique_id == last_unique_id)
+			goto new_id; /* Yes, I like goto */
+	}
+
+	clients[id].unique_id = last_unique_id;
+
+	_log("[%u] (%s:%s) Logged in\n",
+			clients[id].unique_id, clients[id].host, clients[id].serv);
+
+	update_users_file();
+
+	if (write_byte(fds[id].fd, OK) != 1)
+		return -1;
+
+	return 0;
+}
+
+int append_to_arch_info(int id)
+{
+	time_t t = time(NULL);
+	struct tm *t_tm = localtime(&t);
+
+	char time_buf[30] = {0};
+	strftime(time_buf, 30, "%G/%m-%b/%d", t_tm);
+
+    char info_filepath[PATH_MAX];
+    snprintf(info_filepath, PATH_MAX, "%s/%s/%s", 
+    		cfg.arch_dir,
+    		time_buf,
+    		cfg.arch_info_filename);
+
+	FILE *info_fp = fopen(info_filepath, "a");
+	if (NULL == info_fp)
+	{
+		_log("fopen() error: %s\n", strerror(errno));
+		write_byte(fds[id].fd, SERV_ERROR); /* TODO: move it outside */
+		return -1;
+	}
+
+	memset(time_buf, 0, sizeof(time_buf));
+	strftime(time_buf, 30, "%H:%M:%S", t_tm);
+
+	fprintf(info_fp, "%s--%u.txt|%d|%s:%s|%s\n",
+			time_buf,
+			clients[id].unique_id,
+			(int) t,
+			clients[id].host,
+			clients[id].serv,
+			clients[id].program_name); /* prints (null) when it's NULL */
+
+	fclose(info_fp);
 
 	return 0;
 }

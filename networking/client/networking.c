@@ -132,6 +132,8 @@ check_passwd(int fd)
 		do {
 			if (read_byte(fd, &ok) <= 0)
 				return;
+			if (OK == ok)
+				return;
 		} while(ok != PASSW);
 
 		printf("Enter password: ");

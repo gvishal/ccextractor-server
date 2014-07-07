@@ -6,11 +6,20 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
 #include <locale.h>
 
 #include <sys/socket.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+
+void rand_str(char *s, size_t len)
+{
+	for (size_t i = 0; i < len; i++)
+		s[i] = rand() % (1 + 'z' - 'a') + 'a';
+
+	return;
+}
 
 int 
 main(int argc, char *argv[])
@@ -43,6 +52,8 @@ main(int argc, char *argv[])
 	size_t len = 0;
 	int read;
 
+	int rand_num = 0;
+
 	while(1)
 	{
 		if (0 != fseek(fp, 3, SEEK_SET)) { //skip bom
@@ -51,6 +62,15 @@ main(int argc, char *argv[])
 		}
 
 		while ((read = getline(&line, &len, fp)) != -1) {
+			rand_num++;
+			if (6 == rand_num) /* 6 is pretty random */
+			{
+				rand_num = 0;
+				char pr_name[20] = {0};
+				rand_str(pr_name, 19);
+				printf("Program changed: %s\n", pr_name);
+				write_block(sockfd, NEW_PRG, pr_name, 19);
+			}
 			read -= 2; // for \r\n
 
 			write_block(sockfd, CC, line, read);

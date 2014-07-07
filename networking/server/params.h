@@ -7,10 +7,12 @@
 #define DFT_BUF_FILE_DIR "./tmp"
 #define DFT_BUF_FILE_LINES 20
 #define DFT_LOG_DIR "./logs"
+#define DFT_USE_PWD 1
 #define DFT_WRONG_PASSW_DELAY 2
 #define DFT_PASSW_LEN 10
 #define DFT_CREATE_LOGS 0
 #define DFT_ARCHIVE_DIR "./cc"
+#define DFT_ARCHIVE_INFO_FILENAME "info.txt"
 #define DFT_CLIENT_LOGS 1
 
 #define USERS_FILE_PATH "connections.txt"
@@ -20,10 +22,12 @@ struct cfg_t
 {
 	int port;
 	int max_conn;
+	unsigned use_pwd : 1;
 	char *pwd;
 	int wrong_pwd_delay;
 	char *buf_dir;
 	char *arch_dir;
+	char *arch_info_filename;
 	unsigned create_logs : 1;
 	unsigned log_clients : 1;
 	char *log_dir;

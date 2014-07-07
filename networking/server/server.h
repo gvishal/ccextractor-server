@@ -10,8 +10,8 @@
 struct cli_t;
 
 int add_new_cli(int id, struct sockaddr *cliaddr, socklen_t clilen);
+int cli_logged_in(int id);
 int clinet_command(int id);
-
 void close_conn(int id);
 
 void unmute_clients();
@@ -23,5 +23,6 @@ int update_users_file();
 int open_buf_file(int id);
 int store_cc(int id, char *buf, size_t len);
 int open_arch_file(int id);
+int append_to_arch_info(int id);
 
 #endif /* end of include guard: SERVER_H */

@@ -14,9 +14,11 @@ int init_cfg()
 	cfg.wrong_pwd_delay = DFT_WRONG_PASSW_DELAY;
 	cfg.buf_dir = DFT_BUF_FILE_DIR;
 	cfg.arch_dir = DFT_ARCHIVE_DIR;
+	cfg.arch_info_filename = DFT_ARCHIVE_INFO_FILENAME;
 	cfg.create_logs = DFT_CREATE_LOGS;
 	cfg.log_dir = DFT_LOG_DIR;
 	cfg.log_clients = DFT_CLIENT_LOGS;
+	cfg.use_pwd = DFT_USE_PWD;
 
 	if ((cfg.pwd = (char *) malloc(DFT_PASSW_LEN + 1)) == NULL) /* +1 for '\0' */
 		return ERRNO;
@@ -162,7 +164,7 @@ int parse_config_file()
 			}
 			cfg.wrong_pwd_delay = val_num;
 		}
-		else if (strncmp(line, "buffer_files_dir ", key_len) == 0) 
+		else if (strncmp(line, "buffer_files_dir", key_len) == 0) 
 		{
 			if (string != val_type)
 			{
@@ -172,7 +174,7 @@ int parse_config_file()
 			}
 			cfg.buf_dir = val_str;
 		}
-		else if (strncmp(line, "archive_files_dir ", key_len) == 0) 
+		else if (strncmp(line, "archive_files_dir", key_len) == 0) 
 		{
 			if (string != val_type)
 			{
@@ -190,7 +192,7 @@ int parse_config_file()
 			}
 			cfg.create_logs = val_bool;
 		}
-		else if (strncmp(line, "logs_dir ", key_len) == 0) 
+		else if (strncmp(line, "logs_dir", key_len) == 0) 
 		{
 			if (string != val_type)
 			{
@@ -198,6 +200,24 @@ int parse_config_file()
 				goto out;
 			}
 			cfg.log_dir = val_str;
+		}
+		else if (strncmp(line, "use_password", key_len) == 0) 
+		{
+			if (boolean != val_type)
+			{
+				rc = CFG_BOOL;
+				goto out;
+			}
+			cfg.use_pwd = val_bool;
+		}
+		else if (strncmp(line, "log_cliets_msg", key_len) == 0) 
+		{
+			if (boolean != val_type)
+			{
+				rc = CFG_BOOL;
+				goto out;
+			}
+			cfg.log_clients = val_bool;
 		}
 		else  
 		{

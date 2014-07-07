@@ -24,7 +24,7 @@ if (!array_key_exists("id", $_GET))
 if (!array_key_exists("st", $_GET))
 	return;
 
-$filename = preg_replace('/[^a-z0-9:.\-]/', '', $_GET["id"]);
+$filename = preg_replace('/[^0-9]/', '', $_GET["id"]);
 $filepath = "./tmp/" . $filename . ".txt";
 
 if (!file_exists($filepath))

@@ -2,7 +2,7 @@
 if (!array_key_exists("id", $_GET))
 	return;
 
-$id = preg_replace('/[^a-z0-9:.\-]/', '', $_GET["id"]);
+$id = preg_replace('/[^0-9]/', '', $_GET["id"]);
 ?>
 
 <html>
