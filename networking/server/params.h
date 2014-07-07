@@ -11,6 +11,7 @@
 #define DFT_PASSW_LEN 10
 #define DFT_CREATE_LOGS 0
 #define DFT_ARCHIVE_DIR "./cc"
+#define DFT_CLIENT_LOGS 1
 
 #define USERS_FILE_PATH "connections.txt"
 #define ARCHIVE_FILEPATH_LEN 50
@@ -24,7 +25,9 @@ struct cfg_t
 	char *buf_dir;
 	char *arch_dir;
 	unsigned create_logs : 1;
+	unsigned log_clients : 1;
 	char *log_dir;
+
 
 	unsigned is_inited : 1;
 } cfg;

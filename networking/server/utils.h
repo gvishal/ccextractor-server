@@ -32,10 +32,12 @@ ssize_t write_byte(int fd, char status);
 ssize_t read_byte(int fd, char *status);
 
 /* Writes message to stderr */
-void _log(int cli_id, const char *fmt, ...);
+void _log(const char *fmt, ...);
+void c_log(int cli_id, const char *fmt, ...);
 
 /* Writes to stderr description of returned value */
-void e_log(int cli_id, int ret_val);
+#define e_log(rc) ec_log(0, (rc))
+void ec_log(int cli_id, int rc);
 
 /* Sets signal handler */
 void _signal(int sig, void (*func)(int));

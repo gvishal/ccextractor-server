@@ -47,7 +47,7 @@ read_block(int fd, char *command, char *buf, size_t *buf_len)
 	{
 		ign_bytes = len - *buf_len;
 		/* XXX: Don't ignore */
-		_log(0, "read_block() warning: Buffer overflow, ignoring %d bytes\n",
+		_log("read_block() warning: Buffer overflow, ignoring %d bytes\n",
 				ign_bytes);
 		len = *buf_len; 
 	}
@@ -106,8 +106,8 @@ int bind_server(int port)
 
 		if (-1 == sockfd) 
 		{
-			_log(0, "socket() error: %s\n", strerror(errno));
-			_log(0, "trying next address");
+			_log("socket() error: %s\n", strerror(errno));
+			_log("trying next address");
 
 			continue;
 		}
@@ -116,8 +116,8 @@ int bind_server(int port)
 		if (setsockopt(sockfd, SOL_SOCKET,  SO_REUSEADDR,
 				(char *)&opt_val, sizeof(opt_val)) < 0) 
 		{
-			_log(0, "setsockopt() error: %s\n", strerror(errno));
-			_log(0, "trying next address");
+			_log("setsockopt() error: %s\n", strerror(errno));
+			_log("trying next address");
 			close(sockfd);
 
 			continue;
@@ -125,8 +125,8 @@ int bind_server(int port)
 
 		if (ioctl(sockfd, FIONBIO, (char *)&opt_val) < 0)
 		{
-			_log(0, "ioctl() error: %s\n", strerror(errno));
-			_log(0, "trying next address");
+			_log("ioctl() error: %s\n", strerror(errno));
+			_log("trying next address");
 			close(sockfd);
 
 			continue;
@@ -135,8 +135,8 @@ int bind_server(int port)
 		if (0 == bind(sockfd, p->ai_addr, p->ai_addrlen))
 			break;
 
-		_log(0, "bind() error: %s\n", strerror(errno));
-		_log(0, "trying next address");
+		_log("bind() error: %s\n", strerror(errno));
+		_log("trying next address");
 		close(sockfd);
 	}
 

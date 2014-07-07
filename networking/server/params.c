@@ -16,6 +16,7 @@ int init_cfg()
 	cfg.arch_dir = DFT_ARCHIVE_DIR;
 	cfg.create_logs = DFT_CREATE_LOGS;
 	cfg.log_dir = DFT_LOG_DIR;
+	cfg.log_clients = DFT_CLIENT_LOGS;
 
 	if ((cfg.pwd = (char *) malloc(DFT_PASSW_LEN + 1)) == NULL) /* +1 for '\0' */
 		return ERRNO;
@@ -35,7 +36,7 @@ int parse_config_file()
 	FILE *fp = fopen(DFT_CONFIG_FILE, "r");
 	if (fp == NULL)
 	{
-		_log(0, "fopen() error: %s\n", strerror(errno));
+		_log("fopen() error: %s\n", strerror(errno));
 		return -1;
 	}
 

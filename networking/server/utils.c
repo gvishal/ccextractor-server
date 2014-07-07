@@ -1,4 +1,5 @@
 #include "utils.h"
+#include "params.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -25,7 +26,8 @@ readn(int fd, void *vptr, size_t n)
 	nleft = n;
 	while (nleft > 0) 
 	{
-		if (NULL == vptr) {
+		if (NULL == vptr) 
+		{
 			char c;
 			nread = read(fd, &c, 1);
 		}
@@ -110,8 +112,24 @@ read_byte(int fd, char *ch)
 	return readn(fd, ch, 1);
 }
 
-void _log(int cli_id, const char *fmt, ...)
+void _log(const char *fmt, ...)
 {
+	va_list args;
+	va_start(args, fmt);	
+
+	fprintf(stderr, "[S] ");
+	vfprintf(stderr, fmt, args);
+
+	fflush(stderr);
+
+	va_end(args);
+}
+
+void c_log(int cli_id, const char *fmt, ...)
+{
+	if (!cfg.log_clients && cli_id != 0)
+		return;
+
 	va_list args;
 	va_start(args, fmt);	
 
@@ -127,14 +145,17 @@ void _log(int cli_id, const char *fmt, ...)
 	va_end(args);
 }
 
-void e_log(int cli_id, int ret_val)
+void ec_log(int cli_id, int rc)
 {
+	if (!cfg.log_clients && cli_id != 0)
+		return;
+
 	if (cli_id == 0)
 		fprintf(stderr, "[S] ");
 	else 
 		fprintf(stderr, "[%d] ", cli_id);
 
-	switch(ret_val)
+	switch(rc)
 	{
 		case BLK_SIZE:
 			fprintf(stderr, "read_block() error: Wrong block size\n");
