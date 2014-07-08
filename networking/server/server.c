@@ -18,6 +18,8 @@
 
 #include <sys/file.h>
 
+#define BUFFER_SIZE 20480
+
 struct cli_t
 {
 	char *host;
@@ -29,7 +31,7 @@ struct cli_t
 
 	time_t muted_since;
 
-	time_t prgrm_statr;
+	time_t program_start;
 	char *program_name;
 
 	char *buf_file_path;
@@ -56,12 +58,11 @@ int main()
 	}
 
 	/* line buffering in stdout */
-    if (setvbuf(stdout, NULL, _IOLBF, 0) < 0) 
-    {
-		/* _log("setvbuf() error: %s\n", strerror(errno)); */
+	if (setvbuf(stdout, NULL, _IOLBF, 0) < 0) 
+	{
 		_log("setvbuf() error: %s\n", strerror(errno));
-        exit(EXIT_FAILURE);
-    }
+		exit(EXIT_FAILURE);
+	}
 
 	if ((rc = parse_config_file()) < 0)
 	{
@@ -104,10 +105,8 @@ int main()
 	clients[0].is_logged = 1;
 	nfds_t nfds = 1;
 
-	int i, j;
 	int compress_array;
 
-	char buffer[BUFFER_SIZE];
 	while (1)
 	{
 		if (poll(fds, nfds, -1) < 0) 
@@ -119,8 +118,8 @@ int main()
 			goto end_server;
 		}
 
-		int current_size = nfds;
-		for (i = 0; i < current_size; i++) {
+		size_t current_size = nfds;
+		for (size_t i = 0; i < current_size; i++) {
 			if (0 == fds[i].revents)
 				continue;
 
@@ -183,11 +182,11 @@ int main()
 
 		if (compress_array) {
 			compress_array = FALSE;
-			for (i = 0; i < nfds; i++) {
+			for (size_t i = 0; i < nfds; i++) {
 				if (fds[i].fd >= 0)
 					continue;
 
-				for(j = i; j < nfds; j++)
+				for (size_t j = i; j < nfds; j++)
 				{
 					fds[j].fd = fds[j + 1].fd;
 					memcpy(&clients[j], &clients[j + 1], sizeof(struct cli_t));
@@ -200,7 +199,7 @@ int main()
 	}
 
 end_server:
-	for (i = 0; i < nfds; i++)
+	for (size_t i = 0; i < nfds; i++)
 	{
 		if(fds[i].fd >= 0)
 			close_conn(i);
@@ -246,6 +245,8 @@ int add_new_cli(int id, struct sockaddr *cliaddr, socklen_t clilen)
 	clients[id].is_logged = 0;
 
 	_log("Connected %s: %s\n", clients[id].host, clients[id].serv);
+
+	return 0;
 }
 
 int clinet_command(int id)
@@ -303,7 +304,10 @@ int clinet_command(int id)
 		c_log(clients[id].unique_id, "Caption block, size: %d\n", len);
 
 		if (store_cc(id, buf, len) < 0)
+		{
+			write_byte(fds[id].fd, SERV_ERROR);
 			return -1;
+		}
 
 		if (write_byte(fds[id].fd, OK) != 1)
 			return -1;
@@ -338,10 +342,16 @@ int clinet_command(int id)
 		clients[id].arch_filepath = NULL;
 
 		if (open_arch_file(id) < 0)
+		{
+			write_byte(fds[id].fd, SERV_ERROR);
 			return -1;
+		}
 
 		if (update_users_file() < 0)
+		{
+			write_byte(fds[id].fd, SERV_ERROR);
 			return -1;
+		}
 
 		break;
 
@@ -357,7 +367,8 @@ int clinet_command(int id)
 
 void close_conn(int id)
 {
-	_log("Disconnected %s:%s\n", clients[id].host, clients[id].serv);
+	c_log(clients[id].unique_id, "(%s:%s) Disconnected\n", 
+			clients[id].host, clients[id].serv);
 
 	if (clients[id].host != NULL)
 		free(clients[id].host);
@@ -366,18 +377,18 @@ void close_conn(int id)
 
 	if (clients[id].buf_fp != NULL)
 	{
-		assert(clients[id].buf_file_path != NULL);
-
 		fclose(clients[id].buf_fp);
 		if (unlink(clients[id].buf_file_path) < 0) 
 			_log("unlink() error: %s\n", strerror(errno));
 
+		assert(clients[id].buf_file_path != NULL);
 		free(clients[id].buf_file_path);
 	}
 
 	if (clients[id].arch_fp != NULL)
 	{
 		fclose(clients[id].arch_fp);
+
 		assert(clients[id].arch_filepath != NULL);
 		free(clients[id].arch_filepath);
 	}
@@ -399,8 +410,7 @@ int update_users_file()
 		return -1;
 	}
 
-	int i;
-	for (i = 1; i < cfg.max_conn; i++) /* 0 for listener sock */
+	for (int i = 1; i < cfg.max_conn; i++) /* 0 for listener sock */
 	{
 		if (!clients[i].is_logged)
 			continue;
@@ -409,7 +419,7 @@ int update_users_file()
 				clients[i].unique_id,
 				clients[i].host, 
 				clients[i].serv,
-				(int)clients[i].prgrm_statr,
+				(int)clients[i].program_start,
 				clients[i].program_name); /* should print (null) */
 	}
 
@@ -420,8 +430,7 @@ int update_users_file()
 
 void unmute_clients()
 {
-	int i;
-	for (i = 1; i < cfg.max_conn; i++) /* 0 for listener sock */
+	for (int i = 1; i < cfg.max_conn; i++) /* 0 for listener sock */
 	{
 		if (clients[i].is_logged || fds[i].fd == 0 || 
 				clients[i].muted_since == 0)
@@ -475,17 +484,18 @@ int open_buf_file(int id)
 	if (clients[id].buf_fp == NULL)
 	{
 		_log("fopen() error: %s\n", strerror(errno));
-		write_byte(fds[id].fd, SERV_ERROR);
 		return -1;
 	}
 
-	if (setvbuf(clients[id].buf_fp, NULL, _IOLBF, 0) < 0) {
+	if (setvbuf(clients[id].buf_fp, NULL, _IOLBF, 0) < 0) 
+	{
 		_log("setvbuf() error: %s\n", strerror(errno));
-		write_byte(fds[id].fd, SERV_ERROR);
 		return -1;
 	}
 
 	c_log(clients[id].unique_id, "Buffer file: %s\n", clients[id].buf_file_path);
+
+	return 0;
 }
 
 int open_arch_file(int id)
@@ -507,13 +517,13 @@ int open_arch_file(int id)
 	char dir[PATH_MAX] = {0};
 	snprintf(dir, PATH_MAX, "%s/%s", cfg.arch_dir, time_buf);
 
-    errno = 0;
-    if (_mkdir(dir, S_IRWXU) < 0) {
+	if (_mkdir(dir, S_IRWXU) < 0) 
+	{
 		_log("_mkdir() error: %s\n", strerror(errno));
 		return -1;
-    }
+	}
 
-	clients[id].prgrm_statr = t;
+	clients[id].program_start = t;
 	memset(time_buf, 0, sizeof(time_buf));
 	strftime(time_buf, 30, "%H:%M:%S", t_tm);
 
@@ -524,13 +534,11 @@ int open_arch_file(int id)
 	if (NULL == clients[id].arch_fp)
 	{
 		_log("fopen() error: %s\n", strerror(errno));
-		write_byte(fds[id].fd, SERV_ERROR);
 		return -1;
 	}
 
 	if (setvbuf(clients[id].arch_fp, NULL, _IOLBF, 0) < 0) {
 		_log("setvbuf() error: %s\n", strerror(errno));
-		write_byte(fds[id].fd, SERV_ERROR);
 		return -1;
 	}
 
@@ -548,19 +556,19 @@ int store_cc(int id, char *buf, size_t len)
 	if ((NULL == clients[id].buf_fp) && (open_buf_file(id) < 0))
 		return -1;
 
-	if (0 != flock(fileno(clients[id].buf_fp), LOCK_EX)) {
+	if (0 != flock(fileno(clients[id].buf_fp), LOCK_EX)) 
+	{
 		_log("flock() error: %s\n", strerror(errno));
-		write_byte(fds[id].fd, SERV_ERROR);
 		return -1;
 	}
 
-	fprintf(clients[id].buf_fp, "%d %d ", clients[id].cur_line, len);
+	fprintf(clients[id].buf_fp, "%d %zd ", clients[id].cur_line, len);
 	fwrite(buf, sizeof(char), len, clients[id].buf_fp);
 	fprintf(clients[id].buf_fp, "\r\n");
 
-	if (0 != flock(fileno(clients[id].buf_fp), LOCK_UN)) {
+	if (0 != flock(fileno(clients[id].buf_fp), LOCK_UN))
+	{
 		_log("flock() error: %s\n", strerror(errno));
-		write_byte(fds[id].fd, SERV_ERROR);
 		return -1;
 	}
 
@@ -583,7 +591,8 @@ new_id:
 	last_unique_id++;
 	if (0 == last_unique_id)
 		last_unique_id = 1;
-	for (int i = 0; i < cfg.max_conn; i++) {
+	for (int i = 0; i < cfg.max_conn; i++) 
+	{
 		if (!clients[i].is_logged)
 			continue;
 
@@ -612,8 +621,8 @@ int append_to_arch_info(int id)
 	char time_buf[30] = {0};
 	strftime(time_buf, 30, "%G/%m-%b/%d", t_tm);
 
-    char info_filepath[PATH_MAX];
-    snprintf(info_filepath, PATH_MAX, "%s/%s/%s", 
+	char info_filepath[PATH_MAX];
+	snprintf(info_filepath, PATH_MAX, "%s/%s/%s", 
     		cfg.arch_dir,
     		time_buf,
     		cfg.arch_info_filename);

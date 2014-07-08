@@ -42,7 +42,7 @@ read_block(int fd, char *command, char *buf, size_t *buf_len)
 	if (len <= 0) 
 		return BLK_SIZE;
 
-	int ign_bytes = 0;
+	size_t ign_bytes = 0;
 	if (len > *buf_len) 
 	{
 		ign_bytes = len - *buf_len;

@@ -16,8 +16,6 @@
 ssize_t 
 readn(int fd, void *vptr, size_t n) 
 {
-	assert(n >= 0);
-
 	size_t nleft;
 	ssize_t nread;
 	char *ptr;
@@ -210,7 +208,6 @@ void _signal(int sig, void (*func)(int))
 int _mkdir(const char *dir, mode_t mode) 
 {
 	char tmp[256];
-	char *p = NULL;
 	size_t len;
 
 	snprintf(tmp, sizeof(tmp), "%s", dir);
@@ -218,7 +215,7 @@ int _mkdir(const char *dir, mode_t mode)
 	if ('/' == tmp[len - 1])
 		tmp[len - 1] = 0;
 
-	for (p = tmp + 1; *p; p++) 
+	for (char *p = tmp + 1; *p; p++) 
 	{
 		if (*p != '/')
 			continue;
