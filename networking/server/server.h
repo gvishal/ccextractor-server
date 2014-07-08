@@ -3,7 +3,6 @@
 
 #include <sys/types.h>
 
-#define BUFFER_SIZE 40860
 #define USERS_FILE_PATH "connections.txt"
 
 #include <netdb.h>

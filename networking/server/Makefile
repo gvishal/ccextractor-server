@@ -1,7 +1,8 @@
 SHELL = /bin/sh
 
 CC = gcc
-# CFLAGS = -Wall -Wextra -g
+# CFLAGS = -Wall -Wextra -pedantic -g
+CFLAGS = -g
 ALL_FLAGS = -std=gnu99
 
 TARGET = ../../server
