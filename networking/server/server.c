@@ -315,6 +315,10 @@ int clinet_command(int id)
 		break;
 
 	case NEW_PRG:
+		for (char *p = buf; (size_t)(p - buf) <= len; p++) 
+			if (*p == '\n' || *p == '\r')
+				*p = ' '; /* TODO: delete them completely? */
+
 		c_log(clients[id].unique_id, "New program: %s\n", buf);
 
 		if (clients[id].program_name != NULL)
@@ -328,10 +332,17 @@ int clinet_command(int id)
 		if (NULL == clients[id].program_name) 
 		{
 			_log("malloc() error: %s\n", strerror(errno));
+			write_byte(fds[id].fd, SERV_ERROR);
 			return -1;
 		}
 		memcpy(clients[id].program_name, buf, len);
 		clients[id].program_name[len] = '\0';
+
+		if (send_to_buf(id, NEW_PRG, buf, len) < 0)
+		{
+			write_byte(fds[id].fd, SERV_ERROR);
+			return -1;
+		}
 
 		if (clients[id].arch_fp != NULL)
 		{
@@ -373,6 +384,8 @@ void close_conn(int id)
 {
 	c_log(clients[id].unique_id, "(%s:%s) Disconnected\n", 
 			clients[id].host, clients[id].serv);
+
+	send_to_buf(id, DISCONN, NULL, 0);
 
 	if (clients[id].host != NULL)
 		free(clients[id].host);
@@ -560,23 +573,8 @@ int store_cc(int id, char *buf, size_t len)
 	if ((NULL == clients[id].buf_fp) && (open_buf_file(id) < 0))
 		return -1;
 
-	if (0 != flock(fileno(clients[id].buf_fp), LOCK_EX)) 
-	{
-		_log("flock() error: %s\n", strerror(errno));
+	if (send_to_buf(id, CC, buf, len) < 0)
 		return -1;
-	}
-
-	fprintf(clients[id].buf_fp, "%d %zd ", clients[id].cur_line, len);
-	fwrite(buf, sizeof(char), len, clients[id].buf_fp);
-	fprintf(clients[id].buf_fp, "\r\n");
-
-	if (0 != flock(fileno(clients[id].buf_fp), LOCK_UN))
-	{
-		_log("flock() error: %s\n", strerror(errno));
-		return -1;
-	}
-
-	clients[id].cur_line++;
 
 	if ((NULL == clients[id].arch_fp) && (open_arch_file(id) < 0))
 		return -1;
@@ -585,6 +583,36 @@ int store_cc(int id, char *buf, size_t len)
 	fprintf(clients[id].arch_fp, "\r\n");
 
 	return 0;
+}
+
+int send_to_buf(int id, char command, char *buf, size_t len)
+{
+	if (0 != flock(fileno(clients[id].buf_fp), LOCK_EX)) 
+	{
+		_log("flock() error: %s\n", strerror(errno));
+		return -1;
+	}
+
+	fprintf(clients[id].buf_fp, "%d %d ", 
+			clients[id].cur_line, command);
+
+	if (buf != NULL && len > 0)
+	{
+		fprintf(clients[id].buf_fp, "%zd ", len);
+		fwrite(buf, sizeof(char), len, clients[id].buf_fp);
+	}
+
+	fprintf(clients[id].buf_fp, "\r\n");
+
+	clients[id].cur_line++;
+
+	if (0 != flock(fileno(clients[id].buf_fp), LOCK_UN))
+	{
+		_log("flock() error: %s\n", strerror(errno));
+		return -1;
+	}
+
+	return 1;
 }
 
 int cli_logged_in(int id)
@@ -635,17 +663,13 @@ int append_to_arch_info(int id)
 	if (NULL == info_fp)
 	{
 		_log("fopen() error: %s\n", strerror(errno));
-		write_byte(fds[id].fd, SERV_ERROR); /* TODO: move it outside */
 		return -1;
 	}
 
-	memset(time_buf, 0, sizeof(time_buf));
-	strftime(time_buf, 30, "%H:%M:%S", t_tm);
-
-	fprintf(info_fp, "%s--%u.txt|%d|%s:%s|%s\n",
-			time_buf,
-			clients[id].unique_id,
+	fprintf(info_fp, "%d %u %s %s:%s %s\n",
 			(int) t,
+			clients[id].unique_id,
+			clients[id].arch_filepath,
 			clients[id].host,
 			clients[id].serv,
 			clients[id].program_name); /* prints (null) when it's NULL */

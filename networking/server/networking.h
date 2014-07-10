@@ -5,6 +5,7 @@
 
 #define INT_LEN 10
 
+#define DISCONN 13
 #define NEW_PRG 12
 #define CC 11
 #define PASSW 10

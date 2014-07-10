@@ -1,6 +1,9 @@
 <?php
 define('INT_LEN', 10);
 define('OFFSET', 800);
+define('CC', 11);
+define('NEW_PRG', 12);
+define('DISCONN', 13);
 
 function seek_next_block($fp)
 {
@@ -55,6 +58,7 @@ do { //offset untill we find a block with $line <= $start
 echo "[\n";
 while (1) {
 	$line = intval(stream_get_line($fp, INT_LEN, " "));
+	$command = intval(stream_get_line($fp, INT_LEN, " "));
 	$len = intval(stream_get_line($fp, INT_LEN, " "));
 	$cc = fread($fp, $len);
 	fread($fp, 2);
@@ -70,14 +74,16 @@ while (1) {
 
 	echo "{";
 	echo "\"line\": \"" . $line . "\",";
-	echo "\"cc\": \"" . trim($cc) . "\"";
+	echo "\"comd\": \"" . $command . "\",";
+	echo "\"data\": \"" . trim($cc) . "\"";
 	echo "},\n";
 }
 
 if ($line >= $start) {
 	echo "{";
 	echo "\"line\": \"" . $line . "\",";
-	echo "\"cc\": \"" . trim($cc) . "\"";
+	echo "\"comd\": \"" . $command . "\",";
+	echo "\"data\": \"" . trim($cc) . "\"";
 	echo "}\n";
 }
 echo "]";
