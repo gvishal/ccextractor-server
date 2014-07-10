@@ -79,7 +79,7 @@ int main()
 
 	printf("Server is binded to %d\n", cfg.port);
 	if (cfg.use_pwd)
-		printf("Password: %s\n\n", cfg.pwd);
+		printf("Password: %s\n", cfg.pwd);
 
 	if (cfg.create_logs)
 		open_log_file();
@@ -316,8 +316,6 @@ int clinet_command(int id)
 
 	case NEW_PRG:
 		c_log(clients[id].unique_id, "New program: %s\n", buf);
-		assert(clients[id].arch_fp != NULL);
-		assert(clients[id].arch_filepath != NULL);
 
 		if (clients[id].program_name != NULL)
 		{
@@ -335,11 +333,17 @@ int clinet_command(int id)
 		memcpy(clients[id].program_name, buf, len);
 		clients[id].program_name[len] = '\0';
 
-		fclose(clients[id].arch_fp);
-		clients[id].arch_fp = NULL;
+		if (clients[id].arch_fp != NULL)
+		{
+			fclose(clients[id].arch_fp);
+			clients[id].arch_fp = NULL;
+		}
 
-		free(clients[id].arch_filepath);
-		clients[id].arch_filepath = NULL;
+		if (clients[id].arch_filepath != NULL)
+		{
+			free(clients[id].arch_filepath);
+			clients[id].arch_filepath = NULL;
+		}
 
 		if (open_arch_file(id) < 0)
 		{
@@ -469,7 +473,7 @@ void open_log_file()
 int open_buf_file(int id)
 {
 	assert(clients[id].buf_fp == NULL);
-	assert(clients[id].arch_filepath == NULL);
+	assert(clients[id].buf_file_path == NULL);
 
 	if ((clients[id].buf_file_path = (char *) malloc (PATH_MAX)) == NULL) 
 	{
