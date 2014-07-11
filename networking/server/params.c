@@ -19,6 +19,8 @@ int init_cfg()
 	cfg.log_dir = DFT_LOG_DIR;
 	cfg.log_clients = DFT_CLIENT_LOGS;
 	cfg.use_pwd = DFT_USE_PWD;
+	cfg.buf_max_lines = DFT_BUF_MAX_LINES;
+	cfg.buf_min_lines = DFT_BUF_MIN_LINES;
 
 	if ((cfg.pwd = (char *) malloc(DFT_PASSW_LEN + 1)) == NULL) /* +1 for '\0' */
 		return ERRNO;
@@ -218,6 +220,24 @@ int parse_config_file()
 				goto out;
 			}
 			cfg.log_clients = val_bool;
+		}
+		else if (strncmp(line, "buffer_file_max_lines", key_len) == 0) 
+		{
+			if (number != val_type)
+			{
+				rc = CFG_NUM;
+				goto out;
+			}
+			cfg.buf_max_lines = val_num;
+		}
+		else if (strncmp(line, "buffer_file_min_lines", key_len) == 0) 
+		{
+			if (number != val_type)
+			{
+				rc = CFG_NUM;
+				goto out;
+			}
+			cfg.buf_min_lines = val_num;
 		}
 		else  
 		{

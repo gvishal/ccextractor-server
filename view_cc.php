@@ -28,6 +28,7 @@ $(function() {
 				$.each(data, function(i, d) {
 					if (d.command == 11) {
 						$("<div id=\"cc_line\">" + d.data + "</div>").prependTo("#cc");
+						line = parseInt(d.line) + 1;
 					} else if (d.command == 12) {
 						$(
 							"<div id=\"new_program\">Program changed: " + 
@@ -50,7 +51,6 @@ $(function() {
 						clearInterval(rc);
 					}
 
-					line = parseInt(d.line) + 1;
 				});
 			}
 		});

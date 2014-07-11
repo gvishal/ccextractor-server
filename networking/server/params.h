@@ -14,6 +14,8 @@
 #define DFT_ARCHIVE_DIR "./cc"
 #define DFT_ARCHIVE_INFO_FILENAME "info.txt"
 #define DFT_CLIENT_LOGS 1
+#define DFT_BUF_MAX_LINES 40
+#define DFT_BUF_MIN_LINES 30
 
 #define USERS_FILE_PATH "connections.txt"
 #define ARCHIVE_FILEPATH_LEN 50
@@ -26,12 +28,13 @@ struct cfg_t
 	char *pwd;
 	int wrong_pwd_delay;
 	char *buf_dir;
+	unsigned buf_max_lines;
+	unsigned buf_min_lines;
 	char *arch_dir;
 	char *arch_info_filename;
 	unsigned create_logs : 1;
 	unsigned log_clients : 1;
 	char *log_dir;
-
 
 	unsigned is_inited : 1;
 } cfg;

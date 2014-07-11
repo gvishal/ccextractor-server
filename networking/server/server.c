@@ -37,6 +37,7 @@ struct cli_t
 
 	char *buf_file_path;
 	FILE *buf_fp;
+	unsigned buf_line_cnt;
 	int cur_line;
 
 	char *arch_filepath;
@@ -597,6 +598,18 @@ int store_cc(int id, char *buf, size_t len)
 
 int send_to_buf(int id, char command, char *buf, size_t len)
 {
+	int rc; 
+	if (clients[id].buf_line_cnt >= cfg.buf_max_lines)
+	{
+		if ((rc = delete_n_lines(&clients[id].buf_fp, 
+					clients[id].buf_file_path,
+					clients[id].buf_line_cnt - cfg.buf_min_lines)) < 0)
+		{
+			printf("sjhfslkfghdl: %d\n", rc);
+		}
+		clients[id].buf_line_cnt = cfg.buf_min_lines;
+	}
+
 	if (0 != flock(fileno(clients[id].buf_fp), LOCK_EX)) 
 	{
 		_log("flock() error: %s\n", strerror(errno));
@@ -615,6 +628,7 @@ int send_to_buf(int id, char command, char *buf, size_t len)
 	fprintf(clients[id].buf_fp, "\r\n");
 
 	clients[id].cur_line++;
+	clients[id].buf_line_cnt++;
 
 	if (0 != flock(fileno(clients[id].buf_fp), LOCK_UN))
 	{

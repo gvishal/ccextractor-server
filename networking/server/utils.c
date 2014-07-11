@@ -182,6 +182,9 @@ void ec_log(int cli_id, int rc)
 		case B_SRV_ERR:
 			fprintf(stderr, "bind_server() error: Coudn't bind to the port\n");
 			break;
+		case DEL_L_EOF:
+			fprintf(stderr, "delete_n_lines() error: Unexpected end-of-file\n");
+			break;
 		default:
 			fprintf(stderr, "%s\n", strerror(errno));
 			break;
@@ -244,4 +247,36 @@ void rand_str(char *s, size_t len)
 		s[i] = rand() % (1 + 'z' - 'a') + 'a';
 
 	return;
+}
+
+int delete_n_lines(FILE **fp, const char *filepath, size_t n)
+{
+	char *line = NULL;
+	size_t len = 0;
+	int rc;
+
+	rewind(*fp);
+
+	/* offset first lines */
+	for (size_t i = 0; i < n; i++) 
+	{
+		if ((rc = getline(&line, &len, *fp)) < 0)
+			return DEL_L_EOF;
+	}
+
+	FILE *tmp = fopen(TMP_FILE_PATH, "w+");
+	if (setvbuf(tmp, NULL, _IOLBF, 0) < 0) 
+		return ERRNO;
+
+	while ((rc = getline(&line, &len, *fp)) != -1)
+	{
+		fwrite(line, sizeof(char), rc, tmp);
+	}
+
+	*fp = tmp;
+
+	if (rename(TMP_FILE_PATH, filepath) != 0)
+		return ERRNO;
+
+	return 1;
 }
