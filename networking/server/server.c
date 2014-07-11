@@ -33,6 +33,7 @@ struct cli_t
 
 	time_t program_start;
 	char *program_name;
+	unsigned program_id;
 
 	char *buf_file_path;
 	FILE *buf_fp;
@@ -337,6 +338,15 @@ int clinet_command(int id)
 		}
 		memcpy(clients[id].program_name, buf, len);
 		clients[id].program_name[len] = '\0';
+		clients[id].program_id++;
+
+		char program_id_str[INT_LEN];
+		snprintf(program_id_str, INT_LEN, "%u", clients[id].program_id);
+		if (send_to_buf(id, NEW_PRG_ID, program_id_str, INT_LEN) < 0)
+		{
+			write_byte(fds[id].fd, SERV_ERROR);
+			return -1;
+		}
 
 		if (send_to_buf(id, NEW_PRG, buf, len) < 0)
 		{
@@ -666,12 +676,13 @@ int append_to_arch_info(int id)
 		return -1;
 	}
 
-	fprintf(info_fp, "%d %u %s %s:%s %s\n",
+	fprintf(info_fp, "%d %u %s %s:%s %u %s\n",
 			(int) t,
 			clients[id].unique_id,
 			clients[id].arch_filepath,
 			clients[id].host,
 			clients[id].serv,
+			clients[id].program_id,
 			clients[id].program_name); /* prints (null) when it's NULL */
 
 	fclose(info_fp);
