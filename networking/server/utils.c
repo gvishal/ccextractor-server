@@ -269,9 +269,7 @@ int delete_n_lines(FILE **fp, const char *filepath, size_t n)
 		return ERRNO;
 
 	while ((rc = getline(&line, &len, *fp)) != -1)
-	{
 		fwrite(line, sizeof(char), rc, tmp);
-	}
 
 	*fp = tmp;
 

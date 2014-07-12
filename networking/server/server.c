@@ -341,6 +341,9 @@ int clinet_command(int id)
 		clients[id].program_name[len] = '\0';
 		clients[id].program_id++;
 
+		if (NULL == clients[id].buf_fp)
+			open_buf_file(id);
+
 		char program_id_str[INT_LEN];
 		snprintf(program_id_str, INT_LEN, "%u", clients[id].program_id);
 		if (send_to_buf(id, NEW_PRG_ID, program_id_str, INT_LEN) < 0)
@@ -598,6 +601,8 @@ int store_cc(int id, char *buf, size_t len)
 
 int send_to_buf(int id, char command, char *buf, size_t len)
 {
+	assert(clients[id].buf_fp != NULL);
+
 	int rc; 
 	if (clients[id].buf_line_cnt >= cfg.buf_max_lines)
 	{
@@ -605,13 +610,16 @@ int send_to_buf(int id, char command, char *buf, size_t len)
 					clients[id].buf_file_path,
 					clients[id].buf_line_cnt - cfg.buf_min_lines)) < 0)
 		{
-			printf("sjhfslkfghdl: %d\n", rc);
+			e_log(rc);
+			return -1;
 		}
 		clients[id].buf_line_cnt = cfg.buf_min_lines;
 	}
 
 	if (0 != flock(fileno(clients[id].buf_fp), LOCK_EX)) 
 	{
+	printf("lsadkfj\n");
+	fflush(stdout);
 		_log("flock() error: %s\n", strerror(errno));
 		return -1;
 	}
@@ -624,6 +632,7 @@ int send_to_buf(int id, char command, char *buf, size_t len)
 		fprintf(clients[id].buf_fp, "%zd ", len);
 		fwrite(buf, sizeof(char), len, clients[id].buf_fp);
 	}
+
 
 	fprintf(clients[id].buf_fp, "\r\n");
 
@@ -690,7 +699,7 @@ int append_to_arch_info(int id)
 		return -1;
 	}
 
-	fprintf(info_fp, "%d %u %s %s:%s %u %s\n",
+	fprintf(info_fp, "%d %u %s %s:%s %u \"%s\"\n",
 			(int) t,
 			clients[id].unique_id,
 			clients[id].arch_filepath,

@@ -38,7 +38,19 @@ function print_links($id, $last_prgm_id, $st)
 		return;
 
 	while (1) {
-		fscanf($fp, "%d %d %s %s %d %s\n", $t, $cur_id, $cc_filepath, $addres, $prgm_id, $pgrm_name);
+		$line = fgets($fp);
+
+		sscanf($line, "%d %d %s %s %d", $t, $cur_id, $cc_filepath, $addres, $prgm_id);
+
+		$pgrm_name = "";
+		if (($pos = strpos($line, "\"")) === false)
+			return;
+
+		for ($i = $pos; $line[$i] != "\n"; $i++) {
+			if ($line[$i] == "\"")
+				continue;
+			$pgrm_name .= $line[$i];
+		}
 
 		fgetc($fp); 
 		if (feof($fp)) 
