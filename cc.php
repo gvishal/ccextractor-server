@@ -28,8 +28,9 @@ function seek_next_block($fp)
 
 function print_links($id, $last_prgm_id, $st)
 {
+	date_default_timezone_set("UTC");
+
 	$last_prgm_id--;
-	// FIXME: wrong day at 22:00 in local time
 	$info_file = ARCH_DIR . "/" . date("Y/m-M/d/") . ARCH_INFO_FILENAME;
 
 	if (!file_exists($info_file))

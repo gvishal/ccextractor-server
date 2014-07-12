@@ -260,7 +260,8 @@ int clinet_command(int id)
 	char buf[BUFFER_SIZE] = {0};
 	if ((rc = read_block(fds[id].fd, &c, buf, &len)) <= 0)
 	{
-		ec_log(id, rc);
+		if (rc < 0)
+			ec_log(id, rc);
 		return -1;
 	}
 
@@ -406,8 +407,6 @@ void close_conn(int id)
 	c_log(clients[id].unique_id, "(%s:%s) Disconnected\n", 
 			clients[id].host, clients[id].serv);
 
-	send_to_buf(id, DISCONN, NULL, 0);
-
 	if (clients[id].host != NULL)
 		free(clients[id].host);
 	if (clients[id].serv != NULL)
@@ -415,6 +414,8 @@ void close_conn(int id)
 
 	if (clients[id].buf_fp != NULL)
 	{
+		send_to_buf(id, DISCONN, NULL, 0);
+
 		fclose(clients[id].buf_fp);
 		if (unlink(clients[id].buf_file_path) < 0) 
 			_log("unlink() error: %s\n", strerror(errno));
