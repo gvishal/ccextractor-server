@@ -31,6 +31,12 @@ $(function() {
 						line = parseInt(d.line) + 1;
 					} else if (d.command == 12) {
 						$(
+							"<div id=\"new_program\">Program name: " + 
+							"<span id=\"prg_name\">" + d.data + "</span>" +
+							"</div>"
+						).prependTo("#cc");
+					} else if (d.command == 17) {
+						$(
 							"<div id=\"new_program\">Program changed: " + 
 							"<span id=\"prg_name\">" + d.data + "</span>" +
 							"<br>" +

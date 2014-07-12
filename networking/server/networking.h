@@ -6,8 +6,9 @@
 #define INT_LEN 10
 
 #define DISCONN 13
-#define NEW_PRG_ID 14
-#define NEW_PRG 12
+#define PRGM_ID 14
+#define NEW_PRGM 12
+#define RESET_PRGM 17
 #define CC 11
 #define PASSW 10
 #define WAIT 5

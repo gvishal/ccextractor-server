@@ -13,8 +13,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-void rand_str(char *s, size_t len)
-{
+void rand_str(char *s, size_t len) {
 	for (size_t i = 0; i < len; i++)
 		s[i] = rand() % (1 + 'z' - 'a') + 'a';
 
@@ -62,8 +61,8 @@ main(int argc, char *argv[])
 		}
 
 		while ((read = getline(&line, &len, fp)) != -1) {
-			rand_num++;
-			if (6 == rand_num) /* 6 is pretty random */
+			rand_num %= 15;
+			if (0 == rand_num) 
 			{
 				rand_num = 0;
 				char pr_name[20] = {0};
@@ -71,6 +70,7 @@ main(int argc, char *argv[])
 				printf("Program changed: %s\n", pr_name);
 				write_block(sockfd, NEW_PRG, pr_name, 19);
 			}
+			rand_num++;
 			read -= 2; // for \r\n
 
 			write_block(sockfd, CC, line, read);

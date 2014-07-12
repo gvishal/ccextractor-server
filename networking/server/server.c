@@ -316,17 +316,22 @@ int clinet_command(int id)
 
 		break;
 
-	case NEW_PRG:
+	case NEW_PRGM:
 		for (char *p = buf; (size_t)(p - buf) <= len; p++) 
 			if (*p == '\n' || *p == '\r')
 				*p = ' '; /* TODO: delete them completely? */
 
 		c_log(clients[id].unique_id, "New program: %s\n", buf);
 
+		if (NULL == clients[id].buf_fp)
+			open_buf_file(id);
+
+		int was_null = TRUE;
 		if (clients[id].program_name != NULL)
 		{
 			free(clients[id].program_name);
 			clients[id].program_name = NULL;
+			was_null = FALSE;
 		}
 
 		/* XXX: don't malloc, use memory from prev. */
@@ -341,18 +346,20 @@ int clinet_command(int id)
 		clients[id].program_name[len] = '\0';
 		clients[id].program_id++;
 
-		if (NULL == clients[id].buf_fp)
-			open_buf_file(id);
-
 		char program_id_str[INT_LEN];
 		snprintf(program_id_str, INT_LEN, "%u", clients[id].program_id);
-		if (send_to_buf(id, NEW_PRG_ID, program_id_str, INT_LEN) < 0)
+		if (send_to_buf(id, PRGM_ID, program_id_str, INT_LEN) < 0)
 		{
 			write_byte(fds[id].fd, SERV_ERROR);
 			return -1;
 		}
 
-		if (send_to_buf(id, NEW_PRG, buf, len) < 0)
+		char com;
+		if (was_null)
+			com = NEW_PRGM;
+		else
+			com = RESET_PRGM;
+		if (send_to_buf(id, com, buf, len) < 0)
 		{
 			write_byte(fds[id].fd, SERV_ERROR);
 			return -1;

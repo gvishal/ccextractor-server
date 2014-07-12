@@ -2,7 +2,8 @@
 define('INT_LEN', 10);
 define('OFFSET', 800);
 define('CC', 11);
-define('NEW_PRG', 12);
+define('NEW_PRGM', 12);
+define('RESET_PRGM', 17);
 define('NEW_PRG_ID', 14);
 define('DISCONN', 13);
 define('DWNL_LINKS', 115);
@@ -51,6 +52,8 @@ function print_links($id, $last_prgm_id, $st)
 				continue;
 			$pgrm_name .= $line[$i];
 		}
+		if ($pgrm_name == "(null)")
+			$pgrm_name = date("Y/m/d H:i", $t) . " " . $addres;
 
 		fgetc($fp); 
 		if (feof($fp)) 
@@ -61,7 +64,7 @@ function print_links($id, $last_prgm_id, $st)
 			continue;
 
 		if (1 == $st && $prgm_id == $last_prgm_id)
-			break;
+			break; 
 
 		if (0 == $st) {
 			echo "{";
@@ -71,6 +74,9 @@ function print_links($id, $last_prgm_id, $st)
 			echo "},\n";
 		}
 	}
+
+	if ($cur_id != $id)
+		return;
 
 	echo "{";
 	echo "\"command\": \"" . DWNL_LINKS. "\",";
@@ -153,7 +159,7 @@ while (1) {
 	echo "\"data\": \"" . trim($cc) . "\"";
 	echo "},\n";
 
-	if ($command == NEW_PRG) {
+	if ($command == RESET_PRGM) {
 		print_links($client_id, $last_prgm_id, 1);
 		echo "},\n";
 	}
@@ -166,9 +172,8 @@ if ($line >= $start) {
 	echo "\"data\": \"" . trim($cc) . "\"";
 }
 
-if ($command == NEW_PRG) {
+if ($command == RESET_PRGM) {
 	print_links($client_id, $last_prgm_id, 1);
-	echo "},\n";
 }
 
 echo "}\n";
