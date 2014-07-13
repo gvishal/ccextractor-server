@@ -556,7 +556,7 @@ int open_arch_file(int id)
 	char dir[PATH_MAX] = {0};
 	snprintf(dir, PATH_MAX, "%s/%s", cfg.arch_dir, time_buf);
 
-	if (_mkdir(dir, S_IRWXU) < 0) 
+	if (_mkdir(dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH ) < 0) 
 	{
 		_log("_mkdir() error: %s\n", strerror(errno));
 		return -1;
@@ -626,8 +626,6 @@ int send_to_buf(int id, char command, char *buf, size_t len)
 
 	if (0 != flock(fileno(clients[id].buf_fp), LOCK_EX)) 
 	{
-	printf("lsadkfj\n");
-	fflush(stdout);
 		_log("flock() error: %s\n", strerror(errno));
 		return -1;
 	}
