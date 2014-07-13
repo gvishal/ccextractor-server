@@ -5,6 +5,7 @@
 
 #define INT_LEN 10
 
+#define MAX_CONN 16
 #define DISCONN 13
 #define PRGM_ID 14
 #define NEW_PRGM 12

@@ -88,14 +88,15 @@ int main()
 
 	_signal(SIGALRM, unmute_clients);
 
-	clients = (struct cli_t *) malloc((sizeof(struct cli_t)) * cfg.max_conn);
+	clients = (struct cli_t *) malloc((sizeof(struct cli_t)) * (cfg.max_conn + 1));
+	/* +1 for listen socket*/
 	if (NULL == clients)
 	{
 		_log("malloc() error: %s\n", strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 
-	fds = (struct pollfd *) malloc((sizeof(struct pollfd)) * cfg.max_conn);
+	fds = (struct pollfd *) malloc((sizeof(struct pollfd)) * (cfg.max_conn + 1));
 	if (NULL == clients)
 	{
 		_log("malloc() error: %s\n", strerror(errno));
@@ -145,6 +146,14 @@ int main()
 				int new_sd;
 				while((new_sd = accept(listen_sd, &cliaddr, &clilen)) >= 0) 
 				{
+					if (nfds - 1 >= cfg.max_conn)
+					{
+						write_byte(new_sd, MAX_CONN);
+						close(new_sd);
+
+						continue;
+					}
+
 					fds[nfds].fd = new_sd;
 					fds[nfds].events = POLLIN;
 
@@ -167,6 +176,10 @@ int main()
 					}
 
 					nfds++;
+
+					if (nfds - 1 == cfg.max_conn)
+						_log("Connection limit reached, ignoring new connections\n");
+
 				}
 
 				if (errno != EWOULDBLOCK) /* accepted all of connections */
@@ -188,12 +201,16 @@ int main()
 				if (fds[i].fd >= 0)
 					continue;
 
-				for (size_t j = i; j < nfds; j++)
+				for (size_t j = i; j < nfds - 1; j++)
 				{
 					fds[j].fd = fds[j + 1].fd;
 					memcpy(&clients[j], &clients[j + 1], sizeof(struct cli_t));
 					memset(&clients[j + 1], 0, sizeof(struct cli_t));
 				}
+
+				fds[nfds - 1].fd = -1;
+				memset(&clients[nfds - 1], 0, sizeof(struct cli_t));
+
 				i--;
 				nfds--;
 			}
@@ -449,7 +466,7 @@ int update_users_file()
 		return -1;
 	}
 
-	for (int i = 1; i < cfg.max_conn; i++) /* 0 for listener sock */
+	for (unsigned i = 1; i < cfg.max_conn; i++) /* 0 for listener sock */
 	{
 		if (!clients[i].is_logged)
 			continue;
@@ -469,7 +486,7 @@ int update_users_file()
 
 void unmute_clients()
 {
-	for (int i = 1; i < cfg.max_conn; i++) /* 0 for listener sock */
+	for (unsigned i = 1; i < cfg.max_conn; i++) /* 0 for listener sock */
 	{
 		if (clients[i].is_logged || fds[i].fd == 0 || 
 				clients[i].muted_since == 0)
@@ -556,7 +573,7 @@ int open_arch_file(int id)
 	char dir[PATH_MAX] = {0};
 	snprintf(dir, PATH_MAX, "%s/%s", cfg.arch_dir, time_buf);
 
-	if (_mkdir(dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH ) < 0) 
+	if (_mkdir(dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH ) < 0)
 	{
 		_log("_mkdir() error: %s\n", strerror(errno));
 		return -1;
@@ -662,7 +679,7 @@ new_id:
 	last_unique_id++;
 	if (0 == last_unique_id)
 		last_unique_id = 1;
-	for (int i = 0; i < cfg.max_conn; i++) 
+	for (unsigned i = 0; i < cfg.max_conn; i++)
 	{
 		if (!clients[i].is_logged)
 			continue;

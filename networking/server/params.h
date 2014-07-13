@@ -23,7 +23,7 @@
 struct cfg_t
 {
 	int port;
-	int max_conn;
+	unsigned max_conn;
 	unsigned use_pwd : 1;
 	char *pwd;
 	int wrong_pwd_delay;
