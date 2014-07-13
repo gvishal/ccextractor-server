@@ -7,7 +7,7 @@ define('RESET_PRGM', 17);
 define('NEW_PRG_ID', 14);
 define('DISCONN', 13);
 define('DWNL_LINKS', 115);
-define('ARCH_DIR', "./cc"); //XXX: parse config file?
+
 define('ARCH_INFO_FILENAME', "info.txt");
 
 function seek_next_block($fp)
@@ -30,8 +30,12 @@ function print_links($id, $last_prgm_id, $st)
 {
 	date_default_timezone_set("UTC");
 
+	$cfg = parse_ini_file("./server.ini");
+	if (!array_key_exists("archive_files_dir", $cfg))
+		$cfg["archive_files_dir"] = "./cc";
+
 	$last_prgm_id--;
-	$info_file = ARCH_DIR . "/" . date("Y/m-M/d/") . ARCH_INFO_FILENAME;
+	$info_file = $cfg["archive_files_dir"] . "/" . date("Y/m-M/d/") . ARCH_INFO_FILENAME;
 
 	if (!file_exists($info_file))
 		return;
