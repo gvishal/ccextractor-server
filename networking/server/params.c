@@ -40,7 +40,7 @@ int parse_config_file()
 	FILE *fp = fopen(DFT_CONFIG_FILE, "r");
 	if (fp == NULL)
 	{
-		_log("fopen() error: %s\n", strerror(errno));
+		_log("fopen() error (%s): %s\n", DFT_CONFIG_FILE, strerror(errno));
 		return -1;
 	}
 
@@ -65,15 +65,30 @@ int parse_config_file()
 		for (int i = 0; i < read; i++) {
 			if ('=' == line[i])
 			{
-				key_len = i - 1; /* -1 for ' ' */
-				value = &line[i + 2]; /* skip '=' and ' ' */
+				/* skip spaces before '=' */
+				int j = i - 1;
+				while (strchr(" \t", line[j])) j--;
+
+				key_len = j + 1; 
+				line[key_len] = '\0';
+
+				/* skip spaces after '=' */
+				j = i + 1;
+				while (strchr(" \t", line[j])) j++;
+
+				value = &line[j]; 
 			}
-			else if (';' == line[i])
+			else if ('\n' == line[i])
 			{
-				value_len = i - (value - line); /* skip ';' */
+				/* skip spaces before '\n' */
+				int j = i - 1;
+				while (strchr(" \t", line[j])) j--;
+
+				line[j + 1] = '\0';
+				value_len = j + 1 - (value - line); 
 				break;
 			} 
-			else if ('#' == line[i])
+			else if (';' == line[i])
 			{
 				break;
 			}
@@ -83,8 +98,9 @@ int parse_config_file()
 		{
 			/* then this line is empty or it's error */
 			char *p = line;
-			while ((' ' == *p) || ('\t' == *p)) p++;
-			if ((*p != '\n') && (*p != '#'))
+			while (*p == ' ' || *p == '\t') p++;
+
+			if (!strchr("\n;", *p)) /* it includes case *p == '\0' */
 			{
 				rc = CFG_ERR;
 				goto out;
@@ -119,7 +135,10 @@ int parse_config_file()
 		else 
 		{
 			val_type = number;
-			if ((val_num = atoi(value)) <= 0)
+
+			char *endptr;
+			val_num = strtol(value, &endptr, 10);
+			if (*endptr != '\0')
 			{
 				rc = CFG_ERR;
 				goto out;

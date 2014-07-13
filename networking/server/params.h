@@ -1,7 +1,7 @@
 #ifndef PARAMS_H
 #define PARAMS_H
 
-#define DFT_CONFIG_FILE "./server.cfg"
+#define DFT_CONFIG_FILE "./server.ini"
 #define DFT_PORT 2048
 #define DFT_MAX_CONN 10
 #define DFT_BUF_FILE_DIR "./tmp"
