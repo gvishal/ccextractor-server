@@ -111,8 +111,6 @@ int main()
 
 	int compress_array;
 
-	printf("MAX_CONN = %u\n", cfg.max_conn);
-
 	while (1)
 	{
 		if (poll(fds, nfds, -1) < 0) 

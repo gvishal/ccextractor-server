@@ -114,22 +114,31 @@ if (($fp = fopen($filepath, "r")) == 0)
 
 $start = intval($_GET["st"]);
 
-$of = 0;
-$line = PHP_INT_MAX;
-do { //offset untill we find a block with $line <= $start
-	$of -= OFFSET;
-	if (fseek($fp, $of, SEEK_END) < 0) {
-		fseek($fp, 0);
-	} else {
-		if (seek_next_block($fp) < 0) {
-			continue;
+$fp_pos = ftell($fp);
+$line = intval(stream_get_line($fp, INT_LEN, " "));
+fseek($fp, $fp_pos);
+if ($line < $start) {
+	$line = PHP_INT_MAX;
+	$of = 0;
+	do { //offset untill we find a block with $line <= $start
+		$of -= OFFSET;
+		if (fseek($fp, $of, SEEK_END) < 0) {
+			fseek($fp, 0);
+		} else {
+			if (seek_next_block($fp) < 0) {
+				continue;
+			}
 		}
-	}
+		// fgetc($fp); 
+		// if (feof($fp)) 
+		// 	break;
+		// fseek($fp, -1, SEEK_CUR);
 
-	$fp_pos = ftell($fp);
-	$line = intval(stream_get_line($fp, INT_LEN, " "));
-	fseek($fp, $fp_pos);
-} while ($line > $start);
+		$fp_pos = ftell($fp);
+		$line = intval(stream_get_line($fp, INT_LEN, " "));
+		fseek($fp, $fp_pos);
+	} while ($line > $start);
+}
 
 $last_prgm_id = 0;
 
