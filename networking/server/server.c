@@ -422,8 +422,8 @@ int clinet_command(int id)
 
 void close_conn(int id)
 {
-	c_log(clients[id].unique_id, "(%s:%s) Disconnected\n", 
-			clients[id].host, clients[id].serv);
+	_log("[%d] (%s:%s) Disconnected\n",
+			clients[id].unique_id, clients[id].host, clients[id].serv);
 
 	if (clients[id].host != NULL)
 		free(clients[id].host);
@@ -467,7 +467,7 @@ int update_users_file()
 		return -1;
 	}
 
-	for (unsigned i = 1; i < cfg.max_conn; i++) /* 0 for listener sock */
+	for (unsigned i = 1; i <= cfg.max_conn; i++) /* 0 for listener sock */
 	{
 		if (!clients[i].is_logged)
 			continue;
@@ -487,7 +487,7 @@ int update_users_file()
 
 void unmute_clients()
 {
-	for (unsigned i = 1; i < cfg.max_conn; i++) /* 0 for listener sock */
+	for (unsigned i = 1; i <= cfg.max_conn; i++) /* 0 for listener sock */
 	{
 		if (clients[i].is_logged || fds[i].fd == 0 || 
 				clients[i].muted_since == 0)
@@ -680,7 +680,7 @@ new_id:
 	last_unique_id++;
 	if (0 == last_unique_id)
 		last_unique_id = 1;
-	for (unsigned i = 0; i < cfg.max_conn; i++)
+	for (unsigned i = 0; i <= cfg.max_conn; i++)
 	{
 		if (!clients[i].is_logged)
 			continue;
