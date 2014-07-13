@@ -271,6 +271,8 @@ int delete_n_lines(FILE **fp, const char *filepath, size_t n)
 	while ((rc = getline(&line, &len, *fp)) != -1)
 		fwrite(line, sizeof(char), rc, tmp);
 
+	fclose(*fp);
+
 	*fp = tmp;
 
 	if (rename(TMP_FILE_PATH, filepath) != 0)

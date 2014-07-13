@@ -266,6 +266,6 @@ int parse_config_file()
 	}
 
 out:
-	return rc;
 	fclose(fp);
+	return rc;
 }
