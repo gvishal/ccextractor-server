@@ -2,10 +2,10 @@
 #define SERVER_H
 
 #include <sys/types.h>
+#include <netdb.h>
 
 #define USERS_FILE_PATH "connections.txt"
 
-#include <netdb.h>
 struct cli_t;
 
 int add_new_cli(int id, struct sockaddr *cliaddr, socklen_t clilen);

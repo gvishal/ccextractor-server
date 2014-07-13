@@ -95,6 +95,7 @@ int main()
 		_log("malloc() error: %s\n", strerror(errno));
 		exit(EXIT_FAILURE);
 	}
+	memset(clients, 0, (sizeof(struct cli_t)) * (cfg.max_conn + 1));
 
 	fds = (struct pollfd *) malloc((sizeof(struct pollfd)) * (cfg.max_conn + 1));
 	if (NULL == clients)
@@ -109,6 +110,8 @@ int main()
 	nfds_t nfds = 1;
 
 	int compress_array;
+
+	printf("MAX_CONN = %u\n", cfg.max_conn);
 
 	while (1)
 	{
