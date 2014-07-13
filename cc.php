@@ -26,7 +26,7 @@ function seek_next_block($fp)
 	return 0;
 }
 
-function print_links($id, $last_prgm_id, $st)
+function print_links($id, $last_prgm_id, $pr_all = false, $pr_comma = true)
 {
 	date_default_timezone_set("UTC");
 
@@ -44,6 +44,11 @@ function print_links($id, $last_prgm_id, $st)
 		return;
 
 	while (1) {
+		fgetc($fp); 
+		if (feof($fp)) 
+			break;
+		fseek($fp, -1, SEEK_CUR);
+
 		$line = fgets($fp);
 
 		sscanf($line, "%d %d %s %s %d", $t, $cur_id, $cc_filepath, $addres, $prgm_id);
@@ -60,33 +65,25 @@ function print_links($id, $last_prgm_id, $st)
 		if ($pgrm_name == "(null)")
 			$pgrm_name = date("Y/m/d H:i", $t) . " " . $addres;
 
-		fgetc($fp); 
-		if (feof($fp)) 
-			break;
-		fseek($fp, -1, SEEK_CUR);
-
 		if ($cur_id != $id)
 			continue;
 
-		if (1 == $st && $prgm_id == $last_prgm_id)
-			break; 
+		if ((false == $pr_all && $prgm_id == $last_prgm_id) || true == $pr_all)
+		{
+			if ($pr_comma)
+				echo ",\n";
 
-		if (0 == $st) {
 			echo "{";
 			echo "\"command\": \"" . DWNL_LINKS. "\",";
 			echo "\"filepath\": \"" . $cc_filepath . "\",";
 			echo "\"name\": \"" . $pgrm_name . "\"";
-			echo "},\n";
+			echo "}";
+			$pr_comma = true;
+
+			if (false == $pr_all)
+				break;
 		}
 	}
-
-	if ($cur_id != $id)
-		return;
-
-	echo "{";
-	echo "\"command\": \"" . DWNL_LINKS. "\",";
-	echo "\"filepath\": \"" . $cc_filepath . "\",";
-	echo "\"name\": \"" . $pgrm_name . "\"";
 
 	fclose($fp);
 }
@@ -104,10 +101,9 @@ if (!file_exists($filepath)) {
 	echo "[\n";
 	echo "{";
 	echo "\"command\": \"" . DISCONN. "\"";
-	echo "},\n";
-
-	print_links($client_id, 0, 0);
 	echo "}";
+
+	print_links($client_id, 0, true);
 	echo "]";
 	return;
 
@@ -133,10 +129,6 @@ if ($line < $start) {
 				continue;
 			}
 		}
-		// fgetc($fp); 
-		// if (feof($fp)) 
-		// 	break;
-		// fseek($fp, -1, SEEK_CUR);
 
 		$fp_pos = ftell($fp);
 		$line = intval(stream_get_line($fp, INT_LEN, " "));
@@ -147,17 +139,19 @@ if ($line < $start) {
 $last_prgm_id = 0;
 
 echo "[\n";
+$pr_comma = false;
 while (1) {
+	fgetc($fp); 
+	if (feof($fp)) 
+		break;
+	fseek($fp, -1, SEEK_CUR);
+
 	$line = intval(stream_get_line($fp, INT_LEN, " "));
 	$command = intval(stream_get_line($fp, INT_LEN, " "));
 	$len = intval(stream_get_line($fp, INT_LEN, " "));
 	$cc = fread($fp, $len);
 	fread($fp, 2);
 
-	fgetc($fp); 
-	if (feof($fp)) 
-		break;
-	fseek($fp, -1, SEEK_CUR);
 
 	if ($line < $start)
 		continue;
@@ -167,30 +161,20 @@ while (1) {
 		continue;
 	}
 
+	if ($pr_comma)
+		echo ",\n";
 	echo "{";
 	echo "\"line\": \"" . $line . "\",";
 	echo "\"command\": \"" . $command . "\",";
 	echo "\"data\": \"" . trim($cc) . "\"";
-	echo "},\n";
+	echo "}";
+	$pr_comma = true;
 
 	if ($command == RESET_PRGM) {
-		print_links($client_id, $last_prgm_id, 1);
-		echo "},\n";
+		print_links($client_id, $last_prgm_id);
 	}
 }
 
-if ($line >= $start) {
-	echo "{";
-	echo "\"line\": \"" . $line . "\",";
-	echo "\"command\": \"" . $command . "\",";
-	echo "\"data\": \"" . trim($cc) . "\"";
-}
-
-if ($command == RESET_PRGM) {
-	print_links($client_id, $last_prgm_id, 1);
-}
-
-echo "}\n";
 echo "]";
 
 ?>
