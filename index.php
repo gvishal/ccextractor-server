@@ -12,14 +12,13 @@ while ($line = fgets($fp)) {
 	sscanf($line, "%d %s %d", $id, $addr, $time);
 
 	$pgrm_name = "";
-	if (($pos = strpos($line, "\"")) === false)
+	if (($pos = strpos($line, "|")) === false)
 		return;
 
-	for ($i = $pos; $line[$i] != "\n"; $i++) {
-		if ($line[$i] == "\"")
-			continue;
+	for ($i = $pos + 2; $line[$i] != "\n"; $i++)
 		$pgrm_name .= $line[$i];
-	}
+
+	$pgrm_name = strip_tags($pgrm_name);
 
 	if ($pgrm_name == "(null)")
 		$pgrm_name = "";

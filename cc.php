@@ -10,6 +10,18 @@ define('DWNL_LINKS', 115);
 
 define('ARCH_INFO_FILENAME', "info.txt");
 
+function json_quote($str)
+{
+	$l = strlen($str);
+	$ret = "";
+	for ($i = 0; $i < $l; $i++) {
+		if ($str[$i] == "\"")
+			$ret .= "\\";
+		$ret .= $str[$i];
+	}
+	return $ret;
+}
+
 function seek_next_block($fp)
 {
 	$c1 = "";
@@ -51,17 +63,18 @@ function print_links($id, $last_prgm_id, $pr_all = false, $pr_comma = true)
 
 		$line = fgets($fp);
 
+
 		sscanf($line, "%d %d %s %s %d", $t, $cur_id, $cc_filepath, $addres, $prgm_id);
 
 		$pgrm_name = "";
-		if (($pos = strpos($line, "\"")) === false)
+		if (($pos = strpos($line, "|")) === false)
 			return;
 
-		for ($i = $pos; $line[$i] != "\n"; $i++) {
-			if ($line[$i] == "\"")
-				continue;
+		for ($i = $pos + 2; $line[$i] != "\n"; $i++)
 			$pgrm_name .= $line[$i];
-		}
+
+		$pgrm_name = strip_tags($pgrm_name);
+
 		if ($pgrm_name == "(null)")
 			$pgrm_name = date("Y/m/d H:i", $t) . " " . $addres;
 
@@ -76,7 +89,7 @@ function print_links($id, $last_prgm_id, $pr_all = false, $pr_comma = true)
 			echo "{";
 			echo "\"command\": \"" . DWNL_LINKS. "\",";
 			echo "\"filepath\": \"" . $cc_filepath . "\",";
-			echo "\"name\": \"" . $pgrm_name . "\"";
+			echo "\"name\": \"" . json_quote($pgrm_name) . "\"";
 			echo "}";
 			$pr_comma = true;
 
@@ -166,7 +179,8 @@ while (1) {
 	echo "{";
 	echo "\"line\": \"" . $line . "\",";
 	echo "\"command\": \"" . $command . "\",";
-	echo "\"data\": \"" . trim($cc) . "\"";
+	// echo "\"data\": \"" . json_quote(strip_tags(trim($cc), '<b><i><u><a>')) . "\"";
+	echo "\"data\": \"" . json_quote((trim($cc))) . "\"";
 	echo "}";
 	$pr_comma = true;
 

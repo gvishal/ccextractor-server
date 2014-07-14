@@ -475,7 +475,7 @@ int update_users_file()
 		if (!clients[i].is_logged)
 			continue;
 		
-		fprintf(fp, "%u %s:%s %d \"%s\"\n", 
+		fprintf(fp, "%u %s:%s %d | %s\n", 
 				clients[i].unique_id,
 				clients[i].host, 
 				clients[i].serv,
@@ -724,7 +724,7 @@ int append_to_arch_info(int id)
 		return -1;
 	}
 
-	fprintf(info_fp, "%d %u %s %s:%s %u \"%s\"\n",
+	fprintf(info_fp, "%d %u %s %s:%s %u | %s\n",
 			(int) t,
 			clients[id].unique_id,
 			clients[id].arch_filepath,
