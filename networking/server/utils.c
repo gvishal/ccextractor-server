@@ -8,6 +8,7 @@
 
 #include <unistd.h>
 #include <assert.h>
+#include <time.h>
 #include <errno.h>
 #include <signal.h>
 #include <netdb.h>
@@ -115,6 +116,12 @@ void _log(const char *fmt, ...)
 	va_list args;
 	va_start(args, fmt);	
 
+	time_t t = time(NULL);
+	struct tm *t_tm = localtime(&t);
+	char buf[30] = {0};
+	strftime(buf, 30, "%H:%M:%S", t_tm);
+	fprintf(stderr, "%s ", buf);
+
 	fprintf(stderr, "[S] ");
 	vfprintf(stderr, fmt, args);
 
@@ -130,6 +137,12 @@ void c_log(int cli_id, const char *fmt, ...)
 
 	va_list args;
 	va_start(args, fmt);	
+
+	time_t t = time(NULL);
+	struct tm *t_tm = localtime(&t);
+	char buf[30] = {0};
+	strftime(buf, 30, "%H:%M:%S", t_tm);
+	fprintf(stderr, "%s ", buf);
 
 	if (cli_id == 0)
 		fprintf(stderr, "[S] ");
@@ -147,6 +160,12 @@ void ec_log(int cli_id, int rc)
 {
 	if (!cfg.log_clients && cli_id != 0)
 		return;
+
+	time_t t = time(NULL);
+	struct tm *t_tm = localtime(&t);
+	char buf[30] = {0};
+	strftime(buf, 30, "%H:%M:%S", t_tm);
+	fprintf(stderr, "%s ", buf);
 
 	if (cli_id == 0)
 		fprintf(stderr, "[S] ");
