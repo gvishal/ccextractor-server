@@ -109,7 +109,7 @@ int main()
 	clients[0].is_logged = 1;
 	nfds_t nfds = 1;
 
-	int compress_array;
+	int compress_array = FALSE;
 
 	while (1)
 	{
@@ -342,8 +342,11 @@ int clinet_command(int id)
 
 		c_log(clients[id].unique_id, "New program: %s\n", buf);
 
-		if (NULL == clients[id].buf_fp)
-			open_buf_file(id);
+		if ((NULL == clients[id].buf_fp) && (open_buf_file(id) < 0))
+		{
+			write_byte(fds[id].fd, SERV_ERROR);
+			return -1;
+		}
 
 		int was_null = TRUE;
 		if (clients[id].program_name != NULL)
@@ -365,7 +368,7 @@ int clinet_command(int id)
 		clients[id].program_name[len] = '\0';
 		clients[id].program_id++;
 
-		char program_id_str[INT_LEN];
+		char program_id_str[INT_LEN] = {0};
 		snprintf(program_id_str, INT_LEN, "%u", clients[id].program_id);
 		if (send_to_buf(id, PRGM_ID, program_id_str, INT_LEN) < 0)
 		{
@@ -655,7 +658,6 @@ int send_to_buf(int id, char command, char *buf, size_t len)
 		fprintf(clients[id].buf_fp, "%zd ", len);
 		fwrite(buf, sizeof(char), len, clients[id].buf_fp);
 	}
-
 
 	fprintf(clients[id].buf_fp, "\r\n");
 

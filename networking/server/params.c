@@ -55,7 +55,7 @@ int parse_config_file()
 	int val_bool;
 	int val_num;
 	char *val_str;
-	int rc;
+	int rc = 1;
 
 	while ((read = getline(&line, &len, fp)) != -1) 
 	{
@@ -147,7 +147,7 @@ int parse_config_file()
 			}
 		}
 
-/* #if 0 */
+#if 0
 		printf("%s => %s ", line, value);
 		if (boolean == val_type)
 			printf("(bool = %d)\n", val_bool);
@@ -155,7 +155,7 @@ int parse_config_file()
 			printf("(string)\n");
 		else if (number == val_type)
 			printf("(int = %d)\n", val_num);
-/* #endif */
+#endif
 
 		if (strncmp(line, "port", key_len) == 0) 
 		{

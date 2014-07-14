@@ -265,8 +265,14 @@ int delete_n_lines(FILE **fp, const char *filepath, size_t n)
 	}
 
 	FILE *tmp = fopen(TMP_FILE_PATH, "w+");
-	if (setvbuf(tmp, NULL, _IOLBF, 0) < 0) 
+	if (NULL == tmp)
 		return ERRNO;
+
+	if (setvbuf(tmp, NULL, _IOLBF, 0) < 0) 
+	{
+		fclose(tmp);
+		return ERRNO;
+	}
 
 	while ((rc = getline(&line, &len, *fp)) != -1)
 		fwrite(line, sizeof(char), rc, tmp);
