@@ -62,19 +62,21 @@ int parse_config_file()
 		key_len = 0;
 		value_len = 0;
 
+		while (strchr(" \t", *line)) line++;
+
 		for (int i = 0; i < read; i++) {
 			if ('=' == line[i])
 			{
 				/* skip spaces before '=' */
 				int j = i - 1;
-				while (strchr(" \t", line[j])) j--;
+				while (j >= 0 && strchr(" \t", line[j])) j--;
 
 				key_len = j + 1; 
 				line[key_len] = '\0';
 
 				/* skip spaces after '=' */
 				j = i + 1;
-				while (strchr(" \t", line[j])) j++;
+				while (j < read && strchr(" \t", line[j])) j++;
 
 				value = &line[j]; 
 			}
@@ -82,7 +84,7 @@ int parse_config_file()
 			{
 				/* skip spaces before '\n' */
 				int j = i - 1;
-				while (strchr(" \t", line[j])) j--;
+				while (j >= 0 && strchr(" \t", line[j])) j--;
 
 				line[j + 1] = '\0';
 				value_len = j + 1 - (value - line); 
@@ -144,6 +146,16 @@ int parse_config_file()
 				goto out;
 			}
 		}
+
+/* #if 0 */
+		printf("%s => %s ", line, value);
+		if (boolean == val_type)
+			printf("(bool = %d)\n", val_bool);
+		else if (string == val_type)
+			printf("(string)\n");
+		else if (number == val_type)
+			printf("(int = %d)\n", val_num);
+/* #endif */
 
 		if (strncmp(line, "port", key_len) == 0) 
 		{

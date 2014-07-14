@@ -620,7 +620,6 @@ int store_cc(int id, char *buf, size_t len)
 		return -1;
 
 	fwrite(buf, sizeof(char), len, clients[id].arch_fp);
-	fprintf(clients[id].arch_fp, "\r\n");
 
 	return 0;
 }
