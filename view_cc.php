@@ -33,10 +33,10 @@ $(function() {
 			},
 			success: function(data) {
 				$.each(data, function(i, d) {
-					if (d.command == 4) {
+					if (d.command == CAPTIONS) {
 						$("<div id=\"cc_line\">" + d.data + "</div>").prependTo("#cc");
 						line = parseInt(d.line) + 1;
-					} else if (d.command == CAPTIONS) {
+					} else if (d.command == PROGRAM) {
 						$(
 							"<div id=\"new_program\">Program name: " + 
 							"<span id=\"prg_name\">" + d.data + "</span>" +
