@@ -16,9 +16,11 @@ void rand_str(char *s, size_t len) {
 	for (size_t i = 0; i < len; i++)
 		s[i] = rand() % (1 + '~' - ' ') + ' ';
 
-	/* s[rand() % len] = '\t'; */
-	/* s[rand() % len] = '\r'; */
-	/* s[rand() % len] = '\n'; */
+	s[rand() % len] = '\t';
+	s[rand() % len] = '\r';
+	s[rand() % len] = '\n';
+	s[rand() % len] = '\f';
+	s[rand() % len] = '\?';
 
 	return;
 }
@@ -65,6 +67,19 @@ int main(int argc, char *argv[])
 
 				net_set_new_program(pr_name);
 			}
+
+			if (5 == rand_num)
+			{
+				rand_num = 0;
+				char pr_name[51] = {0};
+				rand_str(pr_name, 48);
+				pr_name[48] = '\r';
+				pr_name[49] = '\n';
+
+				net_append_cc_n(pr_name, 50);
+				net_send_cc();
+			}
+
 			rand_num++;
 
 			net_append_cc_n(line, read);

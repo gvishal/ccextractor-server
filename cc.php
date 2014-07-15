@@ -15,11 +15,16 @@ function json_quote($str)
 	$l = strlen($str);
 	$ret = "";
 	for ($i = 0; $i < $l; $i++) {
-		if ($str[$i] == "\"")
+		if (strstr("\"\\", $str[$i]))
 			$ret .= "\\";
 		$ret .= $str[$i];
 	}
 	return $ret;
+}
+
+function nice_str($str)
+{
+	return json_quote(htmlspecialchars(trim($str)));
 }
 
 function seek_next_block($fp)
@@ -73,8 +78,6 @@ function print_links($id, $last_prgm_id, $pr_all = false, $pr_comma = true)
 		for ($i = $pos + 2; $line[$i] != "\n"; $i++)
 			$pgrm_name .= $line[$i];
 
-		$pgrm_name = strip_tags($pgrm_name);
-
 		if ($pgrm_name == "(null)")
 			$pgrm_name = date("Y/m/d H:i", $t) . " " . $addres;
 
@@ -89,7 +92,7 @@ function print_links($id, $last_prgm_id, $pr_all = false, $pr_comma = true)
 			echo "{";
 			echo "\"command\": \"" . DWNL_LINKS. "\",";
 			echo "\"filepath\": \"" . $cc_filepath . "\",";
-			echo "\"name\": \"" . json_quote($pgrm_name) . "\"";
+			echo "\"name\": \"" . nice_str($pgrm_name) . "\"";
 			echo "}";
 			$pr_comma = true;
 
@@ -179,8 +182,7 @@ while (1) {
 	echo "{";
 	echo "\"line\": \"" . $line . "\",";
 	echo "\"command\": \"" . $command . "\",";
-	// echo "\"data\": \"" . json_quote(strip_tags(trim($cc), '<b><i><u><a>')) . "\"";
-	echo "\"data\": \"" . json_quote((trim($cc))) . "\"";
+	echo "\"data\": \"" . nice_str($cc) . "\"";
 	echo "}";
 	$pr_comma = true;
 

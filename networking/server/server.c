@@ -336,12 +336,6 @@ int clinet_command(int id)
 		break;
 
 	case NEW_PRGM:
-		for (char *p = buf; (size_t)(p - buf) <= len; p++) 
-			if (*p == '\n' || *p == '\r')
-				*p = ' '; /* TODO: delete them completely? */
-
-		c_log(clients[id].unique_id, "New program: %s\n", buf);
-
 		if ((NULL == clients[id].buf_fp) && (open_buf_file(id) < 0))
 		{
 			write_byte(fds[id].fd, SERV_ERROR);
@@ -356,17 +350,17 @@ int clinet_command(int id)
 			was_null = FALSE;
 		}
 
-		/* XXX: don't malloc, use memory from prev. */
-		clients[id].program_name = (char *) malloc(len + 1); /* +1 for '\0' */
+		size_t l = len + 1; /* +1 for '\0' */
+		clients[id].program_name = nice_str(buf, &l);
 		if (NULL == clients[id].program_name) 
 		{
-			_log("malloc() error: %s\n", strerror(errno));
 			write_byte(fds[id].fd, SERV_ERROR);
 			return -1;
 		}
-		memcpy(clients[id].program_name, buf, len);
-		clients[id].program_name[len] = '\0';
+		clients[id].program_name[l] = '\0';
 		clients[id].program_id++;
+
+		c_log(clients[id].unique_id, "New program: %s\n", clients[id].program_name);
 
 		char program_id_str[INT_LEN] = {0};
 		snprintf(program_id_str, INT_LEN, "%u", clients[id].program_id);
@@ -381,7 +375,7 @@ int clinet_command(int id)
 			com = NEW_PRGM;
 		else
 			com = RESET_PRGM;
-		if (send_to_buf(id, com, buf, len) < 0)
+		if (send_to_buf(id, com, buf, l) < 0)
 		{
 			write_byte(fds[id].fd, SERV_ERROR);
 			return -1;
@@ -631,6 +625,10 @@ int send_to_buf(int id, char command, char *buf, size_t len)
 {
 	assert(clients[id].buf_fp != NULL);
 
+	char *tmp = nice_str(buf, &len);
+	if (NULL == tmp && buf != NULL)
+			return -1;
+
 	int rc; 
 	if (clients[id].buf_line_cnt >= cfg.buf_max_lines)
 	{
@@ -639,6 +637,7 @@ int send_to_buf(int id, char command, char *buf, size_t len)
 					clients[id].buf_line_cnt - cfg.buf_min_lines)) < 0)
 		{
 			e_log(rc);
+			free(tmp);
 			return -1;
 		}
 		clients[id].buf_line_cnt = cfg.buf_min_lines;
@@ -647,16 +646,17 @@ int send_to_buf(int id, char command, char *buf, size_t len)
 	if (0 != flock(fileno(clients[id].buf_fp), LOCK_EX)) 
 	{
 		_log("flock() error: %s\n", strerror(errno));
+		free(tmp);
 		return -1;
 	}
 
 	fprintf(clients[id].buf_fp, "%d %d ", 
 			clients[id].cur_line, command);
 
-	if (buf != NULL && len > 0)
+	if (tmp != NULL && len > 0)
 	{
 		fprintf(clients[id].buf_fp, "%zd ", len);
-		fwrite(buf, sizeof(char), len, clients[id].buf_fp);
+		fwrite(tmp, sizeof(char), len, clients[id].buf_fp);
 	}
 
 	fprintf(clients[id].buf_fp, "\r\n");
@@ -667,9 +667,11 @@ int send_to_buf(int id, char command, char *buf, size_t len)
 	if (0 != flock(fileno(clients[id].buf_fp), LOCK_UN))
 	{
 		_log("flock() error: %s\n", strerror(errno));
+		free(tmp);
 		return -1;
 	}
 
+	free(tmp);
 	return 1;
 }
 

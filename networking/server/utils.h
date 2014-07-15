@@ -56,4 +56,7 @@ void rand_str(char *s, size_t len);
 /* Deletes first n lines (end with \n) from the file */
 int delete_n_lines(FILE **fp, const char *filepath, size_t n);
 
+/* Returns malloc'ed copy of `s` without not printable chars*/
+char *nice_str(const char *s, size_t *len);
+
 #endif /* end of include guard: UTILS_H */

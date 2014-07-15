@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#include <ctype.h>
 
 #include <unistd.h>
 #include <assert.h>
@@ -304,4 +305,35 @@ int delete_n_lines(FILE **fp, const char *filepath, size_t n)
 		return ERRNO;
 
 	return 1;
+}
+
+char *nice_str(const char *s, size_t *len)
+{
+	if (NULL == s)
+		return NULL;
+
+	assert(*len > 0);
+
+	char *ret;
+
+	if ((ret = (char *) malloc(sizeof(char) * (*len))) == NULL)
+	{
+		_log("malloc() error: %s\n", strerror(errno));
+		return NULL;
+	}
+
+	memset(ret, 0, sizeof(char) * (*len));
+
+	int j = 0;
+	for (unsigned i = 0; i < *len; i++) {
+		if (!isprint(s[i]))
+			continue;
+
+		ret[j] = s[i];
+		j++;
+	}
+
+	*len = j;
+
+	return ret;
 }
