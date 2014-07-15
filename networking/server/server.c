@@ -149,7 +149,7 @@ int main()
 				{
 					if (nfds - 1 >= cfg.max_conn)
 					{
-						write_byte(new_sd, MAX_CONN);
+						write_byte(new_sd, CONN_LIMIT);
 						close(new_sd);
 
 						continue;
@@ -167,7 +167,7 @@ int main()
 
 					if (cfg.use_pwd)
 					{
-						write_byte(new_sd, PASSW);
+						write_byte(new_sd, PASSWORD);
 					}
 					else if (cli_logged_in(nfds) < 0)
 					{
@@ -286,7 +286,7 @@ int clinet_command(int id)
 	if (clients[id].muted_since > 0)
 		return 0;
 
-	if (c != PASSW && !clients[id].is_logged)
+	if (c != PASSWORD && !clients[id].is_logged)
 	{
 		c_log(clients[id].unique_id, "No password presented\n");
 		return -1;
@@ -294,7 +294,7 @@ int clinet_command(int id)
 
 	switch (c)
 	{
-	case PASSW:
+	case PASSWORD:
 		if (!cfg.use_pwd)
 			return -1; /* We didn't ask for it */
 
@@ -308,7 +308,7 @@ int clinet_command(int id)
 
 			alarm(cfg.wrong_pwd_delay);
 
-			if (write_byte(fds[id].fd, WRONG_PASSW) != 1)
+			if (write_byte(fds[id].fd, WRONG_PASSWORD) != 1)
 				return -1;
 
 			return 0;
@@ -321,12 +321,12 @@ int clinet_command(int id)
 
 		break;
 
-	case CC:
+	case CAPTIONS:
 		c_log(clients[id].unique_id, "Caption block, size: %d\n", len);
 
 		if (store_cc(id, buf, len) < 0)
 		{
-			write_byte(fds[id].fd, SERV_ERROR);
+			write_byte(fds[id].fd, ERROR);
 			return -1;
 		}
 
@@ -335,10 +335,10 @@ int clinet_command(int id)
 
 		break;
 
-	case NEW_PRGM:
+	case PROGRAM:
 		if ((NULL == clients[id].buf_fp) && (open_buf_file(id) < 0))
 		{
-			write_byte(fds[id].fd, SERV_ERROR);
+			write_byte(fds[id].fd, ERROR);
 			return -1;
 		}
 
@@ -354,7 +354,7 @@ int clinet_command(int id)
 		clients[id].program_name = nice_str(buf, &l);
 		if (NULL == clients[id].program_name) 
 		{
-			write_byte(fds[id].fd, SERV_ERROR);
+			write_byte(fds[id].fd, ERROR);
 			return -1;
 		}
 		clients[id].program_name[l] = '\0';
@@ -364,20 +364,20 @@ int clinet_command(int id)
 
 		char program_id_str[INT_LEN] = {0};
 		snprintf(program_id_str, INT_LEN, "%u", clients[id].program_id);
-		if (send_to_buf(id, PRGM_ID, program_id_str, INT_LEN) < 0)
+		if (send_to_buf(id, PROGRAM_ID, program_id_str, INT_LEN) < 0)
 		{
-			write_byte(fds[id].fd, SERV_ERROR);
+			write_byte(fds[id].fd, ERROR);
 			return -1;
 		}
 
 		char com;
 		if (was_null)
-			com = NEW_PRGM;
+			com = PROGRAM;
 		else
-			com = RESET_PRGM;
+			com = RESET_PROGRAM;
 		if (send_to_buf(id, com, buf, l) < 0)
 		{
-			write_byte(fds[id].fd, SERV_ERROR);
+			write_byte(fds[id].fd, ERROR);
 			return -1;
 		}
 
@@ -395,13 +395,13 @@ int clinet_command(int id)
 
 		if (open_arch_file(id) < 0)
 		{
-			write_byte(fds[id].fd, SERV_ERROR);
+			write_byte(fds[id].fd, ERROR);
 			return -1;
 		}
 
 		if (update_users_file() < 0)
 		{
-			write_byte(fds[id].fd, SERV_ERROR);
+			write_byte(fds[id].fd, ERROR);
 			return -1;
 		}
 
@@ -410,7 +410,7 @@ int clinet_command(int id)
 	default:
 		c_log(clients[id].unique_id, "Unsupported command: %d\n", (int) c);
 
-		write_byte(fds[id].fd, WRONG_COMMAND);
+		write_byte(fds[id].fd, UNKNOWN_COMMAND);
 		return -1;
 	}
 
@@ -429,7 +429,7 @@ void close_conn(int id)
 
 	if (clients[id].buf_fp != NULL)
 	{
-		send_to_buf(id, DISCONN, NULL, 0);
+		send_to_buf(id, CONN_CLOSED, NULL, 0);
 
 		fclose(clients[id].buf_fp);
 		if (unlink(clients[id].buf_file_path) < 0) 
@@ -497,7 +497,7 @@ void unmute_clients()
 
 		clients[i].muted_since = 0;
 		/* Ask for password */
-		write_byte(fds[i].fd, PASSW); 
+		write_byte(fds[i].fd, PASSWORD); 
 	}
 }
 
@@ -610,7 +610,7 @@ int store_cc(int id, char *buf, size_t len)
 	if ((NULL == clients[id].buf_fp) && (open_buf_file(id) < 0))
 		return -1;
 
-	if (send_to_buf(id, CC, buf, len) < 0)
+	if (send_to_buf(id, CAPTIONS, buf, len) < 0)
 		return -1;
 
 	if ((NULL == clients[id].arch_fp) && (open_arch_file(id) < 0))

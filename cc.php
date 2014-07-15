@@ -1,12 +1,12 @@
 <?php
 define('INT_LEN', 10);
+
+define('PROGRAM_ID',     102);
+define('RESET_PROGRAM',  103);
+define('CONN_CLOSED',    101);
+define('DOWNLOAD_LINKS', 201);
+
 define('OFFSET', 800);
-define('CC', 11);
-define('NEW_PRGM', 12);
-define('RESET_PRGM', 17);
-define('NEW_PRG_ID', 14);
-define('DISCONN', 13);
-define('DWNL_LINKS', 115);
 
 define('ARCH_INFO_FILENAME', "info.txt");
 
@@ -90,7 +90,7 @@ function print_links($id, $last_prgm_id, $pr_all = false, $pr_comma = true)
 				echo ",\n";
 
 			echo "{";
-			echo "\"command\": \"" . DWNL_LINKS. "\",";
+			echo "\"command\": \"" . DOWNLOAD_LINKS. "\",";
 			echo "\"filepath\": \"" . $cc_filepath . "\",";
 			echo "\"name\": \"" . nice_str($pgrm_name) . "\"";
 			echo "}";
@@ -116,7 +116,7 @@ $filepath = "./tmp/" . $client_id . ".txt";
 if (!file_exists($filepath)) {
 	echo "[\n";
 	echo "{";
-	echo "\"command\": \"" . DISCONN. "\"";
+	echo "\"command\": \"" . CONN_CLOSED. "\"";
 	echo "}";
 
 	print_links($client_id, 0, true);
@@ -172,7 +172,7 @@ while (1) {
 	if ($line < $start)
 		continue;
 
-	if ($command == NEW_PRG_ID) {
+	if ($command == PROGRAM_ID) {
 		$last_prgm_id = intval($cc);
 		continue;
 	}
@@ -186,7 +186,7 @@ while (1) {
 	echo "}";
 	$pr_comma = true;
 
-	if ($command == RESET_PRGM) {
+	if ($command == RESET_PROGRAM) {
 		print_links($client_id, $last_prgm_id);
 	}
 }

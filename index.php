@@ -18,7 +18,7 @@ while ($line = fgets($fp)) {
 	for ($i = $pos + 2; $line[$i] != "\n"; $i++)
 		$pgrm_name .= $line[$i];
 
-	$pgrm_name = strip_tags($pgrm_name);
+	$pgrm_name = htmlspecialchars(trim($pgrm_name));
 
 	if ($pgrm_name == "(null)")
 		$pgrm_name = "";

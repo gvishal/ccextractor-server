@@ -3,17 +3,16 @@
 
 #include <sys/types.h>
 
-#define INT_LEN 10
-
-#define PASSW 10
-#define MAX_CONN 16
-#define NEW_PRG 12
-#define CC 11
-#define WAIT 5
-#define SERV_ERROR 4
-#define WRONG_COMMAND 3
-#define WRONG_PASSW 2
-#define OK 1
+/* Protocol constants: */
+#define INT_LEN         10
+#define OK              1
+#define PASSWORD        2
+#define CAPTIONS        3
+#define PROGRAM         4
+#define ERROR           51
+#define UNKNOWN_COMMAND 52
+#define WRONG_PASSWORD  53
+#define CONN_LIMIT      54
 
 void connect_to_srv(const char *addr, const char *port);
 

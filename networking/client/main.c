@@ -1,4 +1,3 @@
-#include "utils.h"
 #include "networking.h"
 
 #include <stdio.h>
@@ -39,7 +38,7 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	char *line;
+	char *line = NULL;
 
 	size_t len = 0;
 	int read;

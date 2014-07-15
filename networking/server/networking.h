@@ -3,20 +3,20 @@
 
 #include <sys/types.h>
 
-#define INT_LEN 10
-
-#define MAX_CONN 16
-#define DISCONN 13
-#define PRGM_ID 14
-#define NEW_PRGM 12
-#define RESET_PRGM 17
-#define CC 11
-#define PASSW 10
-#define WAIT 5
-#define SERV_ERROR 4
-#define WRONG_COMMAND 3
-#define WRONG_PASSW 2
-#define OK 1
+/* Protocol constants: */
+#define INT_LEN         10
+#define OK              1
+#define PASSWORD        2
+#define CAPTIONS        3
+#define PROGRAM         4
+#define ERROR           51
+#define UNKNOWN_COMMAND 52
+#define WRONG_PASSWORD  53
+#define CONN_LIMIT      54
+/* Buffer file and web-site constants: */
+#define CONN_CLOSED     101
+#define PROGRAM_ID      102
+#define RESET_PROGRAM   103
 
 /* 
  * Read data block from descriptor

@@ -148,7 +148,7 @@ void net_send_cc()
 	if (buf_end - buf == 0)
 		return;
 
-	if (write_block(srv_sd, CC, buf, buf_end - buf) < 0)
+	if (write_block(srv_sd, CAPTIONS, buf, buf_end - buf) < 0)
 	{
 		printf("Can't send subtitle block\n");
 		return; // XXX: store somewhere
@@ -166,7 +166,7 @@ void net_send_cc()
 	fprintf(stderr, "\n");
 #endif
 
-	if (SERV_ERROR == ok)
+	if (ERROR == ok)
 	{
 		printf("Internal server error\n"); 
 		return;
@@ -182,7 +182,7 @@ void net_set_new_program(const char *name)
 
 	size_t len = strlen(name) - 1; /* without '\0' */
 
-	if (write_block(srv_sd, NEW_PRG, name, len) < 0)
+	if (write_block(srv_sd, PROGRAM, name, len) < 0)
 	{
 		printf("Can't send new program name to the server\n");
 		return; // XXX: store somewhere
@@ -341,18 +341,18 @@ int ask_passwd(int sd)
 			{
 				return 1;
 			}
-			else if (MAX_CONN == ok) 
+			else if (CONN_LIMIT == ok) 
 			{
 				printf("Too many connections to the server, try later\n");
 				return -1;
 			} 
-			else if (SERV_ERROR == ok)
+			else if (ERROR == ok)
 			{
 				printf("Internal server error\n");
 				return -1;
 			}
 
-		} while(ok != PASSW);
+		} while(ok != PASSWORD);
 
 		printf("Enter password: ");
 		fflush(stdout);
@@ -380,7 +380,7 @@ int ask_passwd(int sd)
 		printf("\n");
 		fflush(stdout);
 
-		if (write_block(sd, PASSW, pw, rc) < 0)
+		if (write_block(sd, PASSWORD, pw, rc) < 0)
 			return -1;
 
 		if (read_byte(sd, &ok) != 1)
@@ -392,12 +392,12 @@ int ask_passwd(int sd)
 		fprintf(stderr, "\n");
 #endif
 
-		if (WRONG_PASSW == ok)
+		if (WRONG_PASSWORD == ok)
 		{
 			printf("Wrong password\n");
 			fflush(stdout);
 		}
-		else if (SERV_ERROR == ok)
+		else if (ERROR == ok)
 		{
 			printf("Internal server error\n");
 			return -1;
@@ -424,29 +424,29 @@ void pr_command(char c)
 {
 	switch(c)
 	{
-		case CC:
-			fprintf(stderr, "CC");
+		case CAPTIONS:
+			fprintf(stderr, "CAPTIONS");
 			break;
 		case OK:
 			fprintf(stderr, "OK");
 			break;
-		case WRONG_PASSW:
-			fprintf(stderr, "WRONG_PASSW");
+		case WRONG_PASSWORD:
+			fprintf(stderr, "WRONG_PASSWORD");
 			break;
-		case WRONG_COMMAND:
-			fprintf(stderr, "WRONG_COMMAND");
+		case UNKNOWN_COMMAND:
+			fprintf(stderr, "UNKNOWN_COMMAND");
 			break;
-		case SERV_ERROR:
-			fprintf(stderr, "SERV_ERROR");
+		case ERROR :
+			fprintf(stderr, "ERROR");
 			break;
-		case NEW_PRG:
-			fprintf(stderr, "NEW_PRG");
+		case PROGRAM:
+			fprintf(stderr, "PROGRAM");
 			break;
-		case MAX_CONN:
-			fprintf(stderr, "MAX_CONN");
+		case CONN_LIMIT:
+			fprintf(stderr, "CONN_LIMIT");
 			break;
-		case PASSW:
-			fprintf(stderr, "PASSW");
+		case PASSWORD:
+			fprintf(stderr, "PASSWORD");
 			break;
 		default:
 			fprintf(stderr, "UNKNOWN (%d)", (int) c);
