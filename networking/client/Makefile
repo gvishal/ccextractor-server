@@ -1,2 +1,4 @@
-client: client.c client.h networking.c networking.h utils.c utils.h
-	gcc -std=gnu99 client.c networking.c utils.c -o $@
+FLAGS = -Wall -Wextra -pedantic
+ALL_FLAGS = -std=gnu99 -g 
+main: main.c networking.c networking.h 
+	gcc $(ALL_FLAGS) $(FLAGS) main.c networking.c -o main

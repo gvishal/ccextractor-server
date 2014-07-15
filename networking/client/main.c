@@ -1,4 +1,3 @@
-#include "client.h"
 #include "utils.h"
 #include "networking.h"
 
@@ -15,13 +14,16 @@
 
 void rand_str(char *s, size_t len) {
 	for (size_t i = 0; i < len; i++)
-		s[i] = rand() % (1 + 'z' - 'a') + 'a';
+		s[i] = rand() % (1 + '~' - ' ') + ' ';
+
+	/* s[rand() % len] = '\t'; */
+	/* s[rand() % len] = '\r'; */
+	/* s[rand() % len] = '\n'; */
 
 	return;
 }
 
-int 
-main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	(void) setlocale(LC_ALL, "");
 
@@ -30,14 +32,7 @@ main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-    int sockfd = connect_to_addr(argv[1], argv[2]);
-    if (sockfd < 0) {
-        exit(EXIT_FAILURE);
-	}
-
-	check_passwd(sockfd);
-
-	fprintf(stdout, "Connected to %s:%s\n", argv[1], argv[2]);
+	connect_to_srv(argv[1], argv[2]);
 
 	FILE *fp = fopen(argv[3], "r");
 	if (NULL == fp)
@@ -65,28 +60,22 @@ main(int argc, char *argv[])
 			if (0 == rand_num) 
 			{
 				rand_num = 0;
-				char pr_name[20] = {0};
-				rand_str(pr_name, 19);
-				printf("Program changed: %s\n", pr_name);
-				write_block(sockfd, NEW_PRG, pr_name, 19);
+				char pr_name[40] = {0};
+				rand_str(pr_name, 39);
+
+				net_set_new_program(pr_name);
 			}
 			rand_num++;
-			read -= 2; // for \r\n
 
-			write_block(sockfd, CC, line, read);
+			net_append_cc_n(line, read);
 
-			fwrite(line, sizeof(char), read + 2, stdout);
-			fflush(stdout);
-
-			char ok;
-			read_byte(sockfd, &ok);
+			net_send_cc();
 
 			sleep(1);
 		}
 	}
 
 	fclose(fp);
-	close(sockfd);
 
 	return 0;
 }
