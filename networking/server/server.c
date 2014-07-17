@@ -692,7 +692,7 @@ new_id:
 			goto new_id; /* Yes, I like goto */
 	}
 
-	clients[id].unique_id = last_unique_id;
+	clients[id].unique_id = last_unique_id; /* TODO: save it to file */
 
 	_log("[%u] (%s:%s) Logged in\n",
 			clients[id].unique_id, clients[id].host, clients[id].serv);

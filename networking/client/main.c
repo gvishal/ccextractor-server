@@ -11,14 +11,9 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-void rand_str(char *s, size_t len) {
-	for (size_t i = 0; i < len; i++)
-		s[i] = rand() % (1 + 'a' - 'z') + 'a';
-		/* s[i] = rand() % (1 + '~' - ' ') + ' '; */
-		/* s[i] = rand() % 127 + 1; */
+#define BUF_SIZE 20480
 
-	return;
-}
+#define ull unsigned long long
 
 int main(int argc, char *argv[])
 {
@@ -38,52 +33,50 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	char *line = NULL;
+	char buf[BUF_SIZE] = {0};
+	char *p = buf;
 
-	size_t len = 0;
-	int read;
+	size_t rc = 0;
 
-	int rand_num = 0;
+	if (0 != fseek(fp, 6, SEEK_SET)) { //skip bom and header
+		perror("fseek");
+		exit(EXIT_FAILURE);
+	}
 
-	while(1)
+	net_send_header();
+
+	uint16_t blk_cnt;
+	size_t len;
+
+	while (1)
 	{
-		if (0 != fseek(fp, 3, SEEK_SET)) { //skip bom
-			perror("fseek");
+		p = buf;
+
+		if ((rc = fread(p, sizeof(char), 10, fp)) != 10)
+		{
+			printf("Premature end of file!\n");
+			exit(EXIT_FAILURE);
+		}
+		p += rc;
+
+		if ((blk_cnt = *((uint16_t *)(p + 8))) == 0)
+			continue;
+
+		if ((len = blk_cnt * 3) > BUF_SIZE) {
+			fprintf(stderr, "buffer overflow\n");
 			exit(EXIT_FAILURE);
 		}
 
-		while ((read = getline(&line, &len, fp)) != -1) {
-			rand_num %= 15;
-			if (0 == rand_num) 
-			{
-				char pr_name[40] = {0};
-				rand_str(pr_name, 39);
-
-				net_set_new_program(pr_name);
-
-			}
-
-#if 0
-			if (5 == rand_num)
-			{
-				char pr_name[51] = {0};
-				rand_str(pr_name, 48);
-				pr_name[48] = '\r';
-				pr_name[49] = '\n';
-
-				net_append_cc_n(pr_name, 50);
-				net_send_cc();
-			}
-#endif
-
-			rand_num++;
-
-			net_append_cc_n(line, read);
-
-			net_send_cc();
-
-			sleep(1);
+		if ((rc = fread(p, sizeof(char), len, fp)) != len)
+		{
+			printf("Premature end of file!\n");
+			exit(EXIT_FAILURE);
 		}
+		p += rc;
+
+		net_send_cc(buf, len + 10);
+
+		sleep(1);
 	}
 
 	fclose(fp);

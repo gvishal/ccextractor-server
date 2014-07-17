@@ -15,7 +15,7 @@
 
 #include <sys/ioctl.h>
 
-#define DEBUG_OUT 1
+#define DEBUG_OUT 0
 
 /*
  * Writes data according to protocol to descriptor
@@ -47,13 +47,9 @@ ssize_t writen(int fd, const void *vptr, size_t n);
 ssize_t write_byte(int fd, char status);
 ssize_t read_byte(int fd, char *status);
 
+#if DEBUG_OUT
 void pr_command(char c);
-
-#define BUF_SIZE 20480
-char *buf;
-char *buf_end;
-
-void init_buf();
+#endif
 
 int srv_sd = -1; /* Server socket descriptor */
 
@@ -86,75 +82,44 @@ void connect_to_srv(const char *addr, const char *port)
 	printf("Connected to %s:%s\n", addr, port);
 }
 
-void init_buf()
-{
-	buf = (char *) malloc(BUF_SIZE);
-	if (NULL == buf)
-	{
-		printf("malloc error(): %s", strerror(errno));
-		exit(EXIT_FAILURE);
-	}
-
-	buf_end = buf;
-}
-
-void net_append_cc(const char *fmt, ...)
-{
-	if (NULL == buf)
-		init_buf();
-
-	va_list args;
-	va_start(args, fmt);
-
-	int rc = vsnprintf(buf_end, BUF_SIZE - (buf_end - buf), fmt, args);
-	if (rc < 0)
-	{
-		printf("net_append_cc() error: can\'t append ");
-		printf(fmt, args);
-		printf("\n");
-		return;
-	}
-
-	buf_end += rc;
-
-	va_end(args);
-}
-
-void net_append_cc_n(const char *data, size_t len)
-{
-	assert(data != NULL);
-	assert(len > 0);
-
-	if (NULL == buf)
-		init_buf();
-
-	size_t nleft = BUF_SIZE - (buf_end - buf);
-	if (nleft < len) 
-	{
-		printf("net_append_cc_n() warning: buffer overflow, pruning %zd bytes\n",
-				len - nleft);
-		len = nleft;
-	}
-
-	memcpy(buf_end, data, len);
-
-	buf_end += len;
-}
-
-void net_send_cc()
+void net_send_header()
 {
 	assert(srv_sd > 0);
 
-	if (buf_end - buf == 0)
-		return;
+	char *data = "\xCC\xCC\xED"; 
 
-	if (write_block(srv_sd, CAPTIONS, buf, buf_end - buf) < 0)
+	if (write_block(srv_sd, BIN_HEADER, data, sizeof(data)) < 0)
 	{
 		printf("Can't send subtitle block\n");
 		return; // XXX: store somewhere
 	}
 
-	buf_end = buf;
+	char ok;
+	if (read_byte(srv_sd, &ok) != 1)
+		return;
+
+#if DEBUG_OUT
+	fprintf(stderr, "[S] ");
+	pr_command(ok);
+	fprintf(stderr, "\n");
+#endif
+
+	if (ERROR == ok)
+	{
+		printf("Internal server error\n"); 
+		return;
+	}
+}
+
+void net_send_cc(const char *data, size_t len)
+{
+	assert(srv_sd > 0);
+
+	if (write_block(srv_sd, CAPTIONS_BLK, data, len) < 0)
+	{
+		printf("Can't send subtitle block\n");
+		return; // XXX: store somewhere
+	}
 
 	char ok;
 	if (read_byte(srv_sd, &ok) != 1)
@@ -173,20 +138,6 @@ void net_send_cc()
 	}
 
 	return;
-}
-
-void net_set_new_program(const char *name)
-{
-	assert(name != NULL);
-	assert(srv_sd > 0);
-
-	size_t len = strlen(name) - 1; /* without '\0' */
-
-	if (write_block(srv_sd, PROGRAM, name, len) < 0)
-	{
-		printf("Can't send new program name to the server\n");
-		return; // XXX: store somewhere
-	}
 }
 
 /* block format: */
@@ -436,7 +387,7 @@ void pr_command(char c)
 		case UNKNOWN_COMMAND:
 			fprintf(stderr, "UNKNOWN_COMMAND");
 			break;
-		case ERROR :
+		case ERROR:
 			fprintf(stderr, "ERROR");
 			break;
 		case PROGRAM:
