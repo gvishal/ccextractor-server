@@ -7,8 +7,7 @@
 #define INT_LEN         10
 #define OK              1
 #define PASSWORD        2
-#define CAPTIONS        3
-#define PROGRAM         4
+#define BIN_HEADER      3
 #define ERROR           51
 #define UNKNOWN_COMMAND 52
 #define WRONG_PASSWORD  53

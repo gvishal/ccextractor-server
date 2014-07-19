@@ -15,7 +15,7 @@
 
 #include <sys/ioctl.h>
 
-#define DEBUG_OUT 0
+#define DEBUG_OUT 1
 
 /*
  * Writes data according to protocol to descriptor
@@ -82,16 +82,20 @@ void connect_to_srv(const char *addr, const char *port)
 	printf("Connected to %s:%s\n", addr, port);
 }
 
-void net_send_header()
+void net_send_header(const char *data, size_t len)
 {
 	assert(srv_sd > 0);
 
-	char *data = "\xCC\xCC\xED"; 
+#if DEBUG_OUT
+	fprintf(stderr, "[C] Sending header: \n");
+	fprintf(stderr, "File created by %02X version %02X%02X\n", data[3], data[4], data[5]);
+	fprintf(stderr, "File format revision: %02X%02X\n", data[6], data[7]);
+#endif
 
-	if (write_block(srv_sd, BIN_HEADER, data, sizeof(data)) < 0)
+	if (write_block(srv_sd, BIN_HEADER, data, len) < 0)
 	{
-		printf("Can't send subtitle block\n");
-		return; // XXX: store somewhere
+		printf("Can't send BIN header block\n");
+		return;
 	}
 
 	char ok;
@@ -115,27 +119,15 @@ void net_send_cc(const char *data, size_t len)
 {
 	assert(srv_sd > 0);
 
-	if (write_block(srv_sd, CAPTIONS_BLK, data, len) < 0)
-	{
-		printf("Can't send subtitle block\n");
-		return; // XXX: store somewhere
-	}
-
-	char ok;
-	if (read_byte(srv_sd, &ok) != 1)
-		return;
-
 #if DEBUG_OUT
-	fprintf(stderr, "[S] ");
-	pr_command(ok);
-	fprintf(stderr, "\n");
+	fprintf(stderr, "[C] Sending %zd bytes\n", len);
 #endif
 
-	if (ERROR == ok)
-	{
-		printf("Internal server error\n"); 
+	ssize_t rc;
+	if ((rc = writen(srv_sd, data, len)) < 0)
+		perror("write() error");
+	if (rc != INT_LEN)
 		return;
-	}
 
 	return;
 }
@@ -366,7 +358,6 @@ ssize_t write_byte(int fd, char ch)
 ssize_t read_byte(int fd, char *ch)
 {
 	assert(ch != 0);
-
 	return readn(fd, ch, 1);
 }
 
@@ -375,11 +366,11 @@ void pr_command(char c)
 {
 	switch(c)
 	{
-		case CAPTIONS:
-			fprintf(stderr, "CAPTIONS");
-			break;
 		case OK:
 			fprintf(stderr, "OK");
+			break;
+		case BIN_HEADER:
+			fprintf(stderr, "BIN_HEADER");
 			break;
 		case WRONG_PASSWORD:
 			fprintf(stderr, "WRONG_PASSWORD");
@@ -389,9 +380,6 @@ void pr_command(char c)
 			break;
 		case ERROR:
 			fprintf(stderr, "ERROR");
-			break;
-		case PROGRAM:
-			fprintf(stderr, "PROGRAM");
 			break;
 		case CONN_LIMIT:
 			fprintf(stderr, "CONN_LIMIT");

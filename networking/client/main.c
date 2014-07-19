@@ -38,15 +38,23 @@ int main(int argc, char *argv[])
 
 	size_t rc = 0;
 
-	if (0 != fseek(fp, 6, SEEK_SET)) { //skip bom and header
-		perror("fseek");
+	if ((rc = fread(buf, sizeof(char), 11, fp)) != 11)
+	{
+		printf("%d, Premature end of file!\n", __LINE__);
 		exit(EXIT_FAILURE);
 	}
 
-	net_send_header();
+	if (memcmp(buf, "\xCC\xCC\xED", 3))
+	{
+		printf("no header\n");
+		exit(0);
+	}
+
+	net_send_header(buf, 11);
 
 	uint16_t blk_cnt;
 	size_t len;
+
 
 	while (1)
 	{
@@ -54,22 +62,24 @@ int main(int argc, char *argv[])
 
 		if ((rc = fread(p, sizeof(char), 10, fp)) != 10)
 		{
-			printf("Premature end of file!\n");
+			printf("%d, Premature end of file!\n", __LINE__);
 			exit(EXIT_FAILURE);
 		}
+		
 		p += rc;
-
-		if ((blk_cnt = *((uint16_t *)(p + 8))) == 0)
+		if ((blk_cnt = *((uint16_t *)(p - 2))) == 0)
 			continue;
 
-		if ((len = blk_cnt * 3) > BUF_SIZE) {
+
+		if ((len = blk_cnt * 3) > BUF_SIZE) 
+		{
 			fprintf(stderr, "buffer overflow\n");
 			exit(EXIT_FAILURE);
 		}
 
 		if ((rc = fread(p, sizeof(char), len, fp)) != len)
 		{
-			printf("Premature end of file!\n");
+			printf("%d, Premature end of file!\n", __LINE__);
 			exit(EXIT_FAILURE);
 		}
 		p += rc;

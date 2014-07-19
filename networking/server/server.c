@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include <unistd.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <signal.h>
 #include <time.h>
@@ -30,6 +31,16 @@ struct cli_t
 	unsigned unique_id;
 
 	time_t muted_since;
+
+	pid_t cce_txt_pid;
+	char *txt_filepath;
+	char *bin_filepath;
+	FILE *txt_fp;
+	FILE *bin_fp;
+
+	unsigned bin_mode : 1;
+
+	unsigned is_sock : 1;
 
 	time_t program_start;
 	char *program_name;
@@ -155,6 +166,14 @@ int main()
 						continue;
 					}
 
+					if (set_nonblocking(new_sd) < 0)
+					{
+						_log("set_nonblocking() error: %s\n", strerror(errno));
+						close(new_sd);
+
+						continue;
+					}
+
 					fds[nfds].fd = new_sd;
 					fds[nfds].events = POLLIN;
 
@@ -252,7 +271,6 @@ int add_new_cli(int id, struct sockaddr *cliaddr, socklen_t clilen)
 		return -1;
 	}
 	memcpy(clients[id].host, host, host_len);
-
 	int serv_len = strlen(serv) + 1;
 	clients[id].serv = (char *) malloc(serv_len);
 	if (NULL == clients[id].serv)
@@ -262,7 +280,8 @@ int add_new_cli(int id, struct sockaddr *cliaddr, socklen_t clilen)
 	}
 	memcpy(clients[id].serv, serv, serv_len);
 
-	clients[id].is_logged = 0;
+	clients[id].is_logged = FALSE;
+	clients[id].is_sock = TRUE;
 
 	_log("Connected %s: %s\n", clients[id].host, clients[id].serv);
 
@@ -276,6 +295,28 @@ int clinet_command(int id)
 	size_t len = BUFFER_SIZE;
 
 	char buf[BUFFER_SIZE] = {0};
+
+	if (clients[id].bin_mode)
+	{
+		assert(clients[id].muted_since == 0);
+		assert(clients[id].is_logged);
+
+		assert(clients[id].bin_fp != NULL);
+		assert(clients[id].bin_filepath != NULL);
+
+		if ((rc = readn(fds[id].fd, buf, BUFFER_SIZE)) < 0)
+			c_log(clients[id].unique_id, "readn() error: %s\n", strerror(errno));
+		if (0 == rc)
+			return -1;
+
+		c_log(clients[id].unique_id, "Bin data received: %zd bytes\n", rc);
+
+		fwrite(buf, sizeof(char), rc, clients[id].bin_fp);
+		fflush(clients[id].bin_fp);
+
+		return 0;
+	}
+
 	if ((rc = read_block(fds[id].fd, &c, buf, &len)) <= 0)
 	{
 		if (rc < 0)
@@ -321,90 +362,91 @@ int clinet_command(int id)
 
 		break;
 
-	case CAPTIONS:
-		c_log(clients[id].unique_id, "Caption block, size: %d\n", len);
+	case BIN_HEADER:
+		c_log(clients[id].unique_id, "Bin header\n");
 
-		if (store_cc(id, buf, len) < 0)
+		assert(clients[id].txt_filepath == NULL);
+		assert(clients[id].txt_fp == NULL);
+
+		if ((clients[id].txt_filepath = (char *) malloc (PATH_MAX)) == NULL) 
 		{
-			write_byte(fds[id].fd, ERROR);
+			_log("malloc() error: %s\n", strerror(errno));
+			return -1;
+		}
+		if ((clients[id].bin_filepath = (char *) malloc (PATH_MAX)) == NULL) 
+		{
+			_log("malloc() error: %s\n", strerror(errno));
 			return -1;
 		}
 
+		time_t t = time(NULL);
+		struct tm *t_tm = localtime(&t);
+		char time_buf[30] = {0};
+		strftime(time_buf, 30, "%G/%m-%b/%d", t_tm);
+
+		char dir[PATH_MAX] = {0};
+		snprintf(dir, PATH_MAX, "%s/%s", cfg.arch_dir, time_buf);
+
+		if (_mkdir(dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH ) < 0)
+		{
+			_log("_mkdir() error: %s\n", strerror(errno));
+			return -1;
+		}
+
+		memset(time_buf, 0, sizeof(time_buf));
+		strftime(time_buf, 30, "%H:%M:%S", t_tm);
+
+		snprintf(clients[id].txt_filepath, PATH_MAX, "%s/%s--%d.txt", 
+				dir, time_buf, clients[id].unique_id); 
+
+
+		clients[id].txt_fp = fopen(clients[id].txt_filepath, "w+");
+		if (NULL == clients[id].txt_fp)
+		{
+			_log("fopen() error: %s\n", strerror(errno));
+			return -1;
+		}
+
+		snprintf(clients[id].bin_filepath, PATH_MAX, "%s/%s--%d.bin", 
+				dir, time_buf, clients[id].unique_id); 
+		clients[id].bin_fp = fopen(clients[id].bin_filepath, "w");
+		if (NULL == clients[id].txt_fp)
+		{
+			_log("fopen() error: %s\n", strerror(errno));
+			return -1;
+		}
+		fwrite(buf, sizeof(char), len, clients[id].bin_fp);
+
+		if ((clients[id].cce_txt_pid = fork()) < 0)
+		{
+			_log("fork() error: %s\n", strerror(errno));
+			return -1;
+		}
+		else if (clients[id].cce_txt_pid == 0)
+		{
+			char *const v[] = 
+			{
+				"ccextractor", 
+				"-in=bin", 
+				clients[id].bin_filepath,
+				"--stream",
+				"-out=ttxt",
+				"-xds",
+				"-autoprogram",
+				"-o", clients[id].txt_filepath,
+				NULL
+			};
+
+			if (execv("./ccextractor", v) < 0) {
+				perror("execv");
+				exit(EXIT_FAILURE);
+			}
+		}
+
+		clients[id].bin_mode = TRUE;
+		
 		if (write_byte(fds[id].fd, OK) != 1)
 			return -1;
-
-		break;
-
-	case PROGRAM:
-		if ((NULL == clients[id].buf_fp) && (open_buf_file(id) < 0))
-		{
-			write_byte(fds[id].fd, ERROR);
-			return -1;
-		}
-
-		int was_null = TRUE;
-		if (clients[id].program_name != NULL)
-		{
-			free(clients[id].program_name);
-			clients[id].program_name = NULL;
-			was_null = FALSE;
-		}
-
-		size_t l = len + 1; /* +1 for '\0' */
-		clients[id].program_name = nice_str(buf, &l);
-		if (NULL == clients[id].program_name) 
-		{
-			write_byte(fds[id].fd, ERROR);
-			return -1;
-		}
-		clients[id].program_name[l] = '\0';
-		clients[id].program_id++;
-
-		c_log(clients[id].unique_id, "New program: %s\n", clients[id].program_name);
-
-		char program_id_str[INT_LEN] = {0};
-		snprintf(program_id_str, INT_LEN, "%u", clients[id].program_id);
-		if (send_to_buf(id, PROGRAM_ID, program_id_str, INT_LEN) < 0)
-		{
-			write_byte(fds[id].fd, ERROR);
-			return -1;
-		}
-
-		char com;
-		if (was_null)
-			com = PROGRAM;
-		else
-			com = RESET_PROGRAM;
-		if (send_to_buf(id, com, buf, l) < 0)
-		{
-			write_byte(fds[id].fd, ERROR);
-			return -1;
-		}
-
-		if (clients[id].arch_fp != NULL)
-		{
-			fclose(clients[id].arch_fp);
-			clients[id].arch_fp = NULL;
-		}
-
-		if (clients[id].arch_filepath != NULL)
-		{
-			free(clients[id].arch_filepath);
-			clients[id].arch_filepath = NULL;
-		}
-
-		if (open_arch_file(id) < 0)
-		{
-			write_byte(fds[id].fd, ERROR);
-			return -1;
-		}
-
-		if (update_users_file() < 0)
-		{
-			write_byte(fds[id].fd, ERROR);
-			return -1;
-		}
-
 		break;
 
 	default:
@@ -427,25 +469,25 @@ void close_conn(int id)
 	if (clients[id].serv != NULL)
 		free(clients[id].serv);
 
-	if (clients[id].buf_fp != NULL)
-	{
-		send_to_buf(id, CONN_CLOSED, NULL, 0);
+	/* if (clients[id].buf_fp != NULL) */
+	/* { */
+	/* 	send_to_buf(id, CONN_CLOSED, NULL, 0); */
 
-		fclose(clients[id].buf_fp);
-		if (unlink(clients[id].buf_file_path) < 0) 
-			_log("unlink() error: %s\n", strerror(errno));
+	/* 	fclose(clients[id].buf_fp); */
+	/* 	if (unlink(clients[id].buf_file_path) < 0)  */
+	/* 		_log("unlink() error: %s\n", strerror(errno)); */
 
-		assert(clients[id].buf_file_path != NULL);
-		free(clients[id].buf_file_path);
-	}
+	/* 	assert(clients[id].buf_file_path != NULL); */
+	/* 	free(clients[id].buf_file_path); */
+	/* } */
 
-	if (clients[id].arch_fp != NULL)
-	{
-		fclose(clients[id].arch_fp);
+	/* if (clients[id].arch_fp != NULL) */
+	/* { */
+	/* 	fclose(clients[id].arch_fp); */
 
-		assert(clients[id].arch_filepath != NULL);
-		free(clients[id].arch_filepath);
-	}
+	/* 	assert(clients[id].arch_filepath != NULL); */
+	/* 	free(clients[id].arch_filepath); */
+	/* } */
 
 	close(fds[id].fd);
 	fds[id].fd = -1;
@@ -469,12 +511,10 @@ int update_users_file()
 		if (!clients[i].is_logged)
 			continue;
 		
-		fprintf(fp, "%u %s:%s %d | %s\n", 
+		fprintf(fp, "%u %s:%s\n", 
 				clients[i].unique_id,
 				clients[i].host, 
-				clients[i].serv,
-				(int)clients[i].program_start,
-				clients[i].program_name); /* should print (null) */
+				clients[i].serv);
 	}
 
 	fclose(fp);
@@ -520,164 +560,95 @@ void open_log_file()
 	printf("strerr is redirected to log file: %s\n", log_filepath);
 }
 
-int open_buf_file(int id)
-{
-	assert(clients[id].buf_fp == NULL);
-	assert(clients[id].buf_file_path == NULL);
+/* int open_buf_file(int id) */
+/* { */
+	/* assert(clients[id].buf_fp == NULL); */
+	/* assert(clients[id].buf_file_path == NULL); */
 
-	if ((clients[id].buf_file_path = (char *) malloc (PATH_MAX)) == NULL) 
-	{
-		_log("malloc() error: %s\n", strerror(errno));
-		return -1;
-	}
+	/* if ((clients[id].buf_file_path = (char *) malloc (PATH_MAX)) == NULL)  */
+	/* { */
+	/* 	_log("malloc() error: %s\n", strerror(errno)); */
+	/* 	return -1; */
+	/* } */
 
-	snprintf(clients[id].buf_file_path, PATH_MAX, 
-			"%s/%u.txt", cfg.buf_dir, clients[id].unique_id);
+	/* snprintf(clients[id].buf_file_path, PATH_MAX,  */
+	/* 		"%s/%u.txt", cfg.buf_dir, clients[id].unique_id); */
 
-	clients[id].buf_fp = fopen(clients[id].buf_file_path, "w+");
-	if (clients[id].buf_fp == NULL)
-	{
-		_log("fopen() error: %s\n", strerror(errno));
-		return -1;
-	}
+	/* clients[id].buf_fp = fopen(clients[id].buf_file_path, "w+"); */
+	/* if (clients[id].buf_fp == NULL) */
+	/* { */
+	/* 	_log("fopen() error: %s\n", strerror(errno)); */
+	/* 	return -1; */
+	/* } */
 
-	if (setvbuf(clients[id].buf_fp, NULL, _IOLBF, 0) < 0) 
-	{
-		_log("setvbuf() error: %s\n", strerror(errno));
-		return -1;
-	}
+	/* if (setvbuf(clients[id].buf_fp, NULL, _IOLBF, 0) < 0)  */
+	/* { */
+	/* 	_log("setvbuf() error: %s\n", strerror(errno)); */
+	/* 	return -1; */
+	/* } */
 
-	c_log(clients[id].unique_id, "Buffer file: %s\n", clients[id].buf_file_path);
+	/* c_log(clients[id].unique_id, "Buffer file: %s\n", clients[id].buf_file_path); */
 
-	return 0;
-}
-
-int open_arch_file(int id)
-{
-	assert(clients[id].arch_fp == NULL);
-	assert(clients[id].arch_filepath == NULL);
-
-	if ((clients[id].arch_filepath = (char *) malloc (PATH_MAX)) == NULL) 
-	{
-		_log("malloc() error: %s\n", strerror(errno));
-		return -1;
-	}
-
-	time_t t = time(NULL);
-	struct tm *t_tm = localtime(&t);
-	char time_buf[30] = {0};
-	strftime(time_buf, 30, "%G/%m-%b/%d", t_tm);
-
-	char dir[PATH_MAX] = {0};
-	snprintf(dir, PATH_MAX, "%s/%s", cfg.arch_dir, time_buf);
-
-	if (_mkdir(dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH ) < 0)
-	{
-		_log("_mkdir() error: %s\n", strerror(errno));
-		return -1;
-	}
-
-	clients[id].program_start = t;
-	memset(time_buf, 0, sizeof(time_buf));
-	strftime(time_buf, 30, "%H:%M:%S", t_tm);
-
-	snprintf(clients[id].arch_filepath, PATH_MAX, "%s/%s--%d.txt", 
-			dir, time_buf, clients[id].unique_id); 
-
-	clients[id].arch_fp = fopen(clients[id].arch_filepath, "w+");
-	if (NULL == clients[id].arch_fp)
-	{
-		_log("fopen() error: %s\n", strerror(errno));
-		return -1;
-	}
-
-	if (setvbuf(clients[id].arch_fp, NULL, _IOLBF, 0) < 0) {
-		_log("setvbuf() error: %s\n", strerror(errno));
-		return -1;
-	}
-
-	if (append_to_arch_info(id) < 0)
-		return -1;
-
-	return 0;
-}
-
-int store_cc(int id, char *buf, size_t len)
-{
-	assert(buf != 0);
-	assert(len > 0);
-
-	if ((NULL == clients[id].buf_fp) && (open_buf_file(id) < 0))
-		return -1;
-
-	if (send_to_buf(id, CAPTIONS, buf, len) < 0)
-		return -1;
-
-	if ((NULL == clients[id].arch_fp) && (open_arch_file(id) < 0))
-		return -1;
-
-	fwrite(buf, sizeof(char), len, clients[id].arch_fp);
-
-	return 0;
-}
+	/* return 0; */
+/* } */
 
 int send_to_buf(int id, char command, char *buf, size_t len)
 {
-	assert(clients[id].buf_fp != NULL);
+	/* assert(clients[id].buf_fp != NULL); */
 
-	char *tmp = nice_str(buf, &len);
-	if (NULL == tmp && buf != NULL)
-			return -1;
+	/* char *tmp = nice_str(buf, &len); */
+	/* if (NULL == tmp && buf != NULL) */
+	/* 		return -1; */
 
-	int rc; 
-	if (clients[id].buf_line_cnt >= cfg.buf_max_lines)
-	{
-		if ((rc = delete_n_lines(&clients[id].buf_fp, 
-					clients[id].buf_file_path,
-					clients[id].buf_line_cnt - cfg.buf_min_lines)) < 0)
-		{
-			e_log(rc);
-			free(tmp);
-			return -1;
-		}
-		clients[id].buf_line_cnt = cfg.buf_min_lines;
-	}
+	/* int rc;  */
+	/* if (clients[id].buf_line_cnt >= cfg.buf_max_lines) */
+	/* { */
+	/* 	if ((rc = delete_n_lines(&clients[id].buf_fp,  */
+	/* 				clients[id].buf_file_path, */
+	/* 				clients[id].buf_line_cnt - cfg.buf_min_lines)) < 0) */
+	/* 	{ */
+	/* 		e_log(rc); */
+	/* 		free(tmp); */
+	/* 		return -1; */
+	/* 	} */
+	/* 	clients[id].buf_line_cnt = cfg.buf_min_lines; */
+	/* } */
 
-	if (0 != flock(fileno(clients[id].buf_fp), LOCK_EX)) 
-	{
-		_log("flock() error: %s\n", strerror(errno));
-		free(tmp);
-		return -1;
-	}
+	/* if (0 != flock(fileno(clients[id].buf_fp), LOCK_EX))  */
+	/* { */
+	/* 	_log("flock() error: %s\n", strerror(errno)); */
+	/* 	free(tmp); */
+	/* 	return -1; */
+	/* } */
 
-	fprintf(clients[id].buf_fp, "%d %d ", 
-			clients[id].cur_line, command);
+	/* fprintf(clients[id].buf_fp, "%d %d ",  */
+	/* 		clients[id].cur_line, command); */
 
-	if (tmp != NULL && len > 0)
-	{
-		fprintf(clients[id].buf_fp, "%zd ", len);
-		fwrite(tmp, sizeof(char), len, clients[id].buf_fp);
-	}
+	/* if (tmp != NULL && len > 0) */
+	/* { */
+	/* 	fprintf(clients[id].buf_fp, "%zd ", len); */
+	/* 	fwrite(tmp, sizeof(char), len, clients[id].buf_fp); */
+	/* } */
 
-	fprintf(clients[id].buf_fp, "\r\n");
+	/* fprintf(clients[id].buf_fp, "\r\n"); */
 
-	clients[id].cur_line++;
-	clients[id].buf_line_cnt++;
+	/* clients[id].cur_line++; */
+	/* clients[id].buf_line_cnt++; */
 
-	if (0 != flock(fileno(clients[id].buf_fp), LOCK_UN))
-	{
-		_log("flock() error: %s\n", strerror(errno));
-		free(tmp);
-		return -1;
-	}
+	/* if (0 != flock(fileno(clients[id].buf_fp), LOCK_UN)) */
+	/* { */
+	/* 	_log("flock() error: %s\n", strerror(errno)); */
+	/* 	free(tmp); */
+	/* 	return -1; */
+	/* } */
 
-	free(tmp);
+	/* free(tmp); */
 	return 1;
 }
 
 int cli_logged_in(int id)
 {
-	clients[id].is_logged = 1;
+	clients[id].is_logged = TRUE;
 
 new_id:
 	last_unique_id++;
@@ -707,35 +678,35 @@ new_id:
 
 int append_to_arch_info(int id)
 {
-	time_t t = time(NULL);
-	struct tm *t_tm = localtime(&t);
+	/* time_t t = time(NULL); */
+	/* struct tm *t_tm = localtime(&t); */
 
-	char time_buf[30] = {0};
-	strftime(time_buf, 30, "%G/%m-%b/%d", t_tm);
+	/* char time_buf[30] = {0}; */
+	/* strftime(time_buf, 30, "%G/%m-%b/%d", t_tm); */
 
-	char info_filepath[PATH_MAX];
-	snprintf(info_filepath, PATH_MAX, "%s/%s/%s", 
-    		cfg.arch_dir,
-    		time_buf,
-    		cfg.arch_info_filename);
+	/* char info_filepath[PATH_MAX]; */
+	/* snprintf(info_filepath, PATH_MAX, "%s/%s/%s",  */
+    		/* cfg.arch_dir, */
+    		/* time_buf, */
+    		/* cfg.arch_info_filename); */
 
-	FILE *info_fp = fopen(info_filepath, "a");
-	if (NULL == info_fp)
-	{
-		_log("fopen() error: %s\n", strerror(errno));
-		return -1;
-	}
+	/* FILE *info_fp = fopen(info_filepath, "a"); */
+	/* if (NULL == info_fp) */
+	/* { */
+	/* 	_log("fopen() error: %s\n", strerror(errno)); */
+	/* 	return -1; */
+	/* } */
 
-	fprintf(info_fp, "%d %u %s %s:%s %u | %s\n",
-			(int) t,
-			clients[id].unique_id,
-			clients[id].arch_filepath,
-			clients[id].host,
-			clients[id].serv,
-			clients[id].program_id,
-			clients[id].program_name); /* prints (null) when it's NULL */
+	/* fprintf(info_fp, "%d %u %s %s:%s %u | %s\n", */
+	/* 		(int) t, */
+	/* 		clients[id].unique_id, */
+	/* 		clients[id].arch_filepath, */
+	/* 		clients[id].host, */
+	/* 		clients[id].serv, */
+	/* 		clients[id].program_id, */
+	/* 		clients[id].program_name); #<{(| prints (null) when it's NULL |)}># */
 
-	fclose(info_fp);
+	/* fclose(info_fp); */
 
-	return 0;
+	/* return 0; */
 }

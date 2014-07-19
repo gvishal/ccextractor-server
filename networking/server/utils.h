@@ -59,4 +59,7 @@ int delete_n_lines(FILE **fp, const char *filepath, size_t n);
 /* Returns malloc'ed copy of `s` without not printable chars*/
 char *nice_str(const char *s, size_t *len);
 
+/* Sets socket in non blocking mode */
+int set_nonblocking(int fd);
+
 #endif /* end of include guard: UTILS_H */

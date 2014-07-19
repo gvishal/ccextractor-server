@@ -14,6 +14,7 @@
 #include <signal.h>
 #include <netdb.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 
 ssize_t 
 readn(int fd, void *vptr, size_t n) 
@@ -38,15 +39,12 @@ readn(int fd, void *vptr, size_t n)
 
 		if (nread < 0) 
 		{
-			if (errno == EINTR)
-			{
+			if (EINTR == errno)
 				nread = 0;
-			}
+			else if (EAGAIN == errno)
+				break;
 			else 
-			{
-				perror("read() error");
 				return -1;
-			}
 		}
 		else if (0 == nread) 
 		{
@@ -336,4 +334,18 @@ char *nice_str(const char *s, size_t *len)
 	*len = j;
 
 	return ret;
+}
+
+int set_nonblocking(int fd)
+{
+	int f;
+#ifdef O_NONBLOCK
+	if ((f = fcntl(fd, F_GETFL, 0)) < 0)
+		f = 0;
+
+	return fcntl(fd, F_SETFL, f | O_NONBLOCK); 
+#else
+	f = 1;
+	return ioctl(fd, FIONBIO, &f);
+#endif
 }
