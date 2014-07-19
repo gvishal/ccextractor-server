@@ -3,6 +3,7 @@
 
 #include <sys/types.h>
 #include <netdb.h>
+#include <stdio.h>
 
 #define USERS_FILE_PATH "connections.txt"
 
@@ -25,5 +26,11 @@ int send_to_buf(int id, char command, char *buf, size_t len);
 int store_cc(int id, char *buf, size_t len);
 int open_arch_file(int id);
 int append_to_arch_info(int id);
+
+int open_cc_file(char **path, FILE **fp, const char *ext, int id);
+
+int fork_cce(int id);
+
+int fork_txt_watchdog(int id);
 
 #endif /* end of include guard: SERVER_H */

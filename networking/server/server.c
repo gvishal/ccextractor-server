@@ -4,7 +4,6 @@
 #include "params.h"
 
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 
 #include <unistd.h>
@@ -33,14 +32,13 @@ struct cli_t
 	time_t muted_since;
 
 	pid_t cce_txt_pid;
+	pid_t txt_pid;
 	char *txt_filepath;
 	char *bin_filepath;
 	FILE *txt_fp;
 	FILE *bin_fp;
 
 	unsigned bin_mode : 1;
-
-	unsigned is_sock : 1;
 
 	time_t program_start;
 	char *program_name;
@@ -50,14 +48,12 @@ struct cli_t
 	FILE *buf_fp;
 	unsigned buf_line_cnt;
 	int cur_line;
-
-	char *arch_filepath;
-	FILE *arch_fp;
 } *clients; 
 
 unsigned last_unique_id;
 
 struct pollfd *fds;
+nfds_t nfds;
 
 /* int main(int argc, char *argv[]) */
 int main()
@@ -118,12 +114,14 @@ int main()
 	fds[0].fd = listen_sd;
 	fds[0].events = POLLIN;
 	clients[0].is_logged = 1;
-	nfds_t nfds = 1;
+
+	nfds = 1;
 
 	int compress_array = FALSE;
 
 	while (1)
 	{
+		/* XXX: use fork */
 		if (poll(fds, nfds, -1) < 0) 
 		{ 
 			if (EINTR == errno) 
@@ -281,7 +279,6 @@ int add_new_cli(int id, struct sockaddr *cliaddr, socklen_t clilen)
 	memcpy(clients[id].serv, serv, serv_len);
 
 	clients[id].is_logged = FALSE;
-	clients[id].is_sock = TRUE;
 
 	_log("Connected %s: %s\n", clients[id].host, clients[id].serv);
 
@@ -367,86 +364,41 @@ int clinet_command(int id)
 
 		assert(clients[id].txt_filepath == NULL);
 		assert(clients[id].txt_fp == NULL);
-
-		if ((clients[id].txt_filepath = (char *) malloc (PATH_MAX)) == NULL) 
-		{
-			_log("malloc() error: %s\n", strerror(errno));
-			return -1;
-		}
-		if ((clients[id].bin_filepath = (char *) malloc (PATH_MAX)) == NULL) 
-		{
-			_log("malloc() error: %s\n", strerror(errno));
-			return -1;
-		}
-
-		time_t t = time(NULL);
-		struct tm *t_tm = localtime(&t);
-		char time_buf[30] = {0};
-		strftime(time_buf, 30, "%G/%m-%b/%d", t_tm);
-
-		char dir[PATH_MAX] = {0};
-		snprintf(dir, PATH_MAX, "%s/%s", cfg.arch_dir, time_buf);
-
-		if (_mkdir(dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH ) < 0)
-		{
-			_log("_mkdir() error: %s\n", strerror(errno));
-			return -1;
-		}
-
-		memset(time_buf, 0, sizeof(time_buf));
-		strftime(time_buf, 30, "%H:%M:%S", t_tm);
-
-		snprintf(clients[id].txt_filepath, PATH_MAX, "%s/%s--%d.txt", 
-				dir, time_buf, clients[id].unique_id); 
-
-
-		clients[id].txt_fp = fopen(clients[id].txt_filepath, "w+");
-		if (NULL == clients[id].txt_fp)
-		{
-			_log("fopen() error: %s\n", strerror(errno));
-			return -1;
-		}
-
-		snprintf(clients[id].bin_filepath, PATH_MAX, "%s/%s--%d.bin", 
-				dir, time_buf, clients[id].unique_id); 
-		clients[id].bin_fp = fopen(clients[id].bin_filepath, "w");
-		if (NULL == clients[id].txt_fp)
-		{
-			_log("fopen() error: %s\n", strerror(errno));
-			return -1;
-		}
-		fwrite(buf, sizeof(char), len, clients[id].bin_fp);
-
-		if ((clients[id].cce_txt_pid = fork()) < 0)
-		{
-			_log("fork() error: %s\n", strerror(errno));
-			return -1;
-		}
-		else if (clients[id].cce_txt_pid == 0)
-		{
-			char *const v[] = 
-			{
-				"ccextractor", 
-				"-in=bin", 
-				clients[id].bin_filepath,
-				"--stream",
-				"-out=ttxt",
-				"-xds",
-				"-autoprogram",
-				"-o", clients[id].txt_filepath,
-				NULL
-			};
-
-			if (execv("./ccextractor", v) < 0) {
-				perror("execv");
-				exit(EXIT_FAILURE);
-			}
-		}
+		assert(clients[id].bin_filepath == NULL);
+		assert(clients[id].bin_fp == NULL);
 
 		clients[id].bin_mode = TRUE;
-		
+
+		rc = open_cc_file(&clients[id].txt_filepath,
+				&clients[id].txt_fp, "txt", 
+				clients[id].unique_id);
+		if (rc < 0)
+			return -1;
+
+		rc = open_cc_file(&clients[id].bin_filepath,
+				&clients[id].bin_fp, "bin", 
+				clients[id].unique_id);
+		if (rc < 0)
+			return -1;
+
+		/* fprintf(stderr, "bin file: %s\n", clients[id].bin_filepath); */
+		/* fprintf(stderr, "txt file: %s\n", clients[id].txt_filepath); */
+
+		fwrite(buf, sizeof(char), len, clients[id].bin_fp); /* Header */
+
+		if (fork_cce(id) < 0)
+			return -1;
+
+		/* fprintf(stderr, "ccextr pid: %d\n", clients[id].cce_txt_pid); */
+
+		if (fork_txt_watchdog(id) < 0)
+			return -1;
+
+		/* fprintf(stderr, "watchdog pid: %d\n", clients[id].txt_pid); */
+
 		if (write_byte(fds[id].fd, OK) != 1)
 			return -1;
+
 		break;
 
 	default:
@@ -709,4 +661,124 @@ int append_to_arch_info(int id)
 	/* fclose(info_fp); */
 
 	/* return 0; */
+}
+
+int open_cc_file(char **path, FILE **fp, const char *ext, int id)
+{
+	if ((*path = (char *) malloc(PATH_MAX)) == NULL) 
+	{
+		_log("malloc() error: %s\n", strerror(errno));
+		return -1;
+	}
+
+	time_t t = time(NULL);
+	struct tm *t_tm = localtime(&t);
+	char time_buf[30] = {0};
+	strftime(time_buf, 30, "%G/%m-%b/%d", t_tm);
+
+	char dir[PATH_MAX] = {0};
+	snprintf(dir, PATH_MAX, "%s/%s", cfg.arch_dir, time_buf);
+
+	if (_mkdir(dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH ) < 0)
+	{
+		_log("_mkdir() error: %s\n", strerror(errno));
+		return -1;
+	}
+
+	memset(time_buf, 0, sizeof(time_buf));
+	strftime(time_buf, 30, "%H:%M:%S", t_tm);
+
+	snprintf(*path, PATH_MAX, "%s/%s--%d.%s", dir, time_buf, id, ext); 
+
+	if ((*fp = fopen(*path, "w+")) == NULL)
+	{
+		_log("fopen() error: %s\n", strerror(errno));
+		return -1;
+	}
+
+	return 0;
+}
+
+int fork_cce(int id)
+{
+	assert(clients[id].txt_filepath != NULL);
+	assert(clients[id].bin_filepath != NULL);
+
+	if ((clients[id].cce_txt_pid = fork()) < 0)
+	{
+		_log("fork() error: %s\n", strerror(errno));
+		return -1;
+	}
+	else if (clients[id].cce_txt_pid == 0)
+	{
+		char *const v[] = 
+		{
+			"ccextractor", 
+			"-in=bin", 
+			clients[id].bin_filepath,
+			"--stream",
+			"-quiet",
+			"-out=ttxt",
+			"-xds",
+			"-autoprogram",
+			"-o", clients[id].txt_filepath,
+			NULL
+		};
+
+		if (execv("./ccextractor", v) < 0) 
+		{
+			perror("execv");
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	return 0;
+}
+
+int fork_txt_watchdog(int id)
+{
+	assert(clients[id].txt_fp != NULL);
+	assert(clients[id].txt_filepath != NULL);
+
+	if ((clients[id].txt_pid = fork()) < 0)
+	{
+		_log("fork() error: %s\n", strerror(errno));
+		return -1;
+	}
+	else if (clients[id].txt_pid != 0)
+	{
+		return 0;
+	}
+
+	/* Child: */
+
+	/* if (set_nonblocking(fileno(clients[id].txt_fp)) < 0) */
+		/* exit(EXIT_FAILURE); */
+
+	/* char *line = NULL; */
+	char line[999] = {0};
+	char *p = line;
+	size_t len = 999;
+	int rc;
+	FILE *fp = clients[id].txt_fp;
+	while (1)
+	{
+		p = line;
+		while (1)
+		{
+			rc = fread(p, 1, 1, fp);
+			if ()
+			if (rc > 0)
+				p++;
+			if ('\n' == *p) break;
+		}
+
+		_log("len: %d\n", p - line);
+
+		exit(0);
+		/* fwrite(line, sizeof(char), p - line, stdout); */
+		/* fflush(stdout); */
+	}
+
+	exit(0);
 }
