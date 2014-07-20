@@ -27,10 +27,10 @@ int store_cc(int id, char *buf, size_t len);
 int open_arch_file(int id);
 int append_to_arch_info(int id);
 
-int open_file(char **path, FILE **fp, const char *ext, int id);
+int file_path(char **path, const char *ext, int id);
 
 int fork_cce(int id);
 
-int fork_txt_watchdog(int id);
+int fork_txt_parser(int id);
 
 #endif /* end of include guard: SERVER_H */

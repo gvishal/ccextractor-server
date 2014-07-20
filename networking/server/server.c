@@ -31,14 +31,16 @@ struct cli_t
 
 	time_t muted_since;
 
-	pid_t cce_txt_pid;
-	pid_t txt_pid;
-	char *txt_filepath;
+	unsigned bin_mode : 1;
 	char *bin_filepath;
-	FILE *txt_fp;
+	pid_t txt_parcer_pid;
 	FILE *bin_fp;
 
-	unsigned bin_mode : 1;
+	pid_t cce_txt_pid;
+	char *txt_filepath;
+
+	pid_t cce_srt_pid;
+	char *srt_filepath;
 
 	char *buf_file_path;
 	FILE *buf_fp;
@@ -359,20 +361,28 @@ int clinet_command(int id)
 		c_log(clients[id].unique_id, "Bin header\n");
 
 		assert(clients[id].txt_filepath == NULL);
-		assert(clients[id].txt_fp == NULL);
 		assert(clients[id].bin_filepath == NULL);
 		assert(clients[id].bin_fp == NULL);
 
 		clients[id].bin_mode = TRUE;
 
-		rc = open_file(&clients[id].txt_filepath,
-				&clients[id].txt_fp, "txt", 
+		rc = file_path(&clients[id].bin_filepath, "bin", 
 				clients[id].unique_id);
 		if (rc < 0)
 			return -1;
 
-		rc = open_file(&clients[id].bin_filepath,
-				&clients[id].bin_fp, "bin", 
+		if ((clients[id].bin_fp = fopen(clients[id].bin_filepath, "w+")) == NULL)
+		{
+			_log("fopen() error: %s\n", strerror(errno));
+			return -1;
+		}
+
+		rc = file_path(&clients[id].txt_filepath, "txt", 
+				clients[id].unique_id);
+		if (rc < 0)
+			return -1;
+
+		rc = file_path(&clients[id].srt_filepath, "srt", 
 				clients[id].unique_id);
 		if (rc < 0)
 			return -1;
@@ -382,7 +392,7 @@ int clinet_command(int id)
 		if (fork_cce(id) < 0)
 			return -1;
 
-		if (fork_txt_watchdog(id) < 0)
+		if (fork_txt_parser(id) < 0)
 			return -1;
 
 		if (append_to_arch_info(id) < 0)
@@ -413,11 +423,23 @@ void close_conn(int id)
 	if (clients[id].serv != NULL)
 		free(clients[id].serv);
 
-	if (clients[id].txt_pid > 0 && kill(clients[id].txt_pid, SIGINT) < 0)
+	if (clients[id].txt_parcer_pid > 0 && kill(clients[id].txt_parcer_pid, SIGINT) < 0)
 		_log("kill error(): %s\n", strerror(errno));
+
+	if (clients[id].bin_filepath != NULL)
+		free(clients[id].bin_filepath);
 
 	if (clients[id].cce_txt_pid > 0 && kill(clients[id].cce_txt_pid, SIGINT) < 0)
 		_log("kill error(): %s\n", strerror(errno));
+
+	if (clients[id].txt_filepath != NULL)
+		free(clients[id].txt_filepath);
+
+	if (clients[id].cce_srt_pid > 0 && kill(clients[id].cce_srt_pid, SIGINT) < 0)
+		_log("kill error(): %s\n", strerror(errno));
+
+	if (clients[id].srt_filepath != NULL)
+		free(clients[id].srt_filepath);
 
 	if (clients[id].buf_fp != NULL)
 	{
@@ -645,21 +667,25 @@ int append_to_arch_info(int id)
 		return -1;
 	}
 
-	fprintf(info_fp, "%d %u %s:%s %s %s\n",
+	fprintf(info_fp, "%d %u %s:%s %s %s %s\n",
 			(int) t,
 			clients[id].unique_id,
 			clients[id].host,
 			clients[id].serv,
 			clients[id].bin_filepath,
-			clients[id].txt_filepath);
+			clients[id].txt_filepath,
+			clients[id].srt_filepath);
 
 	fclose(info_fp);
 
 	return 0;
 }
 
-int open_file(char **path, FILE **fp, const char *ext, int id)
+int file_path(char **path, const char *ext, int id)
 {
+	assert(NULL == *path);
+	assert(ext != NULL);
+
 	if ((*path = (char *) malloc(PATH_MAX)) == NULL) 
 	{
 		_log("malloc() error: %s\n", strerror(errno));
@@ -685,19 +711,14 @@ int open_file(char **path, FILE **fp, const char *ext, int id)
 
 	snprintf(*path, PATH_MAX, "%s/%s--%d.%s", dir, time_buf, id, ext); 
 
-	if ((*fp = fopen(*path, "w+")) == NULL)
-	{
-		_log("fopen() error: %s\n", strerror(errno));
-		return -1;
-	}
-
 	return 0;
 }
 
 int fork_cce(int id)
 {
-	assert(clients[id].txt_filepath != NULL);
 	assert(clients[id].bin_filepath != NULL);
+	assert(clients[id].txt_filepath != NULL);
+	assert(clients[id].srt_filepath != NULL);
 
 	if ((clients[id].cce_txt_pid = fork()) < 0)
 	{
@@ -727,29 +748,60 @@ int fork_cce(int id)
 		}
 	}
 
-	return 0;
-}
-
-int fork_txt_watchdog(int id)
-{
-	assert(clients[id].txt_fp != NULL);
-	assert(clients[id].txt_filepath != NULL);
-
-	if ((clients[id].txt_pid = fork()) < 0)
+	if ((clients[id].cce_srt_pid = fork()) < 0)
 	{
 		_log("fork() error: %s\n", strerror(errno));
 		return -1;
 	}
-	else if (clients[id].txt_pid != 0)
+	else if (clients[id].cce_srt_pid == 0)
 	{
-		fclose(clients[id].txt_fp);
+		char *const v[] = 
+		{
+			"ccextractor", 
+			"-in=bin", 
+			clients[id].bin_filepath,
+			"--stream",
+			"-quiet",
+			"-out=srt",
+			"-autoprogram",
+			"-o", clients[id].srt_filepath,
+			NULL
+		};
+
+		if (execv("./ccextractor", v) < 0) 
+		{
+			perror("execv");
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	return 0;
+}
+
+int fork_txt_parser(int id)
+{
+	assert(clients[id].txt_filepath != NULL);
+
+	if ((clients[id].txt_parcer_pid = fork()) < 0)
+	{
+		_log("fork() error: %s\n", strerror(errno));
+		return -1;
+	}
+	else if (clients[id].txt_parcer_pid != 0)
+	{
 		return 0;
+	}
+
+	FILE *fp = fopen(clients[id].txt_filepath, "w+");
+	if (NULL == fp)
+	{
+		_log("fopen() error: %s\n", strerror(errno));
+		exit(EXIT_FAILURE);
 	}
 
 	char *line = NULL;
 	size_t len = 0;
 	int rc;
-	FILE *fp = clients[id].txt_fp;
 
 	fpos_t pos;
 	while (1)
@@ -779,5 +831,5 @@ int fork_txt_watchdog(int id)
 			exit(EXIT_FAILURE);
 	}
 
-	exit(0);
+	exit(EXIT_SUCCESS);
 }
