@@ -107,7 +107,7 @@ int bind_server(int port)
 		if (-1 == sockfd) 
 		{
 			_log("socket() error: %s\n", strerror(errno));
-			_log("trying next address");
+			_log("trying next address\n");
 
 			continue;
 		}
@@ -117,7 +117,7 @@ int bind_server(int port)
 				(char *)&opt_val, sizeof(opt_val)) < 0) 
 		{
 			_log("setsockopt() error: %s\n", strerror(errno));
-			_log("trying next address");
+			_log("trying next address\n");
 			close(sockfd);
 
 			continue;
@@ -126,7 +126,7 @@ int bind_server(int port)
 		if (ioctl(sockfd, FIONBIO, (char *)&opt_val) < 0)
 		{
 			_log("ioctl() error: %s\n", strerror(errno));
-			_log("trying next address");
+			_log("trying next address\n");
 			close(sockfd);
 
 			continue;

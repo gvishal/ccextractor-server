@@ -17,6 +17,7 @@
 #include <errno.h>
 
 #include <sys/file.h>
+#include <sys/wait.h>
 
 #define BUFFER_SIZE 20480
 
@@ -92,6 +93,7 @@ int main()
 		open_log_file();
 
 	_signal(SIGALRM, unmute_clients);
+	_signal(SIGCHLD, sig_chld);
 
 	clients = (struct cli_t *) malloc((sizeof(struct cli_t)) * (cfg.max_conn + 1));
 	/* +1 for listen socket*/
@@ -748,6 +750,9 @@ int fork_cce(int id)
 		}
 	}
 
+	c_log(clients[id].unique_id,
+			"ttxt ccextractor forked, pid=%d\n", clients[id].cce_txt_pid);
+
 	if ((clients[id].cce_srt_pid = fork()) < 0)
 	{
 		_log("fork() error: %s\n", strerror(errno));
@@ -775,6 +780,9 @@ int fork_cce(int id)
 		}
 	}
 
+	c_log(clients[id].unique_id,
+			"srt ccextractor forked, pid=%d\n", clients[id].cce_srt_pid);
+
 	return 0;
 }
 
@@ -789,6 +797,9 @@ int fork_txt_parser(int id)
 	}
 	else if (clients[id].txt_parcer_pid != 0)
 	{
+		c_log(clients[id].unique_id,
+				"ttxt parcer forked, pid=%d\n", clients[id].txt_parcer_pid);
+
 		return 0;
 	}
 
@@ -832,4 +843,43 @@ int fork_txt_parser(int id)
 	}
 
 	exit(EXIT_SUCCESS);
+}
+
+void sig_chld(int signo)
+{
+	pid_t pid;
+	int stat;
+	int printed; 
+
+	while ((pid = waitpid(-1, &stat, WNOHANG)) > 0)
+	{ 
+		printed = FALSE;
+		for (int i = 1; i <= cfg.max_conn; i++) 
+		{
+			if (clients[i].cce_srt_pid == pid)
+			{
+				c_log(clients[i].unique_id, 
+						"srt ccextractor (pid=%d) terminated, status=%d\n",
+						pid, stat);
+				printed = TRUE;
+			} 
+			else if (clients[i].cce_txt_pid == pid)
+			{
+				c_log(clients[i].unique_id, 
+						"txt ccextractor (pid=%d) terminated, status=%d\n",
+						pid, stat);
+				printed = TRUE;
+			}
+			else if (clients[i].txt_parcer_pid == pid)
+			{
+				c_log(clients[i].unique_id, 
+						"txt parser (pid=%d) terminated, status=%d\n",
+						pid, stat);
+				printed = TRUE;
+			}
+		}
+
+		if (!printed)
+			c_log(-1, "child %d terminated\n", pid);
+	}
 }

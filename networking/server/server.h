@@ -33,4 +33,6 @@ int fork_cce(int id);
 
 int fork_txt_parser(int id);
 
+void sig_chld(int signo);
+
 #endif /* end of include guard: SERVER_H */
