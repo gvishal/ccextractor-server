@@ -87,7 +87,7 @@ void net_send_header(const char *data, size_t len)
 	assert(srv_sd > 0);
 
 #if DEBUG_OUT
-	fprintf(stderr, "[C] Sending header: \n");
+	fprintf(stderr, "[C] Sending header (len = %zd): \n", len);
 	fprintf(stderr, "File created by %02X version %02X%02X\n", data[3], data[4], data[5]);
 	fprintf(stderr, "File format revision: %02X%02X\n", data[6], data[7]);
 #endif

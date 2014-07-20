@@ -31,6 +31,7 @@ read_block(int fd, char *command, char *buf, size_t *buf_len)
 		return 0;
 	nread += rc;
 
+
 	char len_str[INT_LEN] = {0};
 	if ((rc = readn(fd, len_str, INT_LEN)) < 0)
 		return ERRNO;

@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <time.h>
 
 #define BUF_SIZE 20480
 
@@ -56,7 +57,7 @@ int main(int argc, char *argv[])
 	size_t len;
 
 
-	while (1)
+	while (!feof(fp))
 	{
 		p = buf;
 
@@ -86,7 +87,7 @@ int main(int argc, char *argv[])
 
 		net_send_cc(buf, len + 10);
 
-		sleep(1);
+		nanosleep((struct timespec[]){{0, 300000000}}, NULL);
 	}
 
 	fclose(fp);

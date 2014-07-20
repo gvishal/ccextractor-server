@@ -21,7 +21,6 @@ int update_users_file();
 int open_buf_file(int id);
 int send_to_buf(int id, char command, char *buf, size_t len);
 
-int store_cc(int id, char *buf, size_t len);
 int open_arch_file(int id);
 int append_to_arch_info(int id);
 

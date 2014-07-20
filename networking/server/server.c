@@ -43,8 +43,10 @@ struct cli_t
 	pid_t cce_srt_pid;
 	char *srt_filepath;
 
-	char *buf_file_path;
-	FILE *buf_fp;
+	/* XXX move to different file */
+	char *buf_file_path; 
+	FILE *buf_fp; 
+	/* Empty outside txt parser: */
 	unsigned buf_line_cnt;
 	int cur_line;
 } *clients; 
@@ -159,14 +161,6 @@ int main()
 					if (nfds - 1 >= cfg.max_conn)
 					{
 						write_byte(new_sd, CONN_LIMIT);
-						close(new_sd);
-
-						continue;
-					}
-
-					if (set_nonblocking(new_sd) < 0)
-					{
-						_log("set_nonblocking() error: %s\n", strerror(errno));
 						close(new_sd);
 
 						continue;
@@ -318,7 +312,7 @@ int clinet_command(int id)
 	{
 		if (rc < 0)
 			ec_log(id, rc);
-		return -1;
+		return rc;
 	}
 
 	if (clients[id].muted_since > 0)
@@ -394,13 +388,25 @@ int clinet_command(int id)
 		if (fork_cce(id) < 0)
 			return -1;
 
-		if (fork_txt_parser(id) < 0)
-			return -1;
-
 		if (append_to_arch_info(id) < 0)
 			return -1;
 
 		if (write_byte(fds[id].fd, OK) != 1)
+			return -1;
+
+		/* XXX not good, use fork instead of poll */
+		if (set_nonblocking(fds[id].fd) < 0)
+		{
+			_log("set_nonblocking() error: %s\n", strerror(errno));
+			return -1;
+		}
+
+		if (open_buf_file(id) < 0)
+		{
+			return -1;
+		}
+
+		if (fork_txt_parser(id) < 0)
 			return -1;
 
 		break;
@@ -443,15 +449,15 @@ void close_conn(int id)
 	if (clients[id].srt_filepath != NULL)
 		free(clients[id].srt_filepath);
 
-	if (clients[id].buf_fp != NULL)
+	assert(clients[id].buf_fp == NULL);
+	if (clients[id].buf_file_path != NULL)
 	{
-		fclose(clients[id].buf_fp);
-		if (unlink(clients[id].buf_file_path) < 0) 
-			_log("unlink() error: %s\n", strerror(errno));
+		if (unlink(clients[id].buf_file_path) < 0)
+			_log("unlink error(): %s\n", strerror(errno));
 
-		assert(clients[id].buf_file_path != NULL);
 		free(clients[id].buf_file_path);
 	}
+
 
 	close(fds[id].fd);
 	fds[id].fd = -1;
@@ -558,8 +564,7 @@ int open_buf_file(int id)
 
 int send_to_buf(int id, char command, char *buf, size_t len)
 {
-	if (NULL == clients[id].buf_fp && open_buf_file(id) < 0)
-		return -1;
+	assert(clients[id].buf_fp != NULL);
 
 	char *tmp = nice_str(buf, &len);
 	if (NULL == tmp && buf != NULL)
@@ -789,6 +794,8 @@ int fork_cce(int id)
 int fork_txt_parser(int id)
 {
 	assert(clients[id].txt_filepath != NULL);
+	assert(clients[id].buf_fp != NULL);
+	assert(clients[id].buf_file_path != NULL);
 
 	if ((clients[id].txt_parcer_pid = fork()) < 0)
 	{
@@ -800,8 +807,13 @@ int fork_txt_parser(int id)
 		c_log(clients[id].unique_id,
 				"ttxt parcer forked, pid=%d\n", clients[id].txt_parcer_pid);
 
+		fclose(clients[id].buf_fp);
+		clients[id].buf_fp = NULL;
+
 		return 0;
 	}
+
+	/* Child: */
 
 	FILE *fp = fopen(clients[id].txt_filepath, "w+");
 	if (NULL == fp)
@@ -819,10 +831,16 @@ int fork_txt_parser(int id)
 	{
 		fgetpos(fp, &pos); 
 
-		if ((rc = getline(&line, &len, fp)) < 0)
+		if ((rc = getline(&line, &len, fp)) <= 0)
 		{
+			clearerr(fp);
 			fsetpos(fp, &pos);
-			nanosleep((struct timespec[]){{0, INF_READ_DELAY}}, NULL);
+
+			if (nanosleep((struct timespec[]){{0, INF_READ_DELAY}}, NULL) < 0)
+			{
+				_log("nanosleep() error: %s\n", strerror(errno));
+				exit(EXIT_FAILURE);
+			}
 
 			continue;
 		}

@@ -20,7 +20,7 @@
 #define DFT_CCEXTRACTOR_PATH "./ccextractor"
 
 #define USERS_FILE_PATH "connections.txt"
-#define INF_READ_DELAY 1000000000 /* Nano sec */
+#define INF_READ_DELAY 300000000 /* Nano sec less than 10^9 */
 
 struct cfg_t
 {
