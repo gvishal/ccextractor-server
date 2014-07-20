@@ -750,34 +750,24 @@ int fork_txt_watchdog(int id)
 		return 0;
 	}
 
-	/* Child: */
-
-	/* if (set_nonblocking(fileno(clients[id].txt_fp)) < 0) */
-		/* exit(EXIT_FAILURE); */
-
-	/* char *line = NULL; */
-	char line[999] = {0};
-	char *p = line;
-	size_t len = 999;
+	char *line = NULL;
+	size_t len = 0;
 	int rc;
 	FILE *fp = clients[id].txt_fp;
+
+	fpos_t pos;
 	while (1)
 	{
-		p = line;
-		while (1)
+		fgetpos(fp, &pos);
+
+		rc = getline(&line, &len, fp);
+		if (rc < 0)
 		{
-			rc = fread(p, 1, 1, fp);
-			if ()
-			if (rc > 0)
-				p++;
-			if ('\n' == *p) break;
+			fsetpos(fp, &pos);
+			continue;
 		}
 
-		_log("len: %d\n", p - line);
-
-		exit(0);
-		/* fwrite(line, sizeof(char), p - line, stdout); */
-		/* fflush(stdout); */
+		fwrite(line, 1, rc, stderr);
 	}
 
 	exit(0);
