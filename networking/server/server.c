@@ -743,7 +743,7 @@ int fork_cce(int id)
 			NULL
 		};
 
-		if (execv("./ccextractor", v) < 0) 
+		if (execv(cfg.cce_path , v) < 0) 
 		{
 			perror("execv");
 			exit(EXIT_FAILURE);
@@ -773,7 +773,7 @@ int fork_cce(int id)
 			NULL
 		};
 
-		if (execv("./ccextractor", v) < 0) 
+		if (execv(cfg.cce_path, v) < 0) 
 		{
 			perror("execv");
 			exit(EXIT_FAILURE);
@@ -822,8 +822,7 @@ int fork_txt_parser(int id)
 		if ((rc = getline(&line, &len, fp)) < 0)
 		{
 			fsetpos(fp, &pos);
-			sleep(1);
-			/* nanosleep((struct timespec[]){{0, 500000000}}, NULL); */
+			nanosleep((struct timespec[]){{0, INF_READ_DELAY}}, NULL);
 
 			continue;
 		}
@@ -845,7 +844,7 @@ int fork_txt_parser(int id)
 	exit(EXIT_SUCCESS);
 }
 
-void sig_chld(int signo)
+void sig_chld()
 {
 	pid_t pid;
 	int stat;
@@ -854,7 +853,7 @@ void sig_chld(int signo)
 	while ((pid = waitpid(-1, &stat, WNOHANG)) > 0)
 	{ 
 		printed = FALSE;
-		for (int i = 1; i <= cfg.max_conn; i++) 
+		for (size_t i = 1; i <= cfg.max_conn; i++) 
 		{
 			if (clients[i].cce_srt_pid == pid)
 			{

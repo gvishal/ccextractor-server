@@ -1,6 +1,7 @@
 #ifndef PARAMS_H
 #define PARAMS_H
 
+/* Default config constants: */
 #define DFT_CONFIG_FILE "./server.ini"
 #define DFT_PORT 2048
 #define DFT_MAX_CONN 10
@@ -16,9 +17,10 @@
 #define DFT_CLIENT_LOGS 1
 #define DFT_BUF_MAX_LINES 40
 #define DFT_BUF_MIN_LINES 30
+#define DFT_CCEXTRACTOR_PATH "./ccextractor"
 
 #define USERS_FILE_PATH "connections.txt"
-#define ARCHIVE_FILEPATH_LEN 50
+#define INF_READ_DELAY 1000000000 /* Nano sec */
 
 struct cfg_t
 {
@@ -35,6 +37,7 @@ struct cfg_t
 	unsigned create_logs : 1;
 	unsigned log_clients : 1;
 	char *log_dir;
+	char *cce_path;
 
 	unsigned is_inited : 1;
 } cfg;

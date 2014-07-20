@@ -5,8 +5,6 @@
 #include <netdb.h>
 #include <stdio.h>
 
-#define USERS_FILE_PATH "connections.txt"
-
 struct cli_t;
 
 int add_new_cli(int id, struct sockaddr *cliaddr, socklen_t clilen);
@@ -33,6 +31,6 @@ int fork_cce(int id);
 
 int fork_txt_parser(int id);
 
-void sig_chld(int signo);
+void sig_chld();
 
 #endif /* end of include guard: SERVER_H */
