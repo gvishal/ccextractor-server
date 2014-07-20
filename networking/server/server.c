@@ -40,10 +40,6 @@ struct cli_t
 
 	unsigned bin_mode : 1;
 
-	time_t program_start;
-	char *program_name;
-	unsigned program_id;
-
 	char *buf_file_path;
 	FILE *buf_fp;
 	unsigned buf_line_cnt;
@@ -369,32 +365,28 @@ int clinet_command(int id)
 
 		clients[id].bin_mode = TRUE;
 
-		rc = open_cc_file(&clients[id].txt_filepath,
+		rc = open_file(&clients[id].txt_filepath,
 				&clients[id].txt_fp, "txt", 
 				clients[id].unique_id);
 		if (rc < 0)
 			return -1;
 
-		rc = open_cc_file(&clients[id].bin_filepath,
+		rc = open_file(&clients[id].bin_filepath,
 				&clients[id].bin_fp, "bin", 
 				clients[id].unique_id);
 		if (rc < 0)
 			return -1;
-
-		/* fprintf(stderr, "bin file: %s\n", clients[id].bin_filepath); */
-		/* fprintf(stderr, "txt file: %s\n", clients[id].txt_filepath); */
 
 		fwrite(buf, sizeof(char), len, clients[id].bin_fp); /* Header */
 
 		if (fork_cce(id) < 0)
 			return -1;
 
-		/* fprintf(stderr, "ccextr pid: %d\n", clients[id].cce_txt_pid); */
-
 		if (fork_txt_watchdog(id) < 0)
 			return -1;
 
-		/* fprintf(stderr, "watchdog pid: %d\n", clients[id].txt_pid); */
+		if (append_to_arch_info(id) < 0)
+			return -1;
 
 		if (write_byte(fds[id].fd, OK) != 1)
 			return -1;
@@ -421,25 +413,21 @@ void close_conn(int id)
 	if (clients[id].serv != NULL)
 		free(clients[id].serv);
 
-	/* if (clients[id].buf_fp != NULL) */
-	/* { */
-	/* 	send_to_buf(id, CONN_CLOSED, NULL, 0); */
+	if (clients[id].txt_pid > 0 && kill(clients[id].txt_pid, SIGINT) < 0)
+		_log("kill error(): %s\n", strerror(errno));
 
-	/* 	fclose(clients[id].buf_fp); */
-	/* 	if (unlink(clients[id].buf_file_path) < 0)  */
-	/* 		_log("unlink() error: %s\n", strerror(errno)); */
+	if (clients[id].cce_txt_pid > 0 && kill(clients[id].cce_txt_pid, SIGINT) < 0)
+		_log("kill error(): %s\n", strerror(errno));
 
-	/* 	assert(clients[id].buf_file_path != NULL); */
-	/* 	free(clients[id].buf_file_path); */
-	/* } */
+	if (clients[id].buf_fp != NULL)
+	{
+		fclose(clients[id].buf_fp);
+		if (unlink(clients[id].buf_file_path) < 0) 
+			_log("unlink() error: %s\n", strerror(errno));
 
-	/* if (clients[id].arch_fp != NULL) */
-	/* { */
-	/* 	fclose(clients[id].arch_fp); */
-
-	/* 	assert(clients[id].arch_filepath != NULL); */
-	/* 	free(clients[id].arch_filepath); */
-	/* } */
+		assert(clients[id].buf_file_path != NULL);
+		free(clients[id].buf_file_path);
+	}
 
 	close(fds[id].fd);
 	fds[id].fd = -1;
@@ -512,89 +500,97 @@ void open_log_file()
 	printf("strerr is redirected to log file: %s\n", log_filepath);
 }
 
-/* int open_buf_file(int id) */
-/* { */
-	/* assert(clients[id].buf_fp == NULL); */
-	/* assert(clients[id].buf_file_path == NULL); */
+int open_buf_file(int id)
+{
+	assert(clients[id].buf_fp == NULL);
+	assert(clients[id].buf_file_path == NULL);
 
-	/* if ((clients[id].buf_file_path = (char *) malloc (PATH_MAX)) == NULL)  */
-	/* { */
-	/* 	_log("malloc() error: %s\n", strerror(errno)); */
-	/* 	return -1; */
-	/* } */
+	if ((clients[id].buf_file_path = (char *) malloc (PATH_MAX)) == NULL) 
+	{
+		_log("malloc() error: %s\n", strerror(errno));
+		return -1;
+	}
 
-	/* snprintf(clients[id].buf_file_path, PATH_MAX,  */
-	/* 		"%s/%u.txt", cfg.buf_dir, clients[id].unique_id); */
+	snprintf(clients[id].buf_file_path, PATH_MAX, 
+			"%s/%u.txt", cfg.buf_dir, clients[id].unique_id);
 
-	/* clients[id].buf_fp = fopen(clients[id].buf_file_path, "w+"); */
-	/* if (clients[id].buf_fp == NULL) */
-	/* { */
-	/* 	_log("fopen() error: %s\n", strerror(errno)); */
-	/* 	return -1; */
-	/* } */
+	clients[id].buf_fp = fopen(clients[id].buf_file_path, "w+");
+	if (clients[id].buf_fp == NULL)
+	{
+		_log("fopen() error: %s\n", strerror(errno));
+		return -1;
+	}
 
-	/* if (setvbuf(clients[id].buf_fp, NULL, _IOLBF, 0) < 0)  */
-	/* { */
-	/* 	_log("setvbuf() error: %s\n", strerror(errno)); */
-	/* 	return -1; */
-	/* } */
+	if (setvbuf(clients[id].buf_fp, NULL, _IOLBF, 0) < 0) 
+	{
+		_log("setvbuf() error: %s\n", strerror(errno));
+		return -1;
+	}
 
-	/* c_log(clients[id].unique_id, "Buffer file: %s\n", clients[id].buf_file_path); */
+	c_log(clients[id].unique_id, "Buffer file: %s\n", clients[id].buf_file_path);
 
-	/* return 0; */
-/* } */
+	return 0;
+}
 
 int send_to_buf(int id, char command, char *buf, size_t len)
 {
-	/* assert(clients[id].buf_fp != NULL); */
+	if (NULL == clients[id].buf_fp && open_buf_file(id) < 0)
+		return -1;
 
-	/* char *tmp = nice_str(buf, &len); */
-	/* if (NULL == tmp && buf != NULL) */
-	/* 		return -1; */
+	char *tmp = nice_str(buf, &len);
+	if (NULL == tmp && buf != NULL)
+			return -1;
 
-	/* int rc;  */
-	/* if (clients[id].buf_line_cnt >= cfg.buf_max_lines) */
-	/* { */
-	/* 	if ((rc = delete_n_lines(&clients[id].buf_fp,  */
-	/* 				clients[id].buf_file_path, */
-	/* 				clients[id].buf_line_cnt - cfg.buf_min_lines)) < 0) */
-	/* 	{ */
-	/* 		e_log(rc); */
-	/* 		free(tmp); */
-	/* 		return -1; */
-	/* 	} */
-	/* 	clients[id].buf_line_cnt = cfg.buf_min_lines; */
-	/* } */
+	if (0 == len)
+	{
+		free(tmp);
+		return 0;
+	}
 
-	/* if (0 != flock(fileno(clients[id].buf_fp), LOCK_EX))  */
-	/* { */
-	/* 	_log("flock() error: %s\n", strerror(errno)); */
-	/* 	free(tmp); */
-	/* 	return -1; */
-	/* } */
+	int rc; 
+	if (clients[id].buf_line_cnt >= cfg.buf_max_lines)
+	{
+		if ((rc = delete_n_lines(&clients[id].buf_fp, 
+					clients[id].buf_file_path,
+					clients[id].buf_line_cnt - cfg.buf_min_lines)) < 0)
+		{
+			e_log(rc);
+			free(tmp);
+			return -1;
+		}
+		clients[id].buf_line_cnt = cfg.buf_min_lines;
+	}
 
-	/* fprintf(clients[id].buf_fp, "%d %d ",  */
-	/* 		clients[id].cur_line, command); */
+	if (0 != flock(fileno(clients[id].buf_fp), LOCK_EX)) 
+	{
+		_log("flock() error: %s\n", strerror(errno));
+		free(tmp);
+		return -1;
+	}
 
-	/* if (tmp != NULL && len > 0) */
-	/* { */
-	/* 	fprintf(clients[id].buf_fp, "%zd ", len); */
-	/* 	fwrite(tmp, sizeof(char), len, clients[id].buf_fp); */
-	/* } */
+	fprintf(clients[id].buf_fp, "%d %d ", 
+			clients[id].cur_line, command);
 
-	/* fprintf(clients[id].buf_fp, "\r\n"); */
+	if (tmp != NULL && len > 0)
+	{
+		fprintf(clients[id].buf_fp, "%zd ", len);
+		fwrite(tmp, sizeof(char), len, clients[id].buf_fp);
+	}
 
-	/* clients[id].cur_line++; */
-	/* clients[id].buf_line_cnt++; */
+	fprintf(clients[id].buf_fp, "\r\n");
 
-	/* if (0 != flock(fileno(clients[id].buf_fp), LOCK_UN)) */
-	/* { */
-	/* 	_log("flock() error: %s\n", strerror(errno)); */
-	/* 	free(tmp); */
-	/* 	return -1; */
-	/* } */
+	clients[id].cur_line++;
+	clients[id].buf_line_cnt++;
 
-	/* free(tmp); */
+	if (0 != flock(fileno(clients[id].buf_fp), LOCK_UN))
+	{
+		_log("flock() error: %s\n", strerror(errno));
+		free(tmp);
+		return -1;
+	}
+
+	free(tmp);
+
 	return 1;
 }
 
@@ -630,40 +626,39 @@ new_id:
 
 int append_to_arch_info(int id)
 {
-	/* time_t t = time(NULL); */
-	/* struct tm *t_tm = localtime(&t); */
+	time_t t = time(NULL);
+	struct tm *t_tm = localtime(&t);
 
-	/* char time_buf[30] = {0}; */
-	/* strftime(time_buf, 30, "%G/%m-%b/%d", t_tm); */
+	char time_buf[30] = {0};
+	strftime(time_buf, 30, "%G/%m-%b/%d", t_tm);
 
-	/* char info_filepath[PATH_MAX]; */
-	/* snprintf(info_filepath, PATH_MAX, "%s/%s/%s",  */
-    		/* cfg.arch_dir, */
-    		/* time_buf, */
-    		/* cfg.arch_info_filename); */
+	char info_filepath[PATH_MAX];
+	snprintf(info_filepath, PATH_MAX, "%s/%s/%s", 
+    		cfg.arch_dir,
+    		time_buf,
+    		cfg.arch_info_filename);
 
-	/* FILE *info_fp = fopen(info_filepath, "a"); */
-	/* if (NULL == info_fp) */
-	/* { */
-	/* 	_log("fopen() error: %s\n", strerror(errno)); */
-	/* 	return -1; */
-	/* } */
+	FILE *info_fp = fopen(info_filepath, "a");
+	if (NULL == info_fp)
+	{
+		_log("fopen() error: %s\n", strerror(errno));
+		return -1;
+	}
 
-	/* fprintf(info_fp, "%d %u %s %s:%s %u | %s\n", */
-	/* 		(int) t, */
-	/* 		clients[id].unique_id, */
-	/* 		clients[id].arch_filepath, */
-	/* 		clients[id].host, */
-	/* 		clients[id].serv, */
-	/* 		clients[id].program_id, */
-	/* 		clients[id].program_name); #<{(| prints (null) when it's NULL |)}># */
+	fprintf(info_fp, "%d %u %s:%s %s %s\n",
+			(int) t,
+			clients[id].unique_id,
+			clients[id].host,
+			clients[id].serv,
+			clients[id].bin_filepath,
+			clients[id].txt_filepath);
 
-	/* fclose(info_fp); */
+	fclose(info_fp);
 
-	/* return 0; */
+	return 0;
 }
 
-int open_cc_file(char **path, FILE **fp, const char *ext, int id)
+int open_file(char **path, FILE **fp, const char *ext, int id)
 {
 	if ((*path = (char *) malloc(PATH_MAX)) == NULL) 
 	{
@@ -747,6 +742,7 @@ int fork_txt_watchdog(int id)
 	}
 	else if (clients[id].txt_pid != 0)
 	{
+		fclose(clients[id].txt_fp);
 		return 0;
 	}
 
@@ -758,16 +754,29 @@ int fork_txt_watchdog(int id)
 	fpos_t pos;
 	while (1)
 	{
-		fgetpos(fp, &pos);
+		fgetpos(fp, &pos); 
 
-		rc = getline(&line, &len, fp);
-		if (rc < 0)
+		if ((rc = getline(&line, &len, fp)) < 0)
 		{
 			fsetpos(fp, &pos);
+			sleep(1);
+			/* nanosleep((struct timespec[]){{0, 500000000}}, NULL); */
+
 			continue;
 		}
 
-		fwrite(line, 1, rc, stderr);
+		char *pipe; 
+		int mode = CAPTIONS;
+		if ((pipe = strchr(line, '|')) == NULL)
+			continue;
+		if ((pipe = strchr(pipe + 1, '|')) == NULL)
+			continue;
+		pipe++;
+		if (strstr(pipe, "XDS") == pipe)
+			mode = XDS;
+
+		if (send_to_buf(id, mode, line, rc) < 0)
+			exit(EXIT_FAILURE);
 	}
 
 	exit(0);

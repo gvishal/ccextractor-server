@@ -16,6 +16,8 @@
 #define CONN_CLOSED     101
 #define PROGRAM_ID      102
 #define RESET_PROGRAM   103
+#define CAPTIONS        104
+#define XDS             105
 
 /* 
  * Read data block from descriptor
