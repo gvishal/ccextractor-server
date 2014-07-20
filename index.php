@@ -7,25 +7,9 @@ if (!file_exists($conn_file))
 if (($fp = fopen($conn_file, "r")) == 0)
 	return;
 
-
 while ($line = fgets($fp)) {
-	sscanf($line, "%d %s %d", $id, $addr, $time);
+	sscanf($line, "%d %s", $id, $addr);
 
-	$pgrm_name = "";
-	if (($pos = strpos($line, "|")) === false)
-		return;
-
-	for ($i = $pos + 2; $line[$i] != "\n"; $i++)
-		$pgrm_name .= $line[$i];
-
-	$pgrm_name = htmlspecialchars(trim($pgrm_name));
-
-	if ($pgrm_name == "(null)")
-		$pgrm_name = "";
-
-	echo date("d/m/y H:i ");
-	echo $pgrm_name;
-	echo " ";
 	echo '<a href="view_cc.php?id='.$id.'">'.$addr.'</a><br>';
 }
 ?>

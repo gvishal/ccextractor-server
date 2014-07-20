@@ -43,67 +43,6 @@ function seek_next_block($fp)
 	return 0;
 }
 
-function print_links($id, $last_prgm_id, $pr_all = false, $pr_comma = true)
-{
-	date_default_timezone_set("UTC");
-
-	$cfg = parse_ini_file("./server.ini");
-	if (!array_key_exists("archive_files_dir", $cfg))
-		$cfg["archive_files_dir"] = "./cc";
-
-	$last_prgm_id--;
-	$info_file = $cfg["archive_files_dir"] . "/" . date("Y/m-M/d/") . ARCH_INFO_FILENAME;
-
-	if (!file_exists($info_file))
-		return;
-
-	if (($fp = fopen($info_file, "r")) == 0)
-		return;
-
-	while (1) {
-		fgetc($fp); 
-		if (feof($fp)) 
-			break;
-		fseek($fp, -1, SEEK_CUR);
-
-		$line = fgets($fp);
-
-
-		sscanf($line, "%d %d %s %s %d", $t, $cur_id, $cc_filepath, $addres, $prgm_id);
-
-		$pgrm_name = "";
-		if (($pos = strpos($line, "|")) === false)
-			return;
-
-		for ($i = $pos + 2; $line[$i] != "\n"; $i++)
-			$pgrm_name .= $line[$i];
-
-		if ($pgrm_name == "(null)")
-			$pgrm_name = date("Y/m/d H:i", $t) . " " . $addres;
-
-		if ($cur_id != $id)
-			continue;
-
-		if ((false == $pr_all && $prgm_id == $last_prgm_id) || true == $pr_all)
-		{
-			if ($pr_comma)
-				echo ",\n";
-
-			echo "{";
-			echo "\"command\": \"" . DOWNLOAD_LINKS. "\",";
-			echo "\"filepath\": \"" . $cc_filepath . "\",";
-			echo "\"name\": \"" . nice_str($pgrm_name) . "\"";
-			echo "}";
-			$pr_comma = true;
-
-			if (false == $pr_all)
-				break;
-		}
-	}
-
-	fclose($fp);
-}
-
 if (!array_key_exists("id", $_GET))
 	return;
 
@@ -118,8 +57,6 @@ if (!file_exists($filepath)) {
 	echo "{";
 	echo "\"command\": \"" . CONN_CLOSED. "\"";
 	echo "}";
-
-	print_links($client_id, 0, true);
 	echo "]";
 	return;
 
@@ -185,10 +122,6 @@ while (1) {
 	echo "\"data\": \"" . nice_str($cc) . "\"";
 	echo "}";
 	$pr_comma = true;
-
-	if ($command == RESET_PROGRAM) {
-		print_links($client_id, $last_prgm_id);
-	}
 }
 
 echo "]";

@@ -19,8 +19,6 @@
 #include <sys/file.h>
 #include <sys/wait.h>
 
-#define BUFFER_SIZE 20480
-
 struct cli_t
 {
 	char *host;
@@ -453,7 +451,7 @@ void close_conn(int id)
 	if (clients[id].buf_file_path != NULL)
 	{
 		if (unlink(clients[id].buf_file_path) < 0)
-			_log("unlink error(): %s\n", strerror(errno));
+			_log("unlink() error: %s\n", strerror(errno));
 
 		free(clients[id].buf_file_path);
 	}
