@@ -36,7 +36,7 @@ function links($id)
 
 		echo "<a href=\"" . $bin . "\">bin</a> ";
 		echo "<a href=\"" . $txt . "\">txt</a> ";
-		echo "<a href=\"" . $srt . "\">srt</a>";
+		echo "<a href=\"" . $srt . "\">srt</a> ";
 	}
 
 	fclose($fp);
@@ -92,7 +92,7 @@ $(function() {
 	</head>
 	<body>
 		<div id="ctrl">
-			<input type="checkbox" id="xds"> Print XDS
+			<input type="checkbox" checked id="xds"> Print XDS
 			<? links($id) ?>
 		</div>
 		<div id="cc">

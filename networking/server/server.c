@@ -293,10 +293,12 @@ int clinet_command(int id)
 		assert(clients[id].bin_fp != NULL);
 		assert(clients[id].bin_filepath != NULL);
 
-		if ((rc = readn(fds[id].fd, buf, BUFFER_SIZE)) < 0)
-			c_log(clients[id].unique_id, "readn() error: %s\n", strerror(errno));
-		if (0 == rc)
+		if ((rc = readn(fds[id].fd, buf, BUFFER_SIZE)) <= 0)
+		{
+			if (rc < 0)
+				c_log(clients[id].unique_id, "readn() error: %s\n", strerror(errno));
 			return -1;
+		}
 
 		c_log(clients[id].unique_id, "Bin data received: %zd bytes\n", rc);
 
@@ -827,12 +829,20 @@ int fork_txt_parser(int id)
 	fpos_t pos;
 	while (1)
 	{
-		fgetpos(fp, &pos); 
+		if (fgetpos(fp, &pos) < 0)
+		{
+			_log("fgetpos() error: %s\n", strerror(errno));
+			exit(EXIT_FAILURE);
+		}
 
 		if ((rc = getline(&line, &len, fp)) <= 0)
 		{
 			clearerr(fp);
-			fsetpos(fp, &pos);
+			if (fsetpos(fp, &pos) < 0)
+			{
+				_log("fsetpos() error: %s\n", strerror(errno));
+				exit(EXIT_FAILURE);
+			}
 
 			if (nanosleep((struct timespec[]){{0, INF_READ_DELAY}}, NULL) < 0)
 			{
