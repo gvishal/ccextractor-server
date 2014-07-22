@@ -112,6 +112,8 @@ read_byte(int fd, char *ch)
 
 void _log(const char *fmt, ...)
 {
+	/* TODO: locks for concurrent access */
+	/* XXX: print __LINE__ */
 	va_list args;
 	va_start(args, fmt);	
 
