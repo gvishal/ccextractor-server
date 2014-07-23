@@ -115,26 +115,6 @@ int bind_server(int port)
 			continue;
 		}
 
-		/* int opt_val = 1; */
-		/* if (setsockopt(sockfd, SOL_SOCKET,  SO_REUSEADDR, */
-		/* 		(char *)&opt_val, sizeof(opt_val)) < 0)  */
-		/* { */
-		/* 	_log("setsockopt() error: %s\n", strerror(errno)); */
-		/* 	_log("trying next address\n"); */
-		/* 	close(sockfd); */
-
-		/* 	continue; */
-		/* } */
-
-		/* if (ioctl(sockfd, FIONBIO, (char *)&opt_val) < 0) */
-		/* { */
-		/* 	_log("ioctl() error: %s\n", strerror(errno)); */
-		/* 	_log("trying next address\n"); */
-		/* 	close(sockfd); */
-
-		/* 	continue; */
-		/* } */
-
 		if (0 == bind(sockfd, p->ai_addr, p->ai_addrlen))
 			break;
 

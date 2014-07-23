@@ -7,7 +7,7 @@
 
 struct cli_t;
 
-int add_new_cli(int sd, struct sockaddr *cliaddr, socklen_t clilen);
+int add_new_cli(int fd, struct sockaddr *cliaddr, socklen_t clilen);
 int cli_logged_in();
 int clinet_command();
 void close_conn(int id);
