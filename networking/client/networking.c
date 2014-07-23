@@ -232,7 +232,7 @@ int tcp_connect(const char *host, const char *port)
 		if (-1 == sockfd) {
 			printf("socket() error: %s\n", strerror(errno));
 			if (p->ai_next != NULL)
-				printf("trying next addres ...");
+				printf("trying next addres ...\n");
 
 			continue;
 		}
@@ -242,7 +242,7 @@ int tcp_connect(const char *host, const char *port)
 
 		printf("connect() error: %s\n", strerror(errno));
 		if (p->ai_next != NULL)
-			printf("trying next addres ...");
+			printf("trying next addres ...\n");
 
 		close(sockfd);
 	}

@@ -108,36 +108,40 @@ int bind_server(int port)
 		if (-1 == sockfd) 
 		{
 			_log("socket() error: %s\n", strerror(errno));
-			_log("trying next address\n");
+
+			if (p->ai_next != NULL)
+				printf("trying next addres ...\n");
 
 			continue;
 		}
 
-		int opt_val = 1;
-		if (setsockopt(sockfd, SOL_SOCKET,  SO_REUSEADDR,
-				(char *)&opt_val, sizeof(opt_val)) < 0) 
-		{
-			_log("setsockopt() error: %s\n", strerror(errno));
-			_log("trying next address\n");
-			close(sockfd);
+		/* int opt_val = 1; */
+		/* if (setsockopt(sockfd, SOL_SOCKET,  SO_REUSEADDR, */
+		/* 		(char *)&opt_val, sizeof(opt_val)) < 0)  */
+		/* { */
+		/* 	_log("setsockopt() error: %s\n", strerror(errno)); */
+		/* 	_log("trying next address\n"); */
+		/* 	close(sockfd); */
 
-			continue;
-		}
+		/* 	continue; */
+		/* } */
 
-		if (ioctl(sockfd, FIONBIO, (char *)&opt_val) < 0)
-		{
-			_log("ioctl() error: %s\n", strerror(errno));
-			_log("trying next address\n");
-			close(sockfd);
+		/* if (ioctl(sockfd, FIONBIO, (char *)&opt_val) < 0) */
+		/* { */
+		/* 	_log("ioctl() error: %s\n", strerror(errno)); */
+		/* 	_log("trying next address\n"); */
+		/* 	close(sockfd); */
 
-			continue;
-		}
+		/* 	continue; */
+		/* } */
 
 		if (0 == bind(sockfd, p->ai_addr, p->ai_addrlen))
 			break;
 
 		_log("bind() error: %s\n", strerror(errno));
-		_log("trying next address");
+		if (p->ai_next != NULL)
+			printf("trying next addres ...\n");
+
 		close(sockfd);
 	}
 

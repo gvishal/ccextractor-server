@@ -1,5 +1,3 @@
-#error use previous commit
-#if 0
 #include "server.h"
 #include "utils.h"
 #include "networking.h"
@@ -98,7 +96,7 @@ int main()
 	_signal(SIGCHLD, sig_chld);
 
 	cli = (struct cli_t *) malloc((sizeof(struct cli_t)) * (cfg.max_conn));
-	if (NULL == clients)
+	if (NULL == cli)
 	{
 		_log("malloc() error: %s\n", strerror(errno));
 		exit(EXIT_FAILURE);
@@ -136,8 +134,7 @@ int main()
 		if ((id = add_new_cli(connfd, &cliaddr, clilen)) < 0)
 		{
 			write_byte(connfd, ERROR);
-			close(connfd);
-			close_conn(id); 
+			close_conn(id);
 
 			continue;
 		}
@@ -149,15 +146,13 @@ int main()
 		{
 			_log("fork() error: %s\n", strerror(errno));
 			write_byte(connfd, ERROR);
-			close(connfd);
-			close_conn(id); 
+			close_conn(id);
 			continue;
 		}
 		else if (cli[id].pid > 0)
 		{
 			/* Parenet: */
 			close(connfd);
-			/* close_conn(id);  */
 			continue;
 		}
 
@@ -167,23 +162,20 @@ int main()
 		if (init_cli_chld(connfd, id) < 0)
 		{
 			write_byte(connfd, ERROR);
-			close(connfd);
 			exit(EXIT_FAILURE);
 		}
 
 		if (cfg.use_pwd)
-		{
 			write_byte(connfd, PASSWORD);
-		}
 		else if (cli_logged_in() < 0)
-		{
-			close(connfd);
 			exit(EXIT_FAILURE);
-		}
 
-		cli_loop();
+		if (cli_loop() < 0)
+			exit(EXIT_FAILURE); 
 
-		exit(EXIT_FAILURE); 
+		_log("[%d] (%s:%s) Disconnected\n",
+				cli->unique_id, cli->host, cli->serv);
+		exit(EXIT_SUCCESS); 
 	}
 
 end_server:
@@ -201,7 +193,7 @@ int add_new_cli(int sd, struct sockaddr *cliaddr, socklen_t clilen)
 	int id = cli_cnt;
 	cli_cnt++;
 
-	assert(cli[id] == 0);
+	assert(sd != 0);
 
 	cli[id].sd = sd;
 
@@ -248,50 +240,51 @@ new_id:
 
 	_log("Connected %s:%s\n", cli[id].host, cli[id].serv);
 
+	if (update_users_file() < 0)
+		return -1;
+
 	return id;
 }
 
-int clinet_command(int id)
+int clinet_command()
 {
 	char c;
 	int rc;
 	size_t len = BUFFER_SIZE;
-
 	char buf[BUFFER_SIZE] = {0};
 
-	if (cli_chld.bin_mode)
+	if (cli_chld->bin_mode)
 	{
-		assert(clients[id].muted_since == 0);
-		assert(clients[id].is_logged);
+		assert(cli_chld->is_logged);
 
-		assert(clients[id].bin_fp != NULL);
-		assert(clients[id].bin_filepath != NULL);
+		assert(cli_chld->bin_fp != NULL);
+		assert(cli_chld->bin_filepath != NULL);
 
-		if ((rc = readn(fds[id].fd, buf, BUFFER_SIZE)) <= 0)
+		if ((rc = readn(cli->sd, buf, len)) <= 0)
 		{
 			if (rc < 0)
-				c_log(clients[id].unique_id, "readn() error: %s\n", strerror(errno));
-			return -1;
+				c_log(cli->unique_id, "readn() error: %s\n", strerror(errno));
+			return rc;
 		}
 
-		c_log(clients[id].unique_id, "Bin data received: %zd bytes\n", rc);
+		c_log(cli->unique_id, "Bin data received: %zd bytes\n", rc);
 
-		fwrite(buf, sizeof(char), rc, clients[id].bin_fp);
-		fflush(clients[id].bin_fp);
+		fwrite(buf, sizeof(char), rc, cli_chld->bin_fp);
+		fflush(cli_chld->bin_fp);
 
-		return 0;
+		return 1;
 	}
 
-	if ((rc = read_block(fds[id].fd, &c, buf, &len)) <= 0)
+	if ((rc = read_block(cli->sd, &c, buf, &len)) <= 0)
 	{
 		if (rc < 0)
-			ec_log(id, rc);
+			ec_log(cli->unique_id, rc);
 		return rc;
 	}
 
 	if (c != PASSWORD && !cli_chld->is_logged)
 	{
-		c_log(cli_chld->unique_id, "No password presented\n");
+		c_log(cli->unique_id, "No password presented\n");
 		return -1;
 	}
 
@@ -309,10 +302,10 @@ int clinet_command(int id)
 
 			sleep(cfg.wrong_pwd_delay);
 
-			if (write_byte(cli_chld->sd, WRONG_PASSWORD) != 1)
+			if (write_byte(cli->sd, WRONG_PASSWORD) != 1)
 				return -1;
 
-			return 0;
+			return 1;
 		}
 
 		c_log(cli->unique_id, "Correct password\n");
@@ -331,100 +324,64 @@ int clinet_command(int id)
 
 		cli_chld->bin_mode = TRUE;
 
-		rc = file_path(&cli_chld.bin_filepath, "bin", 
-				cli_chld.unique_id);
-		if (rc < 0)
+		if (file_path(&cli_chld->bin_filepath, "bin") < 0)
 			return -1;
 
-		if ((cli_chld.bin_fp = fopen(cli_chld.bin_filepath, "w+")) == NULL)
+		if ((cli_chld->bin_fp = fopen(cli_chld->bin_filepath, "w+")) == NULL)
 		{
 			_log("fopen() error: %s\n", strerror(errno));
 			return -1;
 		}
 
-		rc = file_path(&cli_chld.txt_filepath, "txt", 
-				cli_chld.unique_id);
-		if (rc < 0)
+		if (file_path(&cli_chld->txt_filepath, "txt") < 0)
 			return -1;
 
-		rc = file_path(&cli_chld.srt_filepath, "srt", 
-				cli_chld.unique_id);
-		if (rc < 0)
+		if (file_path(&cli_chld->srt_filepath, "srt") < 0)
 			return -1;
 
-		fwrite(buf, sizeof(char), len, cli_chld.bin_fp); /* Header */
+		fwrite(buf, sizeof(char), len, cli_chld->bin_fp); /* Header */
 
-		if (fork_cce(id) < 0)
+		if (fork_cce() < 0)
 			return -1;
 
-		if (append_to_arch_info(id) < 0)
+		if (append_to_arch_info() < 0)
 			return -1;
 
-		if (write_byte(fds[id].fd, OK) != 1)
+		if (write_byte(cli->sd, OK) != 1)
 			return -1;
 
-		if (set_nonblocking(fds[id].fd) < 0)
+		if (set_nonblocking(cli->sd) < 0)
 		{
 			_log("set_nonblocking() error: %s\n", strerror(errno));
 			return -1;
 		}
 
-		if (open_buf_file(id) < 0)
+		if (open_buf_file() < 0)
 		{
 			return -1;
 		}
 
-		if (fork_txt_parser(id) < 0)
+		if (fork_txt_parser() < 0)
 			return -1;
 
 		break;
 
 	default:
-		c_log(clients[id].unique_id, "Unsupported command: %d\n", (int) c);
+		c_log(cli->unique_id, "Unsupported command: %d\n", (int) c);
+		write_byte(cli->sd, UNKNOWN_COMMAND);
 
-		write_byte(fds[id].fd, UNKNOWN_COMMAND);
 		return -1;
 	}
 
 	return 1;
 }
 
-void close_conn(int id)
+void free_cli(int id)
 {
-	_log("[%d] (%s:%s) Disconnected\n",
-			cli[id].unique_id, cli[id].host, cli[id].serv);
-
 	if (cli[id].host != NULL)
 		free(cli[id].host);
 	if (cli[id].serv != NULL)
 		free(cli[id].serv);
-
-	/* if (clients[id].txt_parcer_pid > 0 && kill(clients[id].txt_parcer_pid, SIGINT) < 0) */
-	/* 	_log("kill error(): %s\n", strerror(errno)); */
-
-	/* if (clients[id].bin_filepath != NULL) */
-	/* 	free(clients[id].bin_filepath); */
-
-	/* if (clients[id].cce_txt_pid > 0 && kill(clients[id].cce_txt_pid, SIGINT) < 0) */
-	/* 	_log("kill error(): %s\n", strerror(errno)); */
-
-	/* if (clients[id].txt_filepath != NULL) */
-	/* 	free(clients[id].txt_filepath); */
-
-	/* if (clients[id].cce_srt_pid > 0 && kill(clients[id].cce_srt_pid, SIGINT) < 0) */
-	/* 	_log("kill error(): %s\n", strerror(errno)); */
-
-	/* if (clients[id].srt_filepath != NULL) */
-	/* 	free(clients[id].srt_filepath); */
-
-	/* assert(clients[id].buf_fp == NULL); */
-	/* if (clients[id].buf_file_path != NULL) */
-	/* { */
-	/* 	if (unlink(clients[id].buf_file_path) < 0) */
-	/* 		_log("unlink() error: %s\n", strerror(errno)); */
-
-	/* 	free(clients[id].buf_file_path); */
-	/* } */
 
 	/* compress cli array */
 	for (size_t j = id; j < cli_cnt - 1; j++)
@@ -440,6 +397,16 @@ void close_conn(int id)
 	cli_cnt--;
 }
 
+void close_conn(int id)
+{
+	close(cli[id].sd);
+
+	_log("[%d] (%s:%s) Disconnected\n",
+			cli[id].unique_id, cli[id].host, cli[id].serv);
+
+	free_cli(id);
+}
+
 int update_users_file()
 {
 	FILE *fp = fopen(USERS_FILE_PATH, "w+");
@@ -450,7 +417,7 @@ int update_users_file()
 	}
 
 	/* XXX: client not logged in */
-	for (unsigned i = 1; i <= cfg.max_conn; i++) /* 0 for listener sock */
+	for (unsigned i = 0; i < cli_cnt; i++) /* 0 for listener sock */
 	{
 		if (0 == cli[i].sd)
 			continue;
@@ -464,25 +431,6 @@ int update_users_file()
 	fclose(fp);
 
 	return 0;
-}
-
-void unmute_clients()
-{
-	for (unsigned i = 1; i <= cfg.max_conn; i++) /* 0 for listener sock */
-	{
-		if (clients[i].is_logged || fds[i].fd == 0 || 
-				clients[i].muted_since == 0)
-		{
-			continue;
-		}
-
-		if (time(NULL) - clients[i].muted_since < cfg.wrong_pwd_delay) 
-			continue;
-
-		clients[i].muted_since = 0;
-		/* Ask for password */
-		write_byte(fds[i].fd, PASSWORD); 
-	}
 }
 
 void open_log_file()
@@ -504,41 +452,41 @@ void open_log_file()
 	printf("strerr is redirected to log file: %s\n", log_filepath);
 }
 
-int open_buf_file(int id)
+int open_buf_file()
 {
-	assert(clients[id].buf_fp == NULL);
-	assert(clients[id].buf_file_path == NULL);
+	assert(cli_chld->buf_fp == NULL);
+	assert(cli_chld->buf_file_path == NULL);
 
-	if ((clients[id].buf_file_path = (char *) malloc (PATH_MAX)) == NULL) 
+	if ((cli_chld->buf_file_path = (char *) malloc (PATH_MAX)) == NULL) 
 	{
 		_log("malloc() error: %s\n", strerror(errno));
 		return -1;
 	}
 
-	snprintf(clients[id].buf_file_path, PATH_MAX, 
-			"%s/%u.txt", cfg.buf_dir, clients[id].unique_id);
+	snprintf(cli_chld->buf_file_path, PATH_MAX, 
+			"%s/%u.txt", cfg.buf_dir, cli->unique_id);
 
-	clients[id].buf_fp = fopen(clients[id].buf_file_path, "w+");
-	if (clients[id].buf_fp == NULL)
+	cli_chld->buf_fp = fopen(cli_chld->buf_file_path, "w+");
+	if (cli_chld->buf_fp == NULL)
 	{
 		_log("fopen() error: %s\n", strerror(errno));
 		return -1;
 	}
 
-	if (setvbuf(clients[id].buf_fp, NULL, _IOLBF, 0) < 0) 
+	if (setvbuf(cli_chld->buf_fp, NULL, _IOLBF, 0) < 0) 
 	{
 		_log("setvbuf() error: %s\n", strerror(errno));
 		return -1;
 	}
 
-	c_log(clients[id].unique_id, "Buffer file: %s\n", clients[id].buf_file_path);
+	c_log(cli->unique_id, "Buffer file: %s\n", cli_chld->buf_file_path);
 
 	return 0;
 }
 
-int send_to_buf(int id, char command, char *buf, size_t len)
+int send_to_buf(char command, char *buf, size_t len)
 {
-	assert(clients[id].buf_fp != NULL);
+	assert(cli_chld->buf_fp != NULL);
 
 	char *tmp = nice_str(buf, &len);
 	if (NULL == tmp && buf != NULL)
@@ -551,41 +499,41 @@ int send_to_buf(int id, char command, char *buf, size_t len)
 	}
 
 	int rc; 
-	if (clients[id].buf_line_cnt >= cfg.buf_max_lines)
+	if (cli_chld->buf_line_cnt >= cfg.buf_max_lines)
 	{
-		if ((rc = delete_n_lines(&clients[id].buf_fp, 
-					clients[id].buf_file_path,
-					clients[id].buf_line_cnt - cfg.buf_min_lines)) < 0)
+		if ((rc = delete_n_lines(&cli_chld->buf_fp, 
+					cli_chld->buf_file_path,
+					cli_chld->buf_line_cnt - cfg.buf_min_lines)) < 0)
 		{
 			e_log(rc);
 			free(tmp);
 			return -1;
 		}
-		clients[id].buf_line_cnt = cfg.buf_min_lines;
+		cli_chld->buf_line_cnt = cfg.buf_min_lines;
 	}
 
-	if (0 != flock(fileno(clients[id].buf_fp), LOCK_EX)) 
+	if (0 != flock(fileno(cli_chld->buf_fp), LOCK_EX)) 
 	{
 		_log("flock() error: %s\n", strerror(errno));
 		free(tmp);
 		return -1;
 	}
 
-	fprintf(clients[id].buf_fp, "%d %d ", 
-			clients[id].cur_line, command);
+	fprintf(cli_chld->buf_fp, "%d %d ", 
+			cli_chld->cur_line, command);
 
 	if (tmp != NULL && len > 0)
 	{
-		fprintf(clients[id].buf_fp, "%zd ", len);
-		fwrite(tmp, sizeof(char), len, clients[id].buf_fp);
+		fprintf(cli_chld->buf_fp, "%zd ", len);
+		fwrite(tmp, sizeof(char), len, cli_chld->buf_fp);
 	}
 
-	fprintf(clients[id].buf_fp, "\r\n");
+	fprintf(cli_chld->buf_fp, "\r\n");
 
-	clients[id].cur_line++;
-	clients[id].buf_line_cnt++;
+	cli_chld->cur_line++;
+	cli_chld->buf_line_cnt++;
 
-	if (0 != flock(fileno(clients[id].buf_fp), LOCK_UN))
+	if (0 != flock(fileno(cli_chld->buf_fp), LOCK_UN))
 	{
 		_log("flock() error: %s\n", strerror(errno));
 		free(tmp);
@@ -599,17 +547,18 @@ int send_to_buf(int id, char command, char *buf, size_t len)
 
 int init_cli_chld(int fd, int id)
 {
-	cli_chld = (cli_chld_t *) malloc(sizeof(struct cli_chld_t));
+	cli_chld = (struct cli_chld_t *) malloc(sizeof(struct cli_chld_t));
 	if (NULL == cli_chld)
 	{
 		_log("malloc() error: %s\n", strerror(errno));
 		return -1;
 	}
+	memset(cli_chld, 0, sizeof(struct cli_chld_t));
 
 	if (id != 0)
-		memcpy(cli, cli[id], sizeof(struct cli_t));
+		cli = &cli[id];
 
-	cli_chld->sd = fd;
+	cli->sd = fd;
 	cli_chld->is_logged = FALSE;
 
 	return 0;
@@ -626,17 +575,19 @@ int cli_logged_in()
 
 	cli_chld->is_logged = TRUE;
 
-	if (write_byte(cli_chld->sd, OK) != 1)
+	if (write_byte(cli->sd, OK) != 1)
 		return -1;
 
 	return 0;
 }
 
-void cli_loop()
+int cli_loop()
 {
 	struct pollfd pfd;
 	pfd.fd = cli->sd;
 	pfd.events = POLLIN;
+
+	int ret = 1;
 
 	while(1)
 	{
@@ -645,24 +596,49 @@ void cli_loop()
 			if (EINTR == errno)
 				continue;
 			_log("poll() error: %s\n", strerror(errno));
-			return;
+			ret = -1;
+			goto out;
 		}
 
 		if (pfd.revents & POLLHUP)
-			return;
+		{
+			_log("[%d] (%s:%s) Disconnected\n",
+					cli->unique_id, cli->host, cli->serv);
+			ret = 1;
+			goto out;
+		}
 
 		if (pfd.revents & POLLERR) 
 		{
 			_log("poll() error: Revents %d\n", pfd.revents);
-			return;
+			ret = -1;
+			goto out;
 		}
 
-		if (clinet_command() < 0)
-			return;
+		if ((ret = clinet_command()) <= 0)
+			goto out;
 	}
+
+out:
+	if (cli_chld->txt_parcer_pid > 0 && kill(cli_chld->txt_parcer_pid, SIGINT) < 0)
+		_log("kill error(): %s\n", strerror(errno));
+
+	if (cli_chld->cce_txt_pid > 0 && kill(cli_chld->cce_txt_pid, SIGINT) < 0)
+		_log("kill error(): %s\n", strerror(errno));
+
+	if (cli_chld->cce_srt_pid > 0 && kill(cli_chld->cce_srt_pid, SIGINT) < 0)
+		_log("kill error(): %s\n", strerror(errno));
+
+	if (cli_chld->buf_file_path != NULL)
+	{
+		if (unlink(cli_chld->buf_file_path) < 0)
+			_log("unlink() error: %s\n", strerror(errno));
+	}
+
+	return ret;
 }
 
-int append_to_arch_info(int id)
+int append_to_arch_info()
 {
 	time_t t = time(NULL);
 	struct tm *t_tm = localtime(&t);
@@ -685,19 +661,19 @@ int append_to_arch_info(int id)
 
 	fprintf(info_fp, "%d %u %s:%s %s %s %s\n",
 			(int) t,
-			clients[id].unique_id,
-			clients[id].host,
-			clients[id].serv,
-			clients[id].bin_filepath,
-			clients[id].txt_filepath,
-			clients[id].srt_filepath);
+			cli->unique_id,
+			cli->host,
+			cli->serv,
+			cli_chld->bin_filepath,
+			cli_chld->txt_filepath,
+			cli_chld->srt_filepath);
 
 	fclose(info_fp);
 
 	return 0;
 }
 
-int file_path(char **path, const char *ext, int id)
+int file_path(char **path, const char *ext)
 {
 	assert(NULL == *path);
 	assert(ext != NULL);
@@ -725,35 +701,35 @@ int file_path(char **path, const char *ext, int id)
 	memset(time_buf, 0, sizeof(time_buf));
 	strftime(time_buf, 30, "%H:%M:%S", t_tm);
 
-	snprintf(*path, PATH_MAX, "%s/%s--%d.%s", dir, time_buf, id, ext); 
+	snprintf(*path, PATH_MAX, "%s/%s--%d.%s", dir, time_buf, cli->unique_id, ext); 
 
 	return 0;
 }
 
-int fork_cce(int id)
+int fork_cce()
 {
-	assert(clients[id].bin_filepath != NULL);
-	assert(clients[id].txt_filepath != NULL);
-	assert(clients[id].srt_filepath != NULL);
+	assert(cli_chld->bin_filepath != NULL);
+	assert(cli_chld->txt_filepath != NULL);
+	assert(cli_chld->srt_filepath != NULL);
 
-	if ((clients[id].cce_txt_pid = fork()) < 0)
+	if ((cli_chld->cce_txt_pid = fork()) < 0)
 	{
 		_log("fork() error: %s\n", strerror(errno));
 		return -1;
 	}
-	else if (clients[id].cce_txt_pid == 0)
+	else if (cli_chld->cce_txt_pid == 0)
 	{
 		char *const v[] = 
 		{
 			"ccextractor", 
 			"-in=bin", 
-			clients[id].bin_filepath,
+			cli_chld->bin_filepath,
 			"--stream",
 			"-quiet",
 			"-out=ttxt",
 			"-xds",
 			"-autoprogram",
-			"-o", clients[id].txt_filepath,
+			"-o", cli_chld->txt_filepath,
 			NULL
 		};
 
@@ -764,26 +740,26 @@ int fork_cce(int id)
 		}
 	}
 
-	c_log(clients[id].unique_id,
-			"ttxt ccextractor forked, pid=%d\n", clients[id].cce_txt_pid);
+	c_log(cli->unique_id,
+			"ttxt ccextractor forked, pid=%d\n", cli_chld->cce_txt_pid);
 
-	if ((clients[id].cce_srt_pid = fork()) < 0)
+	if ((cli_chld->cce_srt_pid = fork()) < 0)
 	{
 		_log("fork() error: %s\n", strerror(errno));
 		return -1;
 	}
-	else if (clients[id].cce_srt_pid == 0)
+	else if (cli_chld->cce_srt_pid == 0)
 	{
 		char *const v[] = 
 		{
 			"ccextractor", 
 			"-in=bin", 
-			clients[id].bin_filepath,
+			cli_chld->bin_filepath,
 			"--stream",
 			"-quiet",
 			"-out=srt",
 			"-autoprogram",
-			"-o", clients[id].srt_filepath,
+			"-o", cli_chld->srt_filepath,
 			NULL
 		};
 
@@ -794,37 +770,37 @@ int fork_cce(int id)
 		}
 	}
 
-	c_log(clients[id].unique_id,
-			"srt ccextractor forked, pid=%d\n", clients[id].cce_srt_pid);
+	c_log(cli->unique_id,
+			"srt ccextractor forked, pid=%d\n", cli_chld->cce_srt_pid);
 
 	return 0;
 }
 
-int fork_txt_parser(int id)
+int fork_txt_parser()
 {
-	assert(clients[id].txt_filepath != NULL);
-	assert(clients[id].buf_fp != NULL);
-	assert(clients[id].buf_file_path != NULL);
+	assert(cli_chld->txt_filepath != NULL);
+	assert(cli_chld->buf_fp != NULL);
+	assert(cli_chld->buf_file_path != NULL);
 
-	if ((clients[id].txt_parcer_pid = fork()) < 0)
+	if ((cli_chld->txt_parcer_pid = fork()) < 0)
 	{
 		_log("fork() error: %s\n", strerror(errno));
 		return -1;
 	}
-	else if (clients[id].txt_parcer_pid != 0)
+	else if (cli_chld->txt_parcer_pid != 0)
 	{
-		c_log(clients[id].unique_id,
-				"ttxt parcer forked, pid=%d\n", clients[id].txt_parcer_pid);
+		c_log(cli->unique_id,
+				"ttxt parcer forked, pid=%d\n", cli_chld->txt_parcer_pid);
 
-		fclose(clients[id].buf_fp);
-		clients[id].buf_fp = NULL;
+		fclose(cli_chld->buf_fp);
+		cli_chld->buf_fp = NULL;
 
 		return 0;
 	}
 
 	/* Child: */
 
-	FILE *fp = fopen(clients[id].txt_filepath, "w+");
+	FILE *fp = fopen(cli_chld->txt_filepath, "w+");
 	if (NULL == fp)
 	{
 		_log("fopen() error: %s\n", strerror(errno));
@@ -872,7 +848,7 @@ int fork_txt_parser(int id)
 		if (strstr(pipe, "XDS") == pipe)
 			mode = XDS;
 
-		if (send_to_buf(id, mode, line, rc) < 0)
+		if (send_to_buf(mode, line, rc) < 0)
 			exit(EXIT_FAILURE);
 	}
 
@@ -883,15 +859,15 @@ void sig_chld()
 {
 	pid_t pid;
 	int stat;
-	int printed; 
 
 	while ((pid = waitpid(-1, &stat, WNOHANG)) > 0)
 	{ 
-		for (int i = 0; i < cfg.max_conn; i++) {
+		c_log(-1, "pid %d terminated\n", pid);
+		for (unsigned i = 0; i < cli_cnt; i++) {
 			if (cli[i].pid != pid)
 				continue;
 
-			close_conn(cli[i].pid);
+			free_cli(i);
 		}
 	}
 }
