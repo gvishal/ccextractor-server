@@ -92,9 +92,15 @@ void net_send_header(const char *data, size_t len)
 	fprintf(stderr, "File format revision: %02X%02X\n", data[6], data[7]);
 #endif
 
-	if (write_block(srv_sd, BIN_HEADER, data, len) < 0)
+	if (write_block(srv_sd, BIN_MODE, NULL, 0) <= 0)
 	{
-		printf("Can't send BIN header block\n");
+		printf("Can't send BIN header\n");
+		return;
+	}
+
+	if (writen(srv_sd, data, len) <= 0)
+	{
+		printf("Can't send BIN header\n");
 		return;
 	}
 
@@ -138,9 +144,6 @@ void net_send_cc(const char *data, size_t len)
 ssize_t
 write_block(int fd, char command, const char *buf, size_t buf_len)
 {
-	assert(buf != NULL);
-	assert(buf_len > 0);
-
 #if DEBUG_OUT
 	fprintf(stderr, "[C] ");
 #endif
@@ -369,8 +372,8 @@ void pr_command(char c)
 		case OK:
 			fprintf(stderr, "OK");
 			break;
-		case BIN_HEADER:
-			fprintf(stderr, "BIN_HEADER");
+		case BIN_MODE:
+			fprintf(stderr, "BIN_MODE");
 			break;
 		case WRONG_PASSWORD:
 			fprintf(stderr, "WRONG_PASSWORD");
@@ -441,8 +444,7 @@ readn(int fd, void *vptr, size_t n)
 ssize_t 
 writen(int fd, const void *vptr, size_t n)
 {
-	assert(vptr != NULL);
-	assert(n > 0);
+	assert((n > 0 && vptr != NULL) || (n == 0 && vptr == NULL));
 
 	size_t nleft;
 	ssize_t nwritten;

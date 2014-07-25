@@ -168,7 +168,11 @@ int main()
 		if (cfg.use_pwd)
 			write_byte(connfd, PASSWORD);
 		else if (cli_logged_in() < 0)
+		{
+			_log("[%d] (%s:%s) Disconnected\n",
+					cli->id, cli->host, cli->serv);
 			exit(EXIT_FAILURE);
+		}
 
 		if (cli_loop() < 0)
 			exit(EXIT_FAILURE); 
@@ -315,7 +319,7 @@ int clinet_command()
 
 		break;
 
-	case BIN_HEADER:
+	case BIN_MODE:
 		c_log(cli->id, "Bin header\n");
 
 		assert(cli_chld->txt_filepath == NULL);
@@ -338,8 +342,6 @@ int clinet_command()
 
 		if (file_path(&cli_chld->srt_filepath, "srt") < 0)
 			return -1;
-
-		fwrite(buf, sizeof(char), len, cli_chld->bin_fp); /* Header */
 
 		if (fork_cce() < 0)
 			return -1;
@@ -711,8 +713,6 @@ int fork_cce()
 	assert(cli_chld->bin_filepath != NULL);
 	assert(cli_chld->txt_filepath != NULL);
 	assert(cli_chld->srt_filepath != NULL);
-
-	_log("!!!%s\n",cfg.cce_path);
 
 	if ((cli_chld->cce_txt_pid = fork()) < 0)
 	{
