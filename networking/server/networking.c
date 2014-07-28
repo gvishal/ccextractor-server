@@ -18,9 +18,6 @@ ssize_t
 read_block(int fd, char *command, char *buf, size_t *buf_len)
 {
 	assert(command != NULL);
-	assert(buf != NULL);
-	assert(buf_len != NULL);
-	assert(*buf_len > 0);
 
 	ssize_t rc;
 	ssize_t nread = 0;
@@ -43,6 +40,11 @@ read_block(int fd, char *command, char *buf, size_t *buf_len)
 
 	if (len > 0)
 	{
+		if (buf == NULL || buf_len == NULL)
+			return BLK_SIZE;
+
+		assert(*buf_len > 0);
+
 		size_t ign_bytes = 0;
 		if (len > *buf_len)
 		{

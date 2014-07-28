@@ -18,16 +18,7 @@ void open_log_file();
 
 int update_users_file();
 
-int open_buf_file();
-int send_to_buf(char command, char *buf, size_t len);
-
-int append_to_arch_info();
-
-int file_path(char **path, const char *ext);
-
 int fork_cce();
-
-int fork_txt_parser();
 
 void sig_chld();
 

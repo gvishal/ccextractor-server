@@ -15,6 +15,8 @@
 #include <sys/file.h>
 #include <limits.h> 
 
+unsigned cli_id;
+
 char *buf_filepath; 
 FILE *buf_fp; 
 unsigned buf_line_cnt;
@@ -29,7 +31,7 @@ FILE *xds_fp;
 
 char *program_name;
 
-int fork_parser(unsigned cli_id, const char *cce_output)
+pid_t fork_parser(unsigned id, const char *cce_output)
 {
 	pid_t pid = fork();
 
@@ -40,11 +42,13 @@ int fork_parser(unsigned cli_id, const char *cce_output)
 	}
 	else if (pid != 0)
 	{
-		c_log(cli_id, "ttxt parser forked, pid=%d\n", pid);
-		return 1;
+		c_log(cli_id, "Parser forked, pid=%d\n", pid);
+		return pid;
 	}
 
-	if (open_buf_file1(cli_id) < 0)
+	cli_id = id;
+
+	if (open_buf_file() < 0)
 		exit(EXIT_FAILURE);
 
 	if (parser_loop(cce_output) < 0)
@@ -213,7 +217,7 @@ int open_txt_file()
 	assert(txt_fp == NULL);
 
 new_name:
-	if (file_path1(&txt_filepath, "txt") < 0)
+	if (file_path(&txt_filepath, "txt") < 0)
 		return -1;
 
 	if ((txt_fp = fopen(txt_filepath, "w+x")) == NULL)
@@ -239,7 +243,7 @@ int open_xds_file()
 	assert(xds_fp == NULL);
 
 new_name:
-	if (file_path1(&xds_filepath, "xds.txt") < 0)
+	if (file_path(&xds_filepath, "xds.txt") < 0)
 		return -1;
 
 	if ((xds_fp = fopen(xds_filepath, "w+")) == NULL)
@@ -260,7 +264,7 @@ new_name:
 	return 1;
 }
 
-int open_buf_file1(unsigned cli_id)
+int open_buf_file()
 {
 	assert(buf_filepath == NULL);
 	assert(buf_fp == NULL);
@@ -291,7 +295,7 @@ int open_buf_file1(unsigned cli_id)
 }
 
 
-int file_path1(char **path, const char *ext)
+int file_path(char **path, const char *ext)
 {
 	assert(ext != NULL);
 
@@ -318,7 +322,42 @@ int file_path1(char **path, const char *ext)
 	memset(time_buf, 0, sizeof(time_buf));
 	strftime(time_buf, 30, "%H%M%S", t_tm);
 
-	snprintf(*path, PATH_MAX, "%s/%s-%d.%s", dir, time_buf, rand(), ext); 
+	snprintf(*path, PATH_MAX, "%s/%s-%u.%s", dir, time_buf, cli_id, ext); 
 
 	return 0;
 }
+
+/* int append_to_arch_info() */
+/* { */
+/* 	time_t t = time(NULL); */
+/* 	struct tm *t_tm = localtime(&t); */
+/*  */
+/* 	char time_buf[30] = {0}; */
+/* 	strftime(time_buf, 30, "%G/%m-%b/%d", t_tm); */
+/*  */
+/* 	char info_filepath[PATH_MAX]; */
+/* 	snprintf(info_filepath, PATH_MAX, "%s/%s/%s",  */
+/*     		cfg.arch_dir, */
+/*     		time_buf, */
+/*     		cfg.arch_info_filename); */
+/*  */
+/* 	FILE *info_fp = fopen(info_filepath, "a"); */
+/* 	if (NULL == info_fp) */
+/* 	{ */
+/* 		_log("fopen() error: %s\n", strerror(errno)); */
+/* 		return -1; */
+/* 	} */
+/*  */
+/* 	fprintf(info_fp, "%d %u %s:%s %s %s %s\n", */
+/* 			(int) t, */
+/* 			cli->id, */
+/* 			cli->host, */
+/* 			cli->serv, */
+/* 			cli_chld->bin_filepath, */
+/* 			cli_chld->txt_filepath, */
+/* 			cli_chld->srt_filepath); */
+/*  */
+/* 	fclose(info_fp); */
+/*  */
+/* 	return 0; */
+/* } */
