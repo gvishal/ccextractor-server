@@ -98,6 +98,9 @@ int greeting()
 	if (write_byte(cli->fd, OK) != 1)
 		return -1;
 
+	if (add_cli_info() < 0)
+		return -1;
+
 	_log("[%u] Logged in\n", cli->id); /* TODO remove from here */
 
 	return 1;
@@ -222,11 +225,7 @@ int bin_loop()
 	}
 
 out:
-	if (cli->parcer_pid > 0 && kill(cli->parcer_pid, SIGINT) < 0)
-		_perror("kill");
-
-	if (cli->cce_pid > 0 && kill(cli->cce_pid, SIGINT) < 0)
-		_perror("kill");
+	logged_out();
 
 	return ret;
 }
@@ -358,6 +357,114 @@ int open_bin_files()
 			"%s/%s-%u.cce.txt", cfg.cce_output_dir, time_buf, cli->id); 
 
 	c_log(cli->id, "CCExtractor output file: %s\n", cli->cce_out.path);
+
+	return 1;
+}
+
+int add_cli_info()
+{
+	FILE *fp = fopen(USERS_FILE_PATH, "a");
+	if (fp == NULL)
+	{
+		_perror("fopen");
+		return -1;
+	}
+
+	if (0 != flock(fileno(fp), LOCK_EX)) 
+	{
+		_perror("flock");
+		fclose(fp);
+		return -1;
+	}
+
+	fprintf(fp, "%u ", cli->id);
+
+	if (0 != flock(fileno(fp), LOCK_UN)) 
+	{
+		_perror("flock");
+		fclose(fp);
+		return -1;
+	}
+
+	fclose(fp);
+
+	return 1;
+}
+
+int logged_out()
+{
+	_log("[%d] Disconnected\n", cli->id); 
+
+	if (cli->parcer_pid > 0 && kill(cli->parcer_pid, SIGINT) < 0)
+		_perror("kill");
+
+	if (cli->cce_pid > 0 && kill(cli->cce_pid, SIGINT) < 0)
+		_perror("kill");
+
+	if (cli->cce_in.fp != NULL)
+		fclose(cli->cce_in.fp);
+
+	if (cli->cce_in.path != NULL && unlink(cli->cce_in.path) < 0)
+		_perror("unlink");
+
+	if (cli->cce_out.path != NULL && unlink(cli->cce_out.path) < 0)
+		_perror("unlink");
+
+	if (remove_cli_info() < 0)
+		return -1;
+
+	return 1;
+}
+
+int remove_cli_info()
+{
+	FILE *fp = fopen(USERS_FILE_PATH, "r+");
+	if (fp == NULL)
+	{
+		_perror("fopen");
+		return -1;
+	}
+
+	if (0 != flock(fileno(fp), LOCK_EX)) 
+	{
+		_perror("flock");
+		fclose(fp);
+		return -1;
+	}
+
+	unsigned *ids = (unsigned *) malloc(cfg.max_conn * sizeof(unsigned));
+	if (NULL == ids)
+	{
+		_perror("malloc");
+		fclose(fp);
+		return -1;
+	}
+
+	int i;
+	for (i = 0; !feof(fp); i++)
+	{
+		fscanf(fp, "%u ", &ids[i]);
+		if (feof(fp))
+			break;
+	}
+
+	rewind(fp);
+
+	for (int j = 0; j < i; j++) {
+		if (ids[j] != cli->id)
+			fprintf(fp, "%u ", ids[j]);
+	}
+
+	if (0 != flock(fileno(fp), LOCK_UN)) 
+	{
+		_perror("flock");
+		fclose(fp);
+		free(ids);
+		return -1;
+	}
+
+	free(ids);
+	fclose(fp);
 
 	return 1;
 }

@@ -12,8 +12,6 @@ void close_conn(int id);
 
 void open_log_file();
 
-int update_users_file();
-
 void sig_chld();
 
 #endif /* end of include guard: SERVER_H */

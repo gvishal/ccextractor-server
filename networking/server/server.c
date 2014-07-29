@@ -191,9 +191,6 @@ new_id:
 
 	_log("Connected %s:%s\n", cli[id].host, cli[id].serv);
 
-	if (update_users_file() < 0)
-		return -1;
-
 	return id;
 }
 
@@ -227,32 +224,6 @@ void close_conn(int id)
 			cli[id].id, cli[id].host, cli[id].serv);
 
 	free_cli(id);
-}
-
-int update_users_file()
-{
-	FILE *fp = fopen(USERS_FILE_PATH, "w+");
-	if (fp == NULL)
-	{
-		_perror("fopen");
-		return -1;
-	}
-
-	/* XXX: client not logged in */
-	for (unsigned i = 0; i < cli_cnt; i++) 
-	{
-		if (0 == cli[i].fd)
-			continue;
-		
-		fprintf(fp, "%u %s:%s\n", 
-				cli[i].id,
-				cli[i].host, 
-				cli[i].serv);
-	}
-
-	fclose(fp);
-
-	return 0;
 }
 
 void open_log_file()
