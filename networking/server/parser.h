@@ -15,11 +15,9 @@ int is_cc(const char *line);
 int open_buf_file();
 int open_txt_file();
 int open_xds_file();
-// int open_srt_file(const char *program);
 
 int append_to_txt(const char *line, size_t len);
 int append_to_xds(const char *line, size_t len);
-// int append_to_srt(const char *line, size_t len);
 int append_to_buf(const char *line, size_t len, char mode);
 
 int file_path(char **path, const char *ext, unsigned id);

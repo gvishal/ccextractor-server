@@ -17,17 +17,12 @@
 
 unsigned cli_id;
 
-char *buf_filepath; 
-FILE *buf_fp; 
+file_t buf;
 unsigned buf_line_cnt;
 unsigned cur_line;
 
-char *txt_filepath; 
-FILE *txt_fp; 
-char *xds_filepath; 
-FILE *xds_fp; 
-/* char *srt_filepath;  */
-/* FILE *srt_fp;  */
+file_t txt;
+file_t xds;
 
 char *program_name;
 
@@ -139,20 +134,20 @@ int is_xds(const char *line)
 
 int append_to_txt(const char *line, size_t len)
 {
-	if (txt_fp == NULL && open_txt_file() < 0)
+	if (txt.fp == NULL && open_txt_file() < 0)
 		return -1;
 
-	fwrite(line, sizeof(char), len, txt_fp);
+	fwrite(line, sizeof(char), len, txt.fp);
 
 	return 1;
 }
 
 int append_to_xds(const char *line, size_t len)
 {
-	if (xds_fp == NULL && open_xds_file() < 0)
+	if (xds.fp == NULL && open_xds_file() < 0)
 		return -1;
 
-	fwrite(line, sizeof(char), len, xds_fp);
+	fwrite(line, sizeof(char), len, xds.fp);
 
 	return 1;
 }
@@ -172,7 +167,7 @@ int append_to_buf(const char *line, size_t len, char mode)
 	int rc; 
 	if (buf_line_cnt >= cfg.buf_max_lines)
 	{
-		if ((rc = delete_n_lines(&buf_fp, buf_filepath,
+		if ((rc = delete_n_lines(&buf.fp, buf.path,
 					buf_line_cnt - cfg.buf_min_lines)) < 0)
 		{
 			m_perror("delete_n_lines", rc);
@@ -182,27 +177,27 @@ int append_to_buf(const char *line, size_t len, char mode)
 		buf_line_cnt = cfg.buf_min_lines;
 	}
 
-	if (0 != flock(fileno(buf_fp), LOCK_EX)) 
+	if (0 != flock(fileno(buf.fp), LOCK_EX)) 
 	{
 		_perror("flock");
 		free(tmp);
 		return -1;
 	}
 
-	fprintf(buf_fp, "%d %d ", cur_line, mode);
+	fprintf(buf.fp, "%d %d ", cur_line, mode);
 
 	if (tmp != NULL && len > 0)
 	{
-		fprintf(buf_fp, "%zd ", len);
-		fwrite(tmp, sizeof(char), len, buf_fp);
+		fprintf(buf.fp, "%zd ", len);
+		fwrite(tmp, sizeof(char), len, buf.fp);
 	}
 
-	fprintf(buf_fp, "\r\n");
+	fprintf(buf.fp, "\r\n");
 
 	cur_line++;
 	buf_line_cnt++;
 
-	if (0 != flock(fileno(buf_fp), LOCK_UN))
+	if (0 != flock(fileno(buf.fp), LOCK_UN))
 	{
 		_perror("flock");
 		free(tmp);
@@ -216,22 +211,18 @@ int append_to_buf(const char *line, size_t len, char mode)
 
 int open_txt_file()
 {
-	assert(txt_fp == NULL);
+	assert(txt.fp == NULL);
 
-new_name:
-	if (file_path(&txt_filepath, "txt", cli_id) < 0)
+	if (file_path(&txt.path, "txt", cli_id) < 0)
 		return -1;
 
-	if ((txt_fp = fopen(txt_filepath, "w+x")) == NULL)
+	if ((txt.fp = fopen(txt.path, "w+x")) == NULL)
 	{
-		if (EEXIST == errno)
-			goto new_name;
-
 		_perror("fopen");
 		return -1;
 	}
 
-	if (setvbuf(txt_fp, NULL, _IOLBF, 0) < 0) 
+	if (setvbuf(txt.fp, NULL, _IOLBF, 0) < 0) 
 	{
 		_perror("setvbuf");
 		return -1;
@@ -242,22 +233,18 @@ new_name:
 
 int open_xds_file()
 {
-	assert(xds_fp == NULL);
+	assert(xds.fp == NULL);
 
-new_name:
-	if (file_path(&xds_filepath, "xds.txt", cli_id) < 0)
+	if (file_path(&xds.path, "xds.txt", cli_id) < 0)
 		return -1;
 
-	if ((xds_fp = fopen(xds_filepath, "w+")) == NULL)
+	if ((xds.fp = fopen(xds.path, "w+")) == NULL)
 	{
-		if (EEXIST == errno)
-			goto new_name;
-
 		_perror("fopen");
 		return -1;
 	}
 
-	if (setvbuf(xds_fp, NULL, _IOLBF, 0) < 0) 
+	if (setvbuf(xds.fp, NULL, _IOLBF, 0) < 0) 
 	{
 		_perror("setvbuf");
 		return -1;
@@ -268,30 +255,30 @@ new_name:
 
 int open_buf_file()
 {
-	assert(buf_filepath == NULL);
-	assert(buf_fp == NULL);
+	assert(buf.path == NULL);
+	assert(buf.fp == NULL);
 
-	if ((buf_filepath = (char *) malloc (PATH_MAX)) == NULL)
+	if ((buf.path = (char *) malloc (PATH_MAX)) == NULL)
 	{
 		_perror("malloc");
 		return -1;
 	}
 
-	snprintf(buf_filepath, PATH_MAX, "%s/%u.txt", cfg.buf_dir, cli_id);
+	snprintf(buf.path, PATH_MAX, "%s/%u.txt", cfg.buf_dir, cli_id);
 
-	if ((buf_fp = fopen(buf_filepath, "w+")) == NULL)
+	if ((buf.fp = fopen(buf.path, "w+")) == NULL)
 	{
 		_perror("fopen");
 		return -1;
 	}
 
-	if (setvbuf(buf_fp, NULL, _IOLBF, 0) < 0) 
+	if (setvbuf(buf.fp, NULL, _IOLBF, 0) < 0) 
 	{
 		_perror("setvbuf");
 		return -1;
 	}
 
-	c_log(cli_id, "Buffer file opened: %s\n", buf_filepath);
+	c_log(cli_id, "Buffer file opened: %s\n", buf.path);
 
 	return 1;
 }
@@ -356,8 +343,7 @@ int file_path(char **path, const char *ext, unsigned id)
 /* 			cli->host, */
 /* 			cli->serv, */
 /* 			cli_chld->bin_filepath, */
-/* 			cli_chld->txt_filepath, */
-/* 			cli_chld->srt_filepath); */
+/* 			cli_chld->txt.path, */
 /*  */
 /* 	fclose(info_fp); */
 /*  */

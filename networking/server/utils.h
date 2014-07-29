@@ -26,6 +26,12 @@
 
 #define TMP_FILE_PATH "./tmp_file" /* temprorary file for delete_n_lines */
 
+typedef struct 
+{
+	char *path;
+	FILE *fp;
+} file_t;
+
 /* Reads n bytes from descriptor */
 ssize_t readn(int fd, void *vptr, size_t n);
 
@@ -39,6 +45,7 @@ ssize_t read_byte(int fd, char *status);
 /* Writes message to stderr */
 const char *m_strerror(int rc);
 void c_log(int cli_id, const char *fmt, ...);
+// FIXME: these names may be reserved
 #define _log(...) c_log(0, __VA_ARGS__);
 
 #define _perror(str) _log("%s:%d %s() error: %s\n", __FILE__, __LINE__, str, strerror(errno));

@@ -27,16 +27,12 @@ struct cli_t
 	unsigned is_logged : 1;
 
 	unsigned bin_mode : 1;
-	/* bin file for ccextractor */
-	FILE *fifo_fp;
-	char *fifo_path;
 
-	/* bin file for clients */
-	FILE *bin_fp;
-	char *bin_path;
+	file_t bin; /* bin file for clients */
 
 	pid_t cce_pid;
-	char *cce_output_path;
+	file_t cce_in; /* Named pipe */
+	file_t cce_out;
 
 	pid_t parcer_pid;
 } *cli; 
@@ -172,7 +168,7 @@ int handle_bin_mode()
 	if ((cli->cce_pid = fork_cce()) < 0)
 		return -1;
 
-	if ((cli->parcer_pid = fork_parser(cli->id, cli->cce_output_path)) < 0)
+	if ((cli->parcer_pid = fork_parser(cli->id, cli->cce_out.path)) < 0)
 		return -1;
 
 	if (set_nonblocking(cli->fd) < 0)
@@ -239,9 +235,9 @@ int read_bin_data()
 {
 	assert(cli->bin_mode);
 	assert(cli->is_logged);
-	assert(cli->bin_fp != NULL);
-	assert(cli->bin_path != NULL);
-	assert(cli->fifo_fp != NULL);
+	assert(cli->bin.fp != NULL);
+	assert(cli->bin.path != NULL);
+	assert(cli->cce_in.fp != NULL);
 	assert(cli->cce_pid > 0);
 	assert(cli->parcer_pid > 0);
 
@@ -258,11 +254,9 @@ int read_bin_data()
 
 	c_log(cli->id, "Bin data received: %zd bytes\n", rc);
 
-	fwrite(buf, sizeof(char), rc, cli->bin_fp);
-	fflush(cli->bin_fp);
+	fwrite(buf, sizeof(char), rc, cli->bin.fp);
 
-	fwrite(buf, sizeof(char), rc, cli->fifo_fp);
-	fflush(cli->fifo_fp);
+	fwrite(buf, sizeof(char), rc, cli->cce_in.fp);
 
 	return 1;
 }
@@ -281,13 +275,13 @@ pid_t fork_cce()
 		{
 			"ccextractor", 
 			"-in=bin", 
-			cli->fifo_path,
+			cli->cce_in.path,
 			"--stream",
 			"-quiet",
 			"-out=ttxt",
 			"-xds",
 			"-autoprogram",
-			"-o", cli->cce_output_path,
+			"-o", cli->cce_out.path,
 			NULL
 		};
 
@@ -305,17 +299,23 @@ pid_t fork_cce()
 
 int open_bin_files()
 {
-	if (file_path(&cli->bin_path, "bin", cli->id) < 0)
+	if (file_path(&cli->bin.path, "bin", cli->id) < 0)
 		return -1;
 
-	if ((cli->bin_fp = fopen(cli->bin_path, "w+")) == NULL)
+	if ((cli->bin.fp = fopen(cli->bin.path, "w+")) == NULL)
 	{
 		_perror("fopen");
 		return -1;
 	}
-	c_log(cli->id, "BIN file: %s\n", cli->bin_path);
 
-	if ((cli->fifo_path = (char *) malloc(PATH_MAX)) == NULL)
+	if (setvbuf(cli->bin.fp, NULL, _IONBF, 0) < 0) 
+	{
+		_perror("setvbuf");
+		return -1;
+	}
+	c_log(cli->id, "BIN file: %s\n", cli->bin.path);
+
+	if ((cli->cce_in.path = (char *) malloc(PATH_MAX)) == NULL)
 	{
 		_perror("malloc");
 		return -1;
@@ -325,33 +325,39 @@ int open_bin_files()
 	struct tm *t_tm = localtime(&t);
 	char time_buf[30] = {0};
 	strftime(time_buf, 30, "%H%M%S", t_tm);
-	snprintf(cli->fifo_path, PATH_MAX, 
+	snprintf(cli->cce_in.path, PATH_MAX, 
 			"%s/%s-%u.fifo", cfg.cce_output_dir, time_buf, cli->id); 
 
-	if (mkfifo(cli->fifo_path, S_IRWXU) < 0)
+	if (mkfifo(cli->cce_in.path, S_IRWXU) < 0)
 	{
 		_perror("mkfifo");
 		return -1;
 	}
 
-	if ((cli->fifo_fp = fopen(cli->fifo_path, "w+")) == NULL)
+	if ((cli->cce_in.fp = fopen(cli->cce_in.path, "w+")) == NULL)
 	{
 		_perror("fopen");
 		return -1;
 	}
-	c_log(cli->id, "CCExtractor input fifo file: %s\n", cli->fifo_path);
+
+	if (setvbuf(cli->cce_in.fp, NULL, _IONBF, 0) < 0) 
+	{
+		_perror("setvbuf");
+		return -1;
+	}
+	c_log(cli->id, "CCExtractor input fifo file: %s\n", cli->cce_in.path);
 
 
-	if ((cli->cce_output_path = (char *) malloc(PATH_MAX)) == NULL)
+	if ((cli->cce_out.path = (char *) malloc(PATH_MAX)) == NULL)
 	{
 		_perror("malloc");
 		return -1;
 	}
 
-	snprintf(cli->cce_output_path, PATH_MAX, 
+	snprintf(cli->cce_out.path, PATH_MAX, 
 			"%s/%s-%u.cce.txt", cfg.cce_output_dir, time_buf, cli->id); 
 
-	c_log(cli->id, "CCExtractor output file: %s\n", cli->cce_output_path);
+	c_log(cli->id, "CCExtractor output file: %s\n", cli->cce_out.path);
 
 	return 1;
 }
