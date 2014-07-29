@@ -41,27 +41,27 @@ int main()
 
 	if ((rc = init_cfg()) < 0)
 	{
-		e_log(rc);
+		m_perror("init_cfg", rc);
 		exit(EXIT_FAILURE);
 	}
 
 	/* line buffering in stdout */
 	if (setvbuf(stdout, NULL, _IOLBF, 0) < 0) 
 	{
-		_log("setvbuf() error: %s\n", strerror(errno));
+		_perror("setvbuf");
 		exit(EXIT_FAILURE);
 	}
 
 	if ((rc = parse_config_file()) < 0)
 	{
-		e_log(rc);
+		m_perror("parse_config_file", rc);
 		exit(EXIT_FAILURE);
 	}
 
 	int listen_sd = bind_server(cfg.port);
 	if (listen_sd < 0) 
 	{
-		e_log(listen_sd);
+		m_perror("bind_server", rc);
 		exit(EXIT_FAILURE);
 	}
 
@@ -77,7 +77,7 @@ int main()
 	cli = (struct cli_t *) malloc((sizeof(struct cli_t)) * (cfg.max_conn));
 	if (NULL == cli)
 	{
-		_log("malloc() error: %s\n", strerror(errno));
+		_perror("malloc");
 		exit(EXIT_FAILURE);
 	}
 	memset(cli, 0, (sizeof(struct cli_t)) * (cfg.max_conn));
@@ -96,7 +96,7 @@ int main()
 			}
 			else
 			{
-				_log("accept() error: %s\n", strerror(errno));
+				_perror("accept");
 				goto end_server;
 			}
 		}
@@ -165,18 +165,16 @@ int add_new_cli(int fd, struct sockaddr *cliaddr, socklen_t clilen)
 	}
 
 	int host_len = strlen(host) + 1; /* +1 for'\0' */
-	cli[id].host = (char *) malloc(host_len); 
-	if (NULL == cli[id].host)
+	if ((cli[id].host = (char *) malloc(host_len)) == NULL)
 	{
-		_log("malloc() error: %s\n", strerror(errno));
+		_perror("malloc");
 		return -1;
 	}
 	memcpy(cli[id].host, host, host_len);
 	int serv_len = strlen(serv) + 1;
-	cli[id].serv = (char *) malloc(serv_len);
-	if (NULL == cli[id].serv)
+	if ((cli[id].serv = (char *) malloc(serv_len)) == NULL)
 	{
-		_log("malloc() error: %s\n", strerror(errno));
+		_perror("malloc");
 		return -1;
 	}
 	memcpy(cli[id].serv, serv, serv_len);
@@ -236,7 +234,7 @@ int update_users_file()
 	FILE *fp = fopen(USERS_FILE_PATH, "w+");
 	if (fp == NULL)
 	{
-		_log("fopen() error: %s\n", strerror(errno));
+		_perror("fopen");
 		return -1;
 	}
 
@@ -269,7 +267,7 @@ void open_log_file()
 
 	if (freopen(log_filepath, "w", stderr) == NULL) { 
 		/* output to stderr won't work */
-		printf("freopen() error: %s\n", strerror(errno)); 
+		_perror("freopen");
 		exit(EXIT_FAILURE);
 	}
 

@@ -16,8 +16,7 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 
-ssize_t 
-readn(int fd, void *vptr, size_t n) 
+ssize_t readn(int fd, void *vptr, size_t n) 
 {
 	size_t nleft;
 	ssize_t nread;
@@ -44,7 +43,7 @@ readn(int fd, void *vptr, size_t n)
 			else if (EAGAIN == errno)
 				break;
 			else 
-				return -1;
+				return ERRNO;
 		}
 		else if (0 == nread) 
 		{
@@ -58,8 +57,7 @@ readn(int fd, void *vptr, size_t n)
 	return n - nleft;
 }
 
-ssize_t 
-writen(int fd, const void *vptr, size_t n)
+ssize_t writen(int fd, const void *vptr, size_t n)
 {
 	assert(vptr != NULL);
 	assert(n > 0);
@@ -96,43 +94,52 @@ writen(int fd, const void *vptr, size_t n)
 	return n;
 }
 
-ssize_t 
-write_byte(int fd, char ch)
+ssize_t write_byte(int fd, char ch)
 {
 	return writen(fd, &ch, 1);
 }
 
-ssize_t 
-read_byte(int fd, char *ch)
+ssize_t read_byte(int fd, char *ch)
 {
 	assert(ch != 0);
 
 	return readn(fd, ch, 1);
 }
 
-void _log(const char *fmt, ...)
+const char *m_strerror(int rc)
 {
-	/* TODO: locks for concurrent access */
-	/* XXX: print __LINE__ */
-	va_list args;
-	va_start(args, fmt);	
-
-	time_t t = time(NULL);
-	struct tm *t_tm = localtime(&t);
-	char buf[30] = {0};
-	strftime(buf, 30, "%H:%M:%S", t_tm);
-	fprintf(stderr, "%s ", buf);
-
-	fprintf(stderr, "[S] ");
-	vfprintf(stderr, fmt, args);
-
-	fflush(stderr);
-
-	va_end(args);
+	switch(rc)
+	{
+		case BLK_SIZE:
+			return "Wrong block size";
+		case END_MARKER:
+			return "No end marker present";
+		case CFG_ERR:
+			return "Can't parse config file";
+		case CFG_NUM:
+			return "Number expected";
+		case CFG_STR:
+			return "String expected";
+		case CFG_BOOL:
+			return "Boolean expected";
+		case CFG_UNKNOWN:
+			return "Unknown key-value pair";
+		case B_SRV_GAI:
+			return gai_strerror(errno);
+		case B_SRV_ERR:
+			return "Coudn't bind to the port";
+		case DEL_L_EOF:
+			return "Unexpected end-of-file";
+		case ERRNO:
+			return strerror(errno);
+		default:
+			return "Unknown";
+	}
 }
 
 void c_log(int cli_id, const char *fmt, ...)
 {
+	/* TODO: locks for concurrent access */
 	if (!cfg.log_clients && cli_id != 0)
 		return;
 
@@ -155,62 +162,6 @@ void c_log(int cli_id, const char *fmt, ...)
 	fflush(stderr);
 
 	va_end(args);
-}
-
-void ec_log(int cli_id, int rc)
-{
-	if (!cfg.log_clients && cli_id != 0)
-		return;
-
-	time_t t = time(NULL);
-	struct tm *t_tm = localtime(&t);
-	char buf[30] = {0};
-	strftime(buf, 30, "%H:%M:%S", t_tm);
-	fprintf(stderr, "%s ", buf);
-
-	if (cli_id == 0)
-		fprintf(stderr, "[S] ");
-	else 
-		fprintf(stderr, "[%d] ", cli_id);
-
-	switch(rc)
-	{
-		case BLK_SIZE:
-			fprintf(stderr, "read_block() error: Wrong block size\n");
-			break;
-		case END_MARKER:
-			fprintf(stderr, "read_block() error: No end marker present\n");
-			break;
-		case CFG_ERR:
-			fprintf(stderr, "parse_config_file() error: Can't parse config file\n");
-			break;
-		case CFG_NUM:
-			fprintf(stderr, "parse_config_file() error: Number expected\n");
-			break;
-		case CFG_STR:
-			fprintf(stderr, "parse_config_file() error: String expected\n");
-			break;
-		case CFG_BOOL:
-			fprintf(stderr, "parse_config_file() error: Boolean expected\n");
-			break;
-		case CFG_UNKNOWN:
-			fprintf(stderr, "parse_config_file() error: Unknown key-value pair\n");
-			break;
-		case B_SRV_GAI:
-			fprintf(stderr, "getaddrinfo() error: %s\n", gai_strerror(errno));
-			break;
-		case B_SRV_ERR:
-			fprintf(stderr, "bind_server() error: Coudn't bind to the port\n");
-			break;
-		case DEL_L_EOF:
-			fprintf(stderr, "delete_n_lines() error: Unexpected end-of-file\n");
-			break;
-		default:
-			fprintf(stderr, "%s\n", strerror(errno));
-			break;
-	}
-
-	fflush(stderr);
 }
 
 void _signal(int sig, void (*func)(int)) 
@@ -247,7 +198,7 @@ int _mkdir(const char *dir, mode_t mode)
 		if (mkdir(tmp, mode) < 0 ) 
 		{
 			if (errno != EEXIST)
-				return -1;
+				return ERRNO;
 		}
 		*p = '/';
 	}
@@ -255,7 +206,7 @@ int _mkdir(const char *dir, mode_t mode)
 	if (mkdir(tmp, mode) < 0) 
 	{
 		if (errno != EEXIST)
-			return -1;
+			return ERRNO;
 	}
 
 	return 0;

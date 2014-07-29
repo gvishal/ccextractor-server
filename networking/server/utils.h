@@ -37,12 +37,13 @@ ssize_t write_byte(int fd, char status);
 ssize_t read_byte(int fd, char *status);
 
 /* Writes message to stderr */
-void _log(const char *fmt, ...);
+const char *m_strerror(int rc);
 void c_log(int cli_id, const char *fmt, ...);
+#define _log(...) c_log(0, __VA_ARGS__);
 
-/* Writes to stderr description of returned value */
-#define e_log(rc) ec_log(0, (rc))
-void ec_log(int cli_id, int rc);
+#define _perror(str) _log("%s:%d %s() error: %s\n", __FILE__, __LINE__, str, strerror(errno));
+#define m_perror(str, rc) _log("%s:%d %s() error: %s\n", __FILE__, __LINE__, str, m_strerror(rc));
+#define c_perror(cli, str, rc) c_log(cli, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, m_strerror(rc));
 
 /* Sets signal handler */
 void _signal(int sig, void (*func)(int));

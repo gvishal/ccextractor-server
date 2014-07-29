@@ -44,7 +44,7 @@ pid_t fork_client(unsigned id, int connfd, int listenfd)
 
 	if (pid < 0)
 	{
-		_log("fork() error: %s\n", strerror(errno));
+		_perror("fork");
 		return -1;
 	}
 	else if (pid > 0)
@@ -79,7 +79,7 @@ int init_cli()
 {
 	if ((cli = (struct cli_t *) malloc(sizeof(struct cli_t))) == NULL)
 	{
-		_log("malloc() error: %s\n", strerror(errno));
+		_perror("malloc");
 		return -1;
 	}
 
@@ -90,26 +90,17 @@ int init_cli()
 	return 1;
 }
 
-int logged_in()
+int greeting()
 {
-	_log("[%u] Logged in\n", cli->id); /* TODO remove from here */
+	if (cfg.use_pwd == TRUE && check_password() <= 0)
+		return -1;
 
 	cli->is_logged = TRUE;
 
 	if (write_byte(cli->fd, OK) != 1)
 		return -1;
 
-	return 1;
-}
-
-int greeting()
-{
-	int rc;
-	if (cfg.use_pwd == TRUE && (rc = check_password()) <= 0)
-		return -1;
-
-	if (write_byte(cli->fd, OK) != 1)
-		return -1;
+	_log("[%u] Logged in\n", cli->id); /* TODO remove from here */
 
 	return 1;
 }
@@ -128,7 +119,7 @@ int check_password()
 
 		if ((rc = read_block(cli->fd, &c, buf, &len)) <= 0)
 		{
-			ec_log(cli->id, rc);
+			c_perror(cli->id, "read_block", rc);
 			return rc;
 		}
 
@@ -162,7 +153,7 @@ int handle_bin_mode()
 	int rc;
 	if ((rc = read_block(cli->fd, &c, NULL, NULL)) <= 0)
 	{
-		ec_log(cli->id, rc);
+		c_perror(cli->id, "read_block", rc);
 		return -1;
 	}
 
@@ -176,12 +167,12 @@ int handle_bin_mode()
 	if (fork_cce() < 0)
 		return -1;
 
-	if (fork_parser(cli->id, cli->cce_output_file) < 0)
+	if ((cli->parcer_pid = fork_parser(cli->id, cli->cce_output_file)) < 0)
 		return -1;
 
 	if (set_nonblocking(cli->fd) < 0)
 	{
-		_log("set_nonblocking() error: %s\n", strerror(errno));
+		_perror("set_nonblocking");
 		return -1;
 	}
 
@@ -206,7 +197,7 @@ int bin_loop()
 			if (EINTR == errno)
 				continue;
 
-			_log("poll() error: %s\n", strerror(errno));
+			_perror("poll");
 			ret = -1;
 			goto out;
 		}
@@ -231,10 +222,10 @@ int bin_loop()
 
 out:
 	if (cli->parcer_pid > 0 && kill(cli->parcer_pid, SIGINT) < 0)
-		_log("kill error(): %s\n", strerror(errno));
+		_perror("kill");
 
 	if (cli->cce_pid > 0 && kill(cli->cce_pid, SIGINT) < 0)
-		_log("kill error(): %s\n", strerror(errno));
+		_perror("kill");
 
 	return ret;
 }
@@ -256,7 +247,7 @@ int read_bin_data()
 	if ((rc = readn(cli->fd, buf, len)) <= 0)
 	{
 		if (rc < 0)
-			c_log(cli->id, "readn() error: %s\n", strerror(errno));
+			c_perror(cli->id, "readn", rc);
 		return rc;
 	}
 
@@ -277,13 +268,13 @@ int fork_cce()
 
 	if ((cli->bin_fp = fopen(cli->bin_filepath, "w+")) == NULL)
 	{
-		_log("fopen() error: %s\n", strerror(errno));
+		_perror("fopen");
 		return -1;
 	}
 
 	if ((cli->bin_fifo_filepath = (char *) malloc(PATH_MAX)) == NULL)
 	{
-		_log("malloc() error: %s\n", strerror(errno));
+		_perror("malloc");
 		return -1;
 	}
 
@@ -296,13 +287,13 @@ int fork_cce()
 
 	if ((cli->fifo_fd = mkfifo(cli->bin_fifo_filepath, S_IRWXU)) < 0)
 	{
-		_log("mkfifo() error: %s\n", strerror(errno));
+		_perror("mkfifo");
 		return -1;
 	}
 
 	if ((cli->cce_pid = fork()) < 0)
 	{
-		_log("fork() error: %s\n", strerror(errno));
+		_perror("fork");
 		return -1;
 	}
 	else if (cli->cce_pid == 0)
@@ -323,7 +314,7 @@ int fork_cce()
 
 		if (execv(cfg.cce_path , v) < 0) 
 		{
-			perror("execv");
+			_perror("execv");
 			exit(EXIT_FAILURE);
 		}
 	}

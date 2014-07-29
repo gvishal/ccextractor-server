@@ -7,8 +7,6 @@ pid_t fork_client(unsigned id, int connfd, int listenfd);
 
 int init_cli();
 
-int logged_in();
-
 int greeting();
 int check_password();
 int handle_bin_mode();

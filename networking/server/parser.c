@@ -37,12 +37,12 @@ pid_t fork_parser(unsigned id, const char *cce_output)
 
 	if (pid < 0)
 	{
-		_log("fork() error: %s\n", strerror(errno));
+		_perror("fork");
 		return -1;
 	}
 	else if (pid != 0)
 	{
-		c_log(cli_id, "Parser forked, pid=%d\n", pid);
+		c_log(id, "Parser forked, pid=%d\n", pid);
 		return pid;
 	}
 
@@ -62,7 +62,7 @@ int parser_loop(const char *cce_output)
 	FILE *fp = fopen(cce_output, "w+");
 	if (NULL == fp)
 	{
-		_log("fopen() error: %s\n", strerror(errno));
+		_perror("fopen");
 		return -1;
 	}
 
@@ -75,7 +75,7 @@ int parser_loop(const char *cce_output)
 	{
 		if (fgetpos(fp, &pos) < 0)
 		{
-			_log("fgetpos() error: %s\n", strerror(errno));
+			_perror("fgetpos");
 			exit(EXIT_FAILURE);
 		}
 
@@ -84,13 +84,13 @@ int parser_loop(const char *cce_output)
 			clearerr(fp);
 			if (fsetpos(fp, &pos) < 0)
 			{
-				_log("fsetpos() error: %s\n", strerror(errno));
+				_perror("fgetpos");
 				exit(EXIT_FAILURE);
 			}
 
 			if (nanosleep((struct timespec[]){{0, INF_READ_DELAY}}, NULL) < 0)
 			{
-				_log("nanosleep() error: %s\n", strerror(errno));
+				_perror("nanosleep");
 				exit(EXIT_FAILURE);
 			}
 
@@ -173,7 +173,7 @@ int append_to_buf(const char *line, size_t len, char mode)
 		if ((rc = delete_n_lines(&buf_fp, buf_filepath,
 					buf_line_cnt - cfg.buf_min_lines)) < 0)
 		{
-			e_log(rc);
+			m_perror("delete_n_lines", rc);
 			free(tmp);
 			return -1;
 		}
@@ -182,7 +182,7 @@ int append_to_buf(const char *line, size_t len, char mode)
 
 	if (0 != flock(fileno(buf_fp), LOCK_EX)) 
 	{
-		_log("flock() error: %s\n", strerror(errno));
+		_perror("flock");
 		free(tmp);
 		return -1;
 	}
@@ -202,7 +202,7 @@ int append_to_buf(const char *line, size_t len, char mode)
 
 	if (0 != flock(fileno(buf_fp), LOCK_UN))
 	{
-		_log("flock() error: %s\n", strerror(errno));
+		_perror("flock");
 		free(tmp);
 		return -1;
 	}
@@ -225,13 +225,13 @@ new_name:
 		if (EEXIST == errno)
 			goto new_name;
 
-		_log("fopen() error: %s\n", strerror(errno));
+		_perror("fopen");
 		return -1;
 	}
 
 	if (setvbuf(txt_fp, NULL, _IOLBF, 0) < 0) 
 	{
-		_log("setvbuf() error: %s\n", strerror(errno));
+		_perror("setvbuf");
 		return -1;
 	}
 
@@ -251,13 +251,13 @@ new_name:
 		if (EEXIST == errno)
 			goto new_name;
 
-		_log("fopen() error: %s\n", strerror(errno));
+		_perror("fopen");
 		return -1;
 	}
 
 	if (setvbuf(txt_fp, NULL, _IOLBF, 0) < 0) 
 	{
-		_log("setvbuf() error: %s\n", strerror(errno));
+		_perror("setvbuf");
 		return -1;
 	}
 
@@ -271,7 +271,7 @@ int open_buf_file()
 
 	if ((buf_filepath = (char *) malloc (PATH_MAX)) == NULL)
 	{
-		_log("malloc() error: %s\n", strerror(errno));
+		_perror("malloc");
 		return -1;
 	}
 
@@ -279,13 +279,13 @@ int open_buf_file()
 
 	if ((buf_fp = fopen(buf_filepath, "w+")) == NULL)
 	{
-		_log("fopen() error: %s\n", strerror(errno));
+		_perror("fopen");
 		return -1;
 	}
 
 	if (setvbuf(buf_fp, NULL, _IOLBF, 0) < 0) 
 	{
-		_log("setvbuf() error: %s\n", strerror(errno));
+		_perror("setvbuf");
 		return -1;
 	}
 
@@ -301,7 +301,7 @@ int file_path(char **path, const char *ext)
 
 	if (NULL == *path && (*path = (char *) malloc(PATH_MAX)) == NULL) 
 	{
-		_log("malloc() error: %s\n", strerror(errno));
+		_perror("malloc");
 		return -1;
 	}
 
@@ -315,7 +315,7 @@ int file_path(char **path, const char *ext)
 
 	if (_mkdir(dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH ) < 0)
 	{
-		_log("_mkdir() error: %s\n", strerror(errno));
+		_perror("_mkdir");
 		return -1;
 	}
 
