@@ -18,6 +18,7 @@
 #define DFT_BUF_MAX_LINES 40
 #define DFT_BUF_MIN_LINES 30
 #define DFT_CCEXTRACTOR_PATH "./ccextractor"
+#define DFT_CCE_OUTPUT_DIR "./cce"
 
 #define USERS_FILE_PATH "connections.txt"
 #define INF_READ_DELAY 300000000 /* Nano sec less than 10^9 */
@@ -39,6 +40,7 @@ struct cfg_t
 	unsigned log_clients : 1;
 	char *log_dir;
 	char *cce_path;
+	char *cce_output_dir;
 
 	unsigned is_inited : 1;
 } cfg;

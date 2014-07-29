@@ -22,8 +22,7 @@ int append_to_xds(const char *line, size_t len);
 // int append_to_srt(const char *line, size_t len);
 int append_to_buf(const char *line, size_t len, char mode);
 
-int file_path(char **path, const char *ext);
-
+int file_path(char **path, const char *ext, unsigned id);
 // int append_to_arch_info();
 
 #endif /* end of include guard: PARSER_H */

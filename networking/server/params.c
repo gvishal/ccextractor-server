@@ -22,6 +22,7 @@ int init_cfg()
 	cfg.buf_max_lines = DFT_BUF_MAX_LINES;
 	cfg.buf_min_lines = DFT_BUF_MIN_LINES;
 	cfg.cce_path = DFT_CCEXTRACTOR_PATH;
+	cfg.cce_output_dir = DFT_CCE_OUTPUT_DIR;
 
 	if ((cfg.pwd = (char *) malloc(DFT_PASSW_LEN + 1)) == NULL) /* +1 for '\0' */
 		return ERRNO;
@@ -275,10 +276,19 @@ int parse_config_file()
 		{
 			if (string != val_type)
 			{
-				rc = CFG_NUM;
+				rc = CFG_STR;
 				goto out;
 			}
 			cfg.cce_path = val_str;
+		}
+		else if (strncmp(line, "ccextractor_output_dir", key_len) == 0) 
+		{
+			if (string != val_type)
+			{
+				rc = CFG_STR;
+				goto out;
+			}
+			cfg.cce_output_dir = val_str;
 		}
 		else  
 		{

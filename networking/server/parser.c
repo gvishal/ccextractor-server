@@ -33,6 +33,8 @@ char *program_name;
 
 pid_t fork_parser(unsigned id, const char *cce_output)
 {
+	assert(cce_output != NULL);
+
 	pid_t pid = fork();
 
 	if (pid < 0)
@@ -217,7 +219,7 @@ int open_txt_file()
 	assert(txt_fp == NULL);
 
 new_name:
-	if (file_path(&txt_filepath, "txt") < 0)
+	if (file_path(&txt_filepath, "txt", cli_id) < 0)
 		return -1;
 
 	if ((txt_fp = fopen(txt_filepath, "w+x")) == NULL)
@@ -243,7 +245,7 @@ int open_xds_file()
 	assert(xds_fp == NULL);
 
 new_name:
-	if (file_path(&xds_filepath, "xds.txt") < 0)
+	if (file_path(&xds_filepath, "xds.txt", cli_id) < 0)
 		return -1;
 
 	if ((xds_fp = fopen(xds_filepath, "w+")) == NULL)
@@ -255,7 +257,7 @@ new_name:
 		return -1;
 	}
 
-	if (setvbuf(txt_fp, NULL, _IOLBF, 0) < 0) 
+	if (setvbuf(xds_fp, NULL, _IOLBF, 0) < 0) 
 	{
 		_perror("setvbuf");
 		return -1;
@@ -295,7 +297,7 @@ int open_buf_file()
 }
 
 
-int file_path(char **path, const char *ext)
+int file_path(char **path, const char *ext, unsigned id)
 {
 	assert(ext != NULL);
 
@@ -322,7 +324,7 @@ int file_path(char **path, const char *ext)
 	memset(time_buf, 0, sizeof(time_buf));
 	strftime(time_buf, 30, "%H%M%S", t_tm);
 
-	snprintf(*path, PATH_MAX, "%s/%s-%u.%s", dir, time_buf, cli_id, ext); 
+	snprintf(*path, PATH_MAX, "%s/%s-%u.%s", dir, time_buf, id, ext); 
 
 	return 0;
 }

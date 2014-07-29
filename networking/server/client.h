@@ -12,7 +12,8 @@ int check_password();
 int handle_bin_mode();
 int bin_loop();
 int read_bin_data();
+int open_bin_files();
 
-int fork_cce();
+pid_t fork_cce();
 #endif /* end of include guard: CLIENT_H */
 

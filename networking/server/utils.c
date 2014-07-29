@@ -15,6 +15,7 @@
 #include <netdb.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <sys/file.h>
 
 ssize_t readn(int fd, void *vptr, size_t n) 
 {
@@ -139,9 +140,14 @@ const char *m_strerror(int rc)
 
 void c_log(int cli_id, const char *fmt, ...)
 {
-	/* TODO: locks for concurrent access */
 	if (!cfg.log_clients && cli_id != 0)
 		return;
+
+	if (0 != flock(STDERR_FILENO, LOCK_EX)) 
+	{
+		_perror("flock");
+		return;
+	}
 
 	va_list args;
 	va_start(args, fmt);	
@@ -162,6 +168,12 @@ void c_log(int cli_id, const char *fmt, ...)
 	fflush(stderr);
 
 	va_end(args);
+
+	if (0 != flock(STDERR_FILENO, LOCK_UN)) 
+	{
+		_perror("flock");
+		return;
+	}
 }
 
 void _signal(int sig, void (*func)(int)) 

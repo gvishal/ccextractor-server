@@ -19,7 +19,6 @@
 #include <sys/file.h>
 #include <limits.h> 
 
-
 struct cli_t
 {
 	int fd;
@@ -28,14 +27,18 @@ struct cli_t
 	unsigned is_logged : 1;
 
 	unsigned bin_mode : 1;
-	char *bin_filepath;
-	int fifo_fd;
-	char *bin_fifo_filepath;
+	/* bin file for ccextractor */
+	FILE *fifo_fp;
+	char *fifo_path;
+
+	/* bin file for clients */
 	FILE *bin_fp;
-	pid_t parcer_pid;
+	char *bin_path;
 
 	pid_t cce_pid;
-	char *cce_output_file;
+	char *cce_output_path;
+
+	pid_t parcer_pid;
 } *cli; 
 
 pid_t fork_client(unsigned id, int connfd, int listenfd)
@@ -85,7 +88,6 @@ int init_cli()
 
 	memset(cli, 0, sizeof(struct cli_t));
 	cli->fd = -1;
-	cli->fifo_fd = -1;
 
 	return 1;
 }
@@ -164,10 +166,13 @@ int handle_bin_mode()
 
 	cli->bin_mode = TRUE;
 
-	if (fork_cce() < 0)
+	if (open_bin_files() < 0)
 		return -1;
 
-	if ((cli->parcer_pid = fork_parser(cli->id, cli->cce_output_file)) < 0)
+	if ((cli->cce_pid = fork_cce()) < 0)
+		return -1;
+
+	if ((cli->parcer_pid = fork_parser(cli->id, cli->cce_output_path)) < 0)
 		return -1;
 
 	if (set_nonblocking(cli->fd) < 0)
@@ -235,8 +240,8 @@ int read_bin_data()
 	assert(cli->bin_mode);
 	assert(cli->is_logged);
 	assert(cli->bin_fp != NULL);
-	assert(cli->bin_filepath != NULL);
-	assert(cli->fifo_fd >= 0);
+	assert(cli->bin_path != NULL);
+	assert(cli->fifo_fp != NULL);
 	assert(cli->cce_pid > 0);
 	assert(cli->parcer_pid > 0);
 
@@ -256,59 +261,33 @@ int read_bin_data()
 	fwrite(buf, sizeof(char), rc, cli->bin_fp);
 	fflush(cli->bin_fp);
 
-	write(cli->fifo_fd, buf, rc);
+	fwrite(buf, sizeof(char), rc, cli->fifo_fp);
+	fflush(cli->fifo_fp);
 
 	return 1;
 }
 
-int fork_cce()
+pid_t fork_cce()
 {
-	if (file_path(&cli->bin_filepath, "bin") < 0)
-		return -1;
-
-	if ((cli->bin_fp = fopen(cli->bin_filepath, "w+")) == NULL)
-	{
-		_perror("fopen");
-		return -1;
-	}
-
-	if ((cli->bin_fifo_filepath = (char *) malloc(PATH_MAX)) == NULL)
-	{
-		_perror("malloc");
-		return -1;
-	}
-
-	time_t t = time(NULL);
-	struct tm *t_tm = localtime(&t);
-	char time_buf[30] = {0};
-	strftime(time_buf, 30, "%H%M%S", t_tm);
-	snprintf(cli->bin_fifo_filepath, PATH_MAX, 
-			"%s/%s-%u.fifo", "./cce", time_buf, cli->id); 
-
-	if ((cli->fifo_fd = mkfifo(cli->bin_fifo_filepath, S_IRWXU)) < 0)
-	{
-		_perror("mkfifo");
-		return -1;
-	}
-
-	if ((cli->cce_pid = fork()) < 0)
+	pid_t pid = fork();
+	if (pid < 0)
 	{
 		_perror("fork");
 		return -1;
 	}
-	else if (cli->cce_pid == 0)
+	else if (pid == 0)
 	{
 		char *const v[] = 
 		{
 			"ccextractor", 
 			"-in=bin", 
-			cli->bin_fifo_filepath,
+			cli->fifo_path,
 			"--stream",
 			"-quiet",
 			"-out=ttxt",
 			"-xds",
 			"-autoprogram",
-			"-o", cli->cce_output_file,
+			"-o", cli->cce_output_path,
 			NULL
 		};
 
@@ -319,7 +298,60 @@ int fork_cce()
 		}
 	}
 
-	c_log(cli->id, "CCExtractor forked, pid=%d\n", cli->cce_pid);
+	c_log(cli->id, "CCExtractor forked, pid=%d\n", pid);
 
-	return 0;
+	return pid;
+}
+
+int open_bin_files()
+{
+	if (file_path(&cli->bin_path, "bin", cli->id) < 0)
+		return -1;
+
+	if ((cli->bin_fp = fopen(cli->bin_path, "w+")) == NULL)
+	{
+		_perror("fopen");
+		return -1;
+	}
+	c_log(cli->id, "BIN file: %s\n", cli->bin_path);
+
+	if ((cli->fifo_path = (char *) malloc(PATH_MAX)) == NULL)
+	{
+		_perror("malloc");
+		return -1;
+	}
+
+	time_t t = time(NULL);
+	struct tm *t_tm = localtime(&t);
+	char time_buf[30] = {0};
+	strftime(time_buf, 30, "%H%M%S", t_tm);
+	snprintf(cli->fifo_path, PATH_MAX, 
+			"%s/%s-%u.fifo", cfg.cce_output_dir, time_buf, cli->id); 
+
+	if (mkfifo(cli->fifo_path, S_IRWXU) < 0)
+	{
+		_perror("mkfifo");
+		return -1;
+	}
+
+	if ((cli->fifo_fp = fopen(cli->fifo_path, "w+")) == NULL)
+	{
+		_perror("fopen");
+		return -1;
+	}
+	c_log(cli->id, "CCExtractor input fifo file: %s\n", cli->fifo_path);
+
+
+	if ((cli->cce_output_path = (char *) malloc(PATH_MAX)) == NULL)
+	{
+		_perror("malloc");
+		return -1;
+	}
+
+	snprintf(cli->cce_output_path, PATH_MAX, 
+			"%s/%s-%u.cce.txt", cfg.cce_output_dir, time_buf, cli->id); 
+
+	c_log(cli->id, "CCExtractor output file: %s\n", cli->cce_output_path);
+
+	return 1;
 }
