@@ -3,7 +3,7 @@
 
 #include <sys/types.h>
 
-pid_t fork_client();
+pid_t fork_client(unsigned id, int connfd, int listenfd);
 
 int init_cli();
 
