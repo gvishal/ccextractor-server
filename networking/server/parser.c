@@ -15,7 +15,7 @@
 #include <sys/file.h>
 #include <limits.h> 
 
-unsigned cli_id;
+id_t cli_id;
 
 file_t buf;
 unsigned buf_line_cnt;
@@ -25,12 +25,12 @@ file_t txt;
 file_t xds;
 
 char *program_name; /* not null-terminated */
-unsigned program_id;
+id_t program_id;
 size_t program_len;
 
 int pipe_w; /* pipe write end */
 
-pid_t fork_parser(unsigned id, const char *cce_output, int pipe)
+pid_t fork_parser(id_t id, const char *cce_output, int pipe)
 {
 	assert(cce_output != NULL);
 	assert(pipe >= 0);
@@ -424,7 +424,7 @@ int open_buf_file()
 	return 1;
 }
 
-int file_path(char **path, const char *ext, unsigned cli_id, unsigned prgm_id)
+int file_path(char **path, const char *ext, id_t cli_id, id_t prgm_id)
 {
 	assert(ext != NULL);
 

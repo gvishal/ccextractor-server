@@ -32,6 +32,8 @@ typedef struct
 	FILE *fp;
 } file_t;
 
+typedef unsigned id_t;
+
 /* Reads n bytes from descriptor */
 ssize_t readn(int fd, void *vptr, size_t n);
 

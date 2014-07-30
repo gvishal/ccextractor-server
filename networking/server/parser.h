@@ -3,7 +3,7 @@
 
 #include <sys/types.h>
 
-pid_t fork_parser(unsigned id, const char *cce_output, int pipe_w);
+pid_t fork_parser(id_t id, const char *cce_output, int pipe_w);
 
 int parser_loop();
 
@@ -26,7 +26,7 @@ int append_to_buf(const char *line, size_t len, char mode);
 int append_to_txt(const char *line, size_t len);
 int append_to_xds(const char *line, size_t len);
 
-int file_path(char **path, const char *ext, unsigned cli_id, unsigned prgm_id);
+int file_path(char **path, const char *ext, id_t cli_id, id_t prgm_id);
 // int append_to_arch_info();
 
 #endif /* end of include guard: PARSER_H */

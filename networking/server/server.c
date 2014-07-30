@@ -29,11 +29,11 @@ struct cli_t
 	char *host;
 	char *serv;
 
-	unsigned id;
+	id_t id;
 } *cli;
 
 size_t cli_cnt;
-unsigned last_used_id;
+id_t last_used_id;
 
 int main()
 {

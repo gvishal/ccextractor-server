@@ -30,7 +30,7 @@ clean:
 	rm $(TARGET) 2>/dev/null || true
 	rm $(OBJS) 2>/dev/null || true
 	rm -rd $(OBJS_DIR) 2>/dev/null || true
-	rm .depend 2>/dev/null || true
+	# rm .depend 2>/dev/null || true
 
 .PHONY: depend dep
 depend dep:
