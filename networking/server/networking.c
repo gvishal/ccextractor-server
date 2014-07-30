@@ -14,8 +14,7 @@
 /* block format: */
 /* command | lenght        | data         | \r\n    */
 /* 1 byte  | INT_LEN bytes | lenght bytes | 2 bytes */
-ssize_t
-read_block(int fd, char *command, char *buf, size_t *buf_len)
+ssize_t read_block(int fd, char *command, char *buf, size_t *buf_len)
 {
 	assert(command != NULL);
 
@@ -80,6 +79,46 @@ read_block(int fd, char *command, char *buf, size_t *buf_len)
 		return END_MARKER;
 
 	return nread;
+}
+
+ssize_t write_block(int fd, char command, const char *buf, size_t buf_len)
+{
+	int rc;
+	ssize_t nwritten = 0;
+
+	if ((rc = write_byte(fd, command)) < 0)
+		return -1;
+	else if (rc != 1)
+		return 0;
+	nwritten++;
+
+	char len_str[INT_LEN] = {0};
+	snprintf(len_str, INT_LEN, "%zd", buf_len);
+	if ((rc = writen(fd, len_str, INT_LEN)) < 0)
+		return -1;
+	else if (rc != INT_LEN)
+		return 0;
+	nwritten += rc;
+
+	if ((rc = writen(fd, buf, buf_len)) < 0)
+		return -1;
+	else if (rc != (int) buf_len)
+		return 0;
+	nwritten += rc;
+
+	if ((rc = write_byte(fd, '\r')) < 0)
+		return -1;
+	else if (rc != 1)
+		return 0;
+
+	nwritten++;
+	if ((rc = write_byte(fd, '\n')) < 0)
+		return -1;
+	else if (rc != 1)
+		return 0;
+	nwritten++;
+
+	return nwritten;
 }
 
 int bind_server(int port) 

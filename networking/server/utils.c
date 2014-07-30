@@ -60,8 +60,8 @@ ssize_t readn(int fd, void *vptr, size_t n)
 
 ssize_t writen(int fd, const void *vptr, size_t n)
 {
-	assert(vptr != NULL);
-	assert(n > 0);
+	assert(fd > 0);
+	assert((n > 0 && vptr != NULL) || (n == 0 && vptr == NULL));
 
 	size_t nleft;
 	ssize_t nwritten;

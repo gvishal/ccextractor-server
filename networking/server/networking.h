@@ -15,17 +15,19 @@
 /* Buffer file and web-site constants: */
 #define CONN_CLOSED     101
 #define PROGRAM_ID      102
-#define RESET_PROGRAM   103
+#define PROGRAM_NEW     103
+#define PROGRAM_CHANGED 106
 #define CAPTIONS        104
 #define XDS             105
 
 /* 
- * Read data block from descriptor
+ * Writes/Read data block from descriptor
  * block format:
  * command | lenght        | data         | \r\n    
  * 1 byte  | INT_LEN bytes | lenght bytes | 2 bytes 
  */
 ssize_t read_block(int fd, char *command, char *buf, size_t *buf_len);
+ssize_t write_block(int fd, char command, const char *buf, size_t buf_len);
 
 /*
  * Returns socket that can accept connections. Socket is binded to any

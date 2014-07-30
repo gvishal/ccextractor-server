@@ -24,7 +24,9 @@ unsigned cur_line;
 file_t txt;
 file_t xds;
 
-const char *program_name;
+char *program_name; /* not null-terminated */
+unsigned program_id;
+size_t program_len;
 
 int pipe_w; /* pipe write end */
 
@@ -112,7 +114,7 @@ int parse_line(const char *line, size_t len)
 	if ((rc = is_xds(line)) != NULL)
 	{
 		mode = XDS;
-		if ((is_program_changed(rc)) && handle_program_change())
+		if ((is_program_changed(rc)) && handle_program_change() < 0)
 			return -1;
 	}
 	else if (append_to_txt(line, len) < 0)
@@ -131,31 +133,33 @@ int parse_line(const char *line, size_t len)
 int is_program_changed(const char *line)
 {
 	static const char *pr = "Program name: ";
-	size_t len = sizeof(pr) - 1;
+	size_t len = strlen(pr);
 	if (strncmp(line, pr, len) != 0)
 		return FALSE;
 
 	const char *name = line + len;
-	len = strlen(name) + 1; /* +1 for '\0' */
+	len = strlen(name);
 
 	char *nice_name = nice_str(name, &len);
 	if (NULL == nice_name)
 		return FALSE;
 
-	if (NULL == program_name)
-	{
-		program_name = nice_name;
-		return TRUE;
-	}
+	if (NULL == program_name || len != program_len)
+		goto ok;
 
-	if (strcmp(program_name, name) == 0)
+#if 0
+	if (strncmp(program_name, name, len) == 0)
 	{
 		free(nice_name);
 		return FALSE;
 	}
+#endif
 
-	free(nice_name);
+ok:
+	if (program_name != NULL)
+		free(program_name);
 	program_name = nice_name;
+	program_len = len;
 	return TRUE;
 }
 
@@ -178,8 +182,58 @@ const char *is_xds(const char *line)
 
 int handle_program_change()
 {
-	write(pipe_w, program_name, strlen(program_name));
-	/* TODO: */
+	if (send_prgm_to_parent() < 0)
+		return -1;
+
+	if (send_prgm_to_buf() < 0)
+		return -1;
+
+	program_id++;
+
+	return 1;
+}
+
+int send_prgm_to_parent()
+{
+	char id_str[INT_LEN] = {0};
+	sprintf(id_str, "%u", program_id);
+
+	int rc;
+	if ((rc = write_block(pipe_w, PROGRAM_ID, id_str, INT_LEN)) < 0)
+	{
+		m_perror("write_block", rc);
+		return -1;
+	}
+
+	int c = PROGRAM_CHANGED;
+	if (0 == program_id)
+		c = PROGRAM_NEW;
+
+	if ((rc = write_block(pipe_w, c, program_name, program_len)) < 0)
+	{
+		m_perror("write_block", rc);
+		return -1;
+	}
+
+	return 1;
+}
+
+int send_prgm_to_buf()
+{
+	char id_str[INT_LEN] = {0};
+	sprintf(id_str, "%u", program_id);
+
+	int rc;
+	if ((rc = append_to_buf(id_str, INT_LEN, PROGRAM_ID)) < 0)
+		return -1;
+
+	int c = PROGRAM_CHANGED;
+	if (0 == program_id)
+		c = PROGRAM_NEW;
+
+	if ((rc = append_to_buf(program_name, program_len, c)) < 0)
+		return -1;
+
 	return 1;
 }
 

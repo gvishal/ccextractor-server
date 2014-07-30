@@ -102,7 +102,7 @@ int greeting()
 	if (add_cli_info() < 0)
 		return -1;
 
-	_log("[%u] Logged in\n", cli->id); /* TODO remove from here */
+	_log("[%u] Logged in\n", cli->id); 
 
 	return 1;
 }
@@ -236,7 +236,25 @@ int bin_loop()
 
 		if (fds[1].revents != 0)
 		{
-			_log("Program changed");
+			char c;
+			char buf[BUFFER_SIZE];
+			size_t len = BUFFER_SIZE;
+			int rc;
+			if ((rc = read_block(cli->parser_pipe_r, &c, buf, &len)) < 0)
+			{
+				m_perror("read_block", rc);
+				ret = -1;
+				goto out;
+			}
+
+#if 0
+			if (c == PROGRAM_ID)
+				_log("id = %s\n",buf);
+			if (c == PROGRAM_NEW)
+				_log("new = %s\n",buf);
+			if (c == PROGRAM_CHANGED)
+				_log("changed = %s\n",buf);
+#endif
 		}
 	}
 

@@ -13,6 +13,9 @@ const char *is_xds(const char *line);
 int is_program_changed(const char *line);
 int handle_program_change();
 
+int send_prgm_to_parent();
+int send_prgm_to_buf();
+
 int open_buf_file();
 int open_txt_file();
 int open_xds_file();
