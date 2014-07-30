@@ -34,7 +34,8 @@ struct cli_t
 	file_t cce_in; /* Named pipe */
 	file_t cce_out;
 
-	pid_t parcer_pid;
+	pid_t parser_pid;
+	int parser_pipe_r; /* Read end */
 } *cli; 
 
 pid_t fork_client(unsigned id, int connfd, int listenfd)
@@ -171,7 +172,11 @@ int handle_bin_mode()
 	if ((cli->cce_pid = fork_cce()) < 0)
 		return -1;
 
-	if ((cli->parcer_pid = fork_parser(cli->id, cli->cce_out.path)) < 0)
+	int pipe_w_end = open_parser_pipe();
+	if (pipe_w_end < 0)
+		return -1;
+
+	if ((cli->parser_pid = fork_parser(cli->id, cli->cce_out.path, pipe_w_end)) < 0)
 		return -1;
 
 	if (set_nonblocking(cli->fd) < 0)
@@ -188,15 +193,18 @@ int handle_bin_mode()
 
 int bin_loop()
 {
-	struct pollfd pfd;
-	pfd.fd = cli->fd;
-	pfd.events = POLLIN;
+	struct pollfd fds[2];
+	fds[0].fd = cli->fd;
+	fds[0].events = POLLIN;
+	fds[1].fd = cli->parser_pipe_r;
+	fds[1].events = POLLIN;
+	nfds_t ndfs = 2;
 
 	int ret = 1;
 
 	while(1)
 	{
-		if (poll(&pfd, 1, -1) < 0)
+		if (poll(fds, ndfs, -1) < 0)
 		{
 			if (EINTR == errno)
 				continue;
@@ -206,22 +214,30 @@ int bin_loop()
 			goto out;
 		}
 
-		if (pfd.revents & POLLHUP)
+		if (fds[0].revents != 0)
 		{
-			_log("[%d] Disconnected (poll)\n", cli->id); /* TODO remove from here */
-			ret = 1;
-			goto out;
+			if (fds[0].revents & POLLHUP)
+			{
+				_log("[%d] Disconnected (poll)\n", cli->id); /* TODO remove from here */
+				ret = 1;
+				goto out;
+			}
+
+			if (fds[0].revents & POLLERR) 
+			{
+				_log("poll() error: Revents %d\n", fds[0].revents);
+				ret = -1;
+				goto out;
+			}
+
+			if ((ret = read_bin_data()) <= 0)
+				goto out;
 		}
 
-		if (pfd.revents & POLLERR) 
+		if (fds[1].revents != 0)
 		{
-			_log("poll() error: Revents %d\n", pfd.revents);
-			ret = -1;
-			goto out;
+			_log("Program changed");
 		}
-
-		if ((ret = read_bin_data()) <= 0)
-			goto out;
 	}
 
 out:
@@ -238,7 +254,7 @@ int read_bin_data()
 	assert(cli->bin.path != NULL);
 	assert(cli->cce_in.fp != NULL);
 	assert(cli->cce_pid > 0);
-	assert(cli->parcer_pid > 0);
+	assert(cli->parser_pid > 0);
 
 	int rc;
 	size_t len = BUFFER_SIZE;
@@ -361,6 +377,19 @@ int open_bin_files()
 	return 1;
 }
 
+int open_parser_pipe()
+{
+	int fds[2];
+	if (pipe(fds) < 0)
+	{
+		_perror("pipe");
+		return -1;
+	}
+
+	cli->parser_pipe_r = fds[0];
+	return fds[1];
+}
+
 int add_cli_info()
 {
 	FILE *fp = fopen(USERS_FILE_PATH, "a");
@@ -391,11 +420,11 @@ int add_cli_info()
 	return 1;
 }
 
-int logged_out()
+void logged_out()
 {
 	_log("[%d] Disconnected\n", cli->id); 
 
-	if (cli->parcer_pid > 0 && kill(cli->parcer_pid, SIGINT) < 0)
+	if (cli->parser_pid > 0 && kill(cli->parser_pid, SIGINT) < 0)
 		_perror("kill");
 
 	if (cli->cce_pid > 0 && kill(cli->cce_pid, SIGINT) < 0)
@@ -410,26 +439,23 @@ int logged_out()
 	if (cli->cce_out.path != NULL && unlink(cli->cce_out.path) < 0)
 		_perror("unlink");
 
-	if (remove_cli_info() < 0)
-		return -1;
-
-	return 1;
+	remove_cli_info();
 }
 
-int remove_cli_info()
+void remove_cli_info()
 {
 	FILE *fp = fopen(USERS_FILE_PATH, "r+");
 	if (fp == NULL)
 	{
 		_perror("fopen");
-		return -1;
+		return;
 	}
 
 	if (0 != flock(fileno(fp), LOCK_EX)) 
 	{
 		_perror("flock");
 		fclose(fp);
-		return -1;
+		return;
 	}
 
 	unsigned *ids = (unsigned *) malloc(cfg.max_conn * sizeof(unsigned));
@@ -437,18 +463,20 @@ int remove_cli_info()
 	{
 		_perror("malloc");
 		fclose(fp);
-		return -1;
+		return;
 	}
 
 	int i;
 	for (i = 0; !feof(fp); i++)
-	{
 		fscanf(fp, "%u ", &ids[i]);
-		if (feof(fp))
-			break;
-	}
 
 	rewind(fp);
+
+	if (ftruncate(fileno(fp), 0) < 0)
+	{
+		_perror("ftruncate");
+		return;
+	}
 
 	for (int j = 0; j < i; j++) {
 		if (ids[j] != cli->id)
@@ -460,11 +488,9 @@ int remove_cli_info()
 		_perror("flock");
 		fclose(fp);
 		free(ids);
-		return -1;
+		return;
 	}
 
 	free(ids);
 	fclose(fp);
-
-	return 1;
 }

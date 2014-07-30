@@ -3,14 +3,15 @@
 
 #include <sys/types.h>
 
-pid_t fork_parser(unsigned cli_id, const char *cce_output);
+pid_t fork_parser(unsigned id, const char *cce_output, int pipe_w);
 
 int parser_loop();
 
 int parse_line(const char *line, size_t len);
 
-int is_xds(const char *line);
-int is_cc(const char *line);
+const char *is_xds(const char *line);
+int is_program_changed(const char *line);
+int handle_program_change();
 
 int open_buf_file();
 int open_txt_file();

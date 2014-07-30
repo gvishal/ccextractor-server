@@ -14,10 +14,12 @@ int bin_loop();
 int read_bin_data();
 int open_bin_files();
 
+int open_parser_pipe();
+
 // int logged_in();
 int add_cli_info();
-int logged_out();
-int remove_cli_info();
+void logged_out();
+void remove_cli_info();
 
 pid_t fork_cce();
 #endif /* end of include guard: CLIENT_H */

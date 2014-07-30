@@ -24,11 +24,14 @@ unsigned cur_line;
 file_t txt;
 file_t xds;
 
-char *program_name;
+const char *program_name;
 
-pid_t fork_parser(unsigned id, const char *cce_output)
+int pipe_w; /* pipe write end */
+
+pid_t fork_parser(unsigned id, const char *cce_output, int pipe)
 {
 	assert(cce_output != NULL);
+	assert(pipe >= 0);
 
 	pid_t pid = fork();
 
@@ -44,6 +47,7 @@ pid_t fork_parser(unsigned id, const char *cce_output)
 	}
 
 	cli_id = id;
+	pipe_w = pipe;
 
 	if (open_buf_file() < 0)
 		exit(EXIT_FAILURE);
@@ -104,8 +108,13 @@ int parser_loop(const char *cce_output)
 int parse_line(const char *line, size_t len)
 {
 	int mode = CAPTIONS;
-	if (is_xds(line))
+	const char *rc;
+	if ((rc = is_xds(line)) != NULL)
+	{
 		mode = XDS;
+		if ((is_program_changed(rc)) && handle_program_change())
+			return -1;
+	}
 	else if (append_to_txt(line, len) < 0)
 		return -1;
 
@@ -115,21 +124,63 @@ int parse_line(const char *line, size_t len)
 	if (append_to_buf(line, len, mode) < 0)
 		return -1;
 
+
 	return 1;
 }
 
-int is_xds(const char *line)
+int is_program_changed(const char *line)
+{
+	static const char *pr = "Program name: ";
+	size_t len = sizeof(pr) - 1;
+	if (strncmp(line, pr, len) != 0)
+		return FALSE;
+
+	const char *name = line + len;
+	len = strlen(name) + 1; /* +1 for '\0' */
+
+	char *nice_name = nice_str(name, &len);
+	if (NULL == nice_name)
+		return FALSE;
+
+	if (NULL == program_name)
+	{
+		program_name = nice_name;
+		return TRUE;
+	}
+
+	if (strcmp(program_name, name) == 0)
+	{
+		free(nice_name);
+		return FALSE;
+	}
+
+	free(nice_name);
+	program_name = nice_name;
+	return TRUE;
+}
+
+const char *is_xds(const char *line)
 {
 	char *pipe; 
 	if ((pipe = strchr(line, '|')) == NULL)
-		return 0;
-	if ((pipe = strchr(pipe + 1, '|')) == NULL)
-		return 0;
+		return NULL;
+	pipe++;
+	if ((pipe = strchr(pipe, '|')) == NULL)
+		return NULL;
+	pipe++;
 
-	if (strncmp(pipe + 1, "XDS", 3) == 0)
-		return 1;
+	static const char *s = "XDS";
+	if (strncmp(pipe, s, 3) == 0)
+		return pipe + 4; /* without '|' */
 
-	return 0;
+	return NULL;
+}
+
+int handle_program_change()
+{
+	write(pipe_w, program_name, strlen(program_name));
+	/* TODO: */
+	return 1;
 }
 
 int append_to_txt(const char *line, size_t len)
