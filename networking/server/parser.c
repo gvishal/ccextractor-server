@@ -182,10 +182,18 @@ const char *is_xds(const char *line)
 
 int handle_program_change()
 {
+	c_log(cli_id, "Program changed\n");
+
 	if (send_prgm_to_parent() < 0)
 		return -1;
 
 	if (send_prgm_to_buf() < 0)
+		return -1;
+
+	if (reopen_txt_file() < 0)
+		return -1;
+
+	if (reopen_xds_file() < 0)
 		return -1;
 
 	program_id++;
@@ -318,7 +326,7 @@ int open_txt_file()
 {
 	assert(txt.fp == NULL);
 
-	if (file_path(&txt.path, "txt", cli_id) < 0)
+	if (file_path(&txt.path, "txt", cli_id, program_id) < 0)
 		return -1;
 
 	if ((txt.fp = fopen(txt.path, "w+x")) == NULL)
@@ -336,11 +344,25 @@ int open_txt_file()
 	return 1;
 }
 
+int reopen_txt_file()
+{
+	assert(txt.fp != NULL);
+	assert(txt.path != NULL);
+
+	fclose(txt.fp);
+	txt.fp = NULL;
+
+	free(txt.path);
+	txt.path = NULL;
+
+	return open_txt_file();
+}
+
 int open_xds_file()
 {
 	assert(xds.fp == NULL);
 
-	if (file_path(&xds.path, "xds.txt", cli_id) < 0)
+	if (file_path(&xds.path, "xds.txt", cli_id, program_id) < 0)
 		return -1;
 
 	if ((xds.fp = fopen(xds.path, "w+")) == NULL)
@@ -356,6 +378,20 @@ int open_xds_file()
 	}
 
 	return 1;
+}
+
+int reopen_xds_file()
+{
+	assert(xds.fp != NULL);
+	assert(xds.path != NULL);
+
+	fclose(xds.fp);
+	xds.fp = NULL;
+
+	free(xds.path);
+	xds.path = NULL;
+
+	return open_xds_file();
 }
 
 int open_buf_file()
@@ -388,8 +424,7 @@ int open_buf_file()
 	return 1;
 }
 
-
-int file_path(char **path, const char *ext, unsigned id)
+int file_path(char **path, const char *ext, unsigned cli_id, unsigned prgm_id)
 {
 	assert(ext != NULL);
 
@@ -416,7 +451,7 @@ int file_path(char **path, const char *ext, unsigned id)
 	memset(time_buf, 0, sizeof(time_buf));
 	strftime(time_buf, 30, "%H%M%S", t_tm);
 
-	snprintf(*path, PATH_MAX, "%s/%s-%u.%s", dir, time_buf, id, ext); 
+	snprintf(*path, PATH_MAX, "%s/%s-%u-%u.%s", dir, time_buf, cli_id, prgm_id, ext); 
 
 	return 0;
 }

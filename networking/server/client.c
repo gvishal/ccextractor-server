@@ -36,6 +36,10 @@ struct cli_t
 
 	pid_t parser_pid;
 	int parser_pipe_r; /* Read end */
+
+	char *program_name; /* not null-terminated */
+	unsigned program_id;
+	size_t program_len;
 } *cli; 
 
 pid_t fork_client(unsigned id, int connfd, int listenfd)
@@ -247,14 +251,29 @@ int bin_loop()
 				goto out;
 			}
 
-#if 0
 			if (c == PROGRAM_ID)
-				_log("id = %s\n",buf);
-			if (c == PROGRAM_NEW)
-				_log("new = %s\n",buf);
-			if (c == PROGRAM_CHANGED)
-				_log("changed = %s\n",buf);
-#endif
+			{
+				assert(BUFFER_SIZE > INT_LEN);
+
+				buf[len] = '\0';
+				cli->program_id = atoi(buf);
+			} 
+			else if (c == PROGRAM_NEW || c == PROGRAM_CHANGED)
+			{
+				if (cli->program_name != NULL)
+					free(cli->program_name);
+
+				if ((cli->program_name = (char *) malloc(len * sizeof(char))) == NULL)
+				{
+					_perror("malloc");
+					goto out;
+				}
+				memcpy(cli->program_name, buf, len);
+				cli->program_len = len;
+
+				if (handle_program_change_cli() < 0)
+					goto out;
+			}
 		}
 	}
 
@@ -332,7 +351,7 @@ pid_t fork_cce()
 
 int open_bin_files()
 {
-	if (file_path(&cli->bin.path, "bin", cli->id) < 0)
+	if (file_path(&cli->bin.path, "bin", cli->id, cli->program_id) < 0)
 		return -1;
 
 	if ((cli->bin.fp = fopen(cli->bin.path, "w+")) == NULL)
@@ -406,6 +425,36 @@ int open_parser_pipe()
 
 	cli->parser_pipe_r = fds[0];
 	return fds[1];
+}
+
+int handle_program_change_cli()
+{
+	assert(cli->bin.fp != NULL);
+	assert(cli->bin.path != NULL);
+
+	fclose(cli->bin.fp);
+	cli->bin.fp = NULL;
+
+	free(cli->bin.path);
+	cli->bin.path = NULL;
+
+	if (file_path(&cli->bin.path, "bin", cli->id, cli->program_id) < 0)
+		return -1;
+
+	if ((cli->bin.fp = fopen(cli->bin.path, "w+")) == NULL)
+	{
+		_perror("fopen");
+		return -1;
+	}
+
+	if (setvbuf(cli->bin.fp, NULL, _IONBF, 0) < 0) 
+	{
+		_perror("setvbuf");
+		return -1;
+	}
+	c_log(cli->id, "BIN file: %s\n", cli->bin.path);
+
+	return 1;
 }
 
 int add_cli_info()

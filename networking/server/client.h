@@ -16,6 +16,9 @@ int open_bin_files();
 
 int open_parser_pipe();
 
+// XXX rename
+int handle_program_change_cli();
+
 // int logged_in();
 int add_cli_info();
 void logged_out();
