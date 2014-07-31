@@ -11,6 +11,7 @@ OBJS_DIR = objs
 
 SRCS = $(wildcard *.c)
 OBJS = $(SRCS:%.c=$(OBJS_DIR)/%.o)
+MYSQL = $(shell mysql_config --cflags --libs)
 
 .PHONY: all
 all: objs_dir $(TARGET) 
@@ -20,10 +21,10 @@ objs_dir:
 	mkdir -p $(OBJS_DIR)
 
 $(TARGET): $(OBJS) 
-	$(CC) $(ALL_FLAGS) $(CFLAGS) $(OBJS) $(LDFLAGS) -o $@
+	$(CC) $(ALL_FLAGS) $(CFLAGS) $(OBJS) $(LDFLAGS) $(MYSQL) -o $@
 
 $(OBJS_DIR)/%.o: %.c
-	$(CC) -c $(ALL_FLAGS) $(CFLAGS) $< -o $@  
+	$(CC) -c $(ALL_FLAGS) $(CFLAGS) $(MYSQL) $< -o $@
 
 .PHONY: clean
 clean:

@@ -19,6 +19,10 @@
 #define DFT_BUF_MIN_LINES 30
 #define DFT_CCEXTRACTOR_PATH "./ccextractor"
 #define DFT_CCE_OUTPUT_DIR "./cce"
+#define DFT_DB_HOST "localhost"
+#define DFT_DB_USER "root"
+#define DFT_DB_PASSWORD "root"
+#define DFT_DB_DBNAME "cce"
 
 #define USERS_FILE_PATH "connections.txt"
 #define INF_READ_DELAY 300000000 /* Nano sec less than 10^9 */
@@ -41,6 +45,10 @@ struct cfg_t
 	char *log_dir;
 	char *cce_path;
 	char *cce_output_dir;
+	char *db_host;
+	char *db_user;
+	char *db_passwd;
+	char *db_dbname;
 
 	unsigned is_inited : 1;
 } cfg;

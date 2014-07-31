@@ -4,6 +4,7 @@
 #include "params.h"
 #include "parser.h"
 #include "client.h"
+#include "db.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -54,9 +55,12 @@ int main()
 
 	if ((rc = parse_config_file()) < 0)
 	{
-		m_perror("parse_config_file", rc);
+		m_perror("parse_config_file", rc); /* TODO Nope */
 		exit(EXIT_FAILURE);
 	}
+
+	if (init_db() < 0)
+		exit(EXIT_FAILURE);
 
 	int listen_sd = bind_server(cfg.port);
 	if (listen_sd < 0) 

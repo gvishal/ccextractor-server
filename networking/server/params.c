@@ -23,6 +23,10 @@ int init_cfg()
 	cfg.buf_min_lines = DFT_BUF_MIN_LINES;
 	cfg.cce_path = DFT_CCEXTRACTOR_PATH;
 	cfg.cce_output_dir = DFT_CCE_OUTPUT_DIR;
+	cfg.db_host = DFT_DB_HOST;
+	cfg.db_user = DFT_DB_USER;
+	cfg.db_passwd = DFT_DB_PASSWORD;
+	cfg.db_dbname = DFT_DB_DBNAME;
 
 	if ((cfg.pwd = (char *) malloc(DFT_PASSW_LEN + 1)) == NULL) /* +1 for '\0' */
 		return ERRNO;
@@ -128,7 +132,7 @@ int parse_config_file()
 			val_type = string;
 
 			/* without '"', but with '\0' */
-			if ((val_str = (char *) malloc(value_len - 1)) == NULL) 
+			if ((val_str = (char *) malloc(value_len - 1)) == NULL)
 			{
 				rc = ERRNO;
 				goto out;
@@ -136,7 +140,7 @@ int parse_config_file()
 			memcpy(val_str, value + 1, value_len - 1);
 			val_str[value_len - 2] = '\0';
 		}
-		else 
+		else
 		{
 			val_type = number;
 
@@ -159,7 +163,7 @@ int parse_config_file()
 			printf("(int = %d)\n", val_num);
 #endif
 
-		if (strncmp(line, "port", key_len) == 0) 
+		if (strncmp(line, "port", key_len) == 0)
 		{
 			if (number != val_type)
 			{
@@ -168,7 +172,7 @@ int parse_config_file()
 			}
 			cfg.port = val_num;
 		}
-		else if (strncmp(line, "max_connections", key_len) == 0) 
+		else if (strncmp(line, "max_connections", key_len) == 0)
 		{
 			if (number != val_type)
 			{
@@ -177,7 +181,7 @@ int parse_config_file()
 			}
 			cfg.max_conn = val_num;
 		}
-		else if (strncmp(line, "password", key_len) == 0) 
+		else if (strncmp(line, "password", key_len) == 0)
 		{
 			if (string != val_type)
 			{
@@ -190,7 +194,7 @@ int parse_config_file()
 
 			cfg.pwd = val_str;
 		}
-		else if (strncmp(line, "wrong_password_delay", key_len) == 0) 
+		else if (strncmp(line, "wrong_password_delay", key_len) == 0)
 		{
 			if (number != val_type)
 			{
@@ -199,7 +203,7 @@ int parse_config_file()
 			}
 			cfg.wrong_pwd_delay = val_num;
 		}
-		else if (strncmp(line, "buffer_files_dir", key_len) == 0) 
+		else if (strncmp(line, "buffer_files_dir", key_len) == 0)
 		{
 			if (string != val_type)
 			{
@@ -209,7 +213,7 @@ int parse_config_file()
 			}
 			cfg.buf_dir = val_str;
 		}
-		else if (strncmp(line, "archive_files_dir", key_len) == 0) 
+		else if (strncmp(line, "archive_files_dir", key_len) == 0)
 		{
 			if (string != val_type)
 			{
@@ -218,7 +222,7 @@ int parse_config_file()
 			}
 			cfg.arch_dir = val_str;
 		}
-		else if (strncmp(line, "create_logs", key_len) == 0) 
+		else if (strncmp(line, "create_logs", key_len) == 0)
 		{
 			if (boolean != val_type)
 			{
@@ -227,7 +231,7 @@ int parse_config_file()
 			}
 			cfg.create_logs = val_bool;
 		}
-		else if (strncmp(line, "logs_dir", key_len) == 0) 
+		else if (strncmp(line, "logs_dir", key_len) == 0)
 		{
 			if (string != val_type)
 			{
@@ -236,7 +240,7 @@ int parse_config_file()
 			}
 			cfg.log_dir = val_str;
 		}
-		else if (strncmp(line, "use_password", key_len) == 0) 
+		else if (strncmp(line, "use_password", key_len) == 0)
 		{
 			if (boolean != val_type)
 			{
@@ -245,7 +249,7 @@ int parse_config_file()
 			}
 			cfg.use_pwd = val_bool;
 		}
-		else if (strncmp(line, "log_cliets_msg", key_len) == 0) 
+		else if (strncmp(line, "log_cliets_msg", key_len) == 0)
 		{
 			if (boolean != val_type)
 			{
@@ -254,7 +258,7 @@ int parse_config_file()
 			}
 			cfg.log_clients = val_bool;
 		}
-		else if (strncmp(line, "buffer_file_max_lines", key_len) == 0) 
+		else if (strncmp(line, "buffer_file_max_lines", key_len) == 0)
 		{
 			if (number != val_type)
 			{
@@ -263,7 +267,7 @@ int parse_config_file()
 			}
 			cfg.buf_max_lines = val_num;
 		}
-		else if (strncmp(line, "buffer_file_min_lines", key_len) == 0) 
+		else if (strncmp(line, "buffer_file_min_lines", key_len) == 0)
 		{
 			if (number != val_type)
 			{
@@ -272,7 +276,7 @@ int parse_config_file()
 			}
 			cfg.buf_min_lines = val_num;
 		}
-		else if (strncmp(line, "ccextractor_path", key_len) == 0) 
+		else if (strncmp(line, "ccextractor_path", key_len) == 0)
 		{
 			if (string != val_type)
 			{
@@ -281,7 +285,7 @@ int parse_config_file()
 			}
 			cfg.cce_path = val_str;
 		}
-		else if (strncmp(line, "ccextractor_output_dir", key_len) == 0) 
+		else if (strncmp(line, "ccextractor_output_dir", key_len) == 0)
 		{
 			if (string != val_type)
 			{
@@ -290,7 +294,43 @@ int parse_config_file()
 			}
 			cfg.cce_output_dir = val_str;
 		}
-		else  
+		else if (strncmp(line, "mysql_host", key_len) == 0)
+		{
+			if (string != val_type)
+			{
+				rc = CFG_STR;
+				goto out;
+			}
+			cfg.db_host = val_str;
+		}
+		else if (strncmp(line, "mysql_user", key_len) == 0)
+		{
+			if (string != val_type)
+			{
+				rc = CFG_STR;
+				goto out;
+			}
+			cfg.db_user = val_str;
+		}
+		else if (strncmp(line, "mysql_password", key_len) == 0)
+		{
+			if (string != val_type)
+			{
+				rc = CFG_STR;
+				goto out;
+			}
+			cfg.db_passwd = val_str;
+		}
+		else if (strncmp(line, "mysql_db_name", key_len) == 0)
+		{
+			if (string != val_type)
+			{
+				rc = CFG_STR;
+				goto out;
+			}
+			cfg.db_dbname = val_str;
+		}
+		else
 		{
 			rc = CFG_UNKNOWN;
 			goto out;
