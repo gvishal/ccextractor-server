@@ -120,7 +120,7 @@ int db_add_active_cli(id_t id)
 	snprintf(id_str, INT_LEN, "%u", id);
 
 	char query[QUERY_LEN] = {0};
-	int rc = snprintf(query, QUERY_LEN, 
+	int rc = snprintf(query, QUERY_LEN,
 			"INSERT INTO active_clients(id) VALUES(\'%s\') ;",
 			id_str);
 
@@ -153,6 +153,86 @@ int db_remove_active_cli(id_t id)
 		unlock_db();
 		return -1;
 	}
+
+	return 1;
+}
+
+int db_add_program(id_t cli_id, id_t *pgrm_id, char *name, char *dir)
+{
+	assert(cli_id > 0);
+	assert(pgrm_id != NULL);
+	assert(dir != NULL);
+
+	if (lock_db() < 0)
+		return -1;
+
+	char query[QUERY_LEN] = {0};
+	char *end = query;
+
+	if (NULL == name)
+		strcpy(end, "INSERT INTO programs (client_id, dir) VALUES(\'");
+	else
+		strcpy(end, "INSERT INTO programs (client_id, name, dir) VALUES(\'");
+	end += strlen(query);
+
+	end += sprintf(end, "%u", cli_id);
+
+	strcpy(end, "\', \'");
+	end += strlen(end);
+
+	if (name != NULL)
+	{
+		end += mysql_real_escape_string(con, end, name, strlen(name));
+
+		strcpy(end, "\', \'");
+		end += strlen(end);
+	}
+
+	end += mysql_real_escape_string(con, end, dir, strlen(dir));
+
+	strcpy(end, "\') ;");
+	end += strlen(end);
+
+	if (mysql_real_query(con, query, end - query))
+	{
+		_log("MySQL query: %s\n", query);
+		mysql_perror("mysql_real_query", con);
+		unlock_db();
+		return -1;
+	}
+
+	if (db_get_last_pgrm_id(pgrm_id) < 0)
+	{
+		unlock_db();
+		return -1;
+	}
+
+	return 1;
+}
+
+int db_get_last_pgrm_id(id_t *pgrm_id)
+{
+	if (mysql_query(con, "SELECT MAX(id) FROM programs ;"))
+	{
+		mysql_perror("mysql_real_query", con);
+		return -1;
+	}
+
+	MYSQL_RES *result = mysql_store_result(con);
+	if (NULL == result)
+	{
+		mysql_perror("mysql_store_result", con);
+		return -1;
+	}
+
+	MYSQL_ROW row = mysql_fetch_row(result);
+	if (NULL == row[0])
+	{
+		_log("%s:%d error: row[0] == NULL", __FILE__, __LINE__);
+		return -1;
+	}
+
+	*pgrm_id = atoi(row[0]);
 
 	return 1;
 }

@@ -38,9 +38,7 @@ file_t cce_out;
 pid_t parser_pid;
 int parser_pipe_r; /* Read end */
 
-char *program_name; /* not null-terminated */
-id_t program_id;
-size_t program_len;
+struct pr_t cur_pr;
 
 pid_t fork_client(int fd, int listenfd, char *h, char *s)
 {
@@ -158,9 +156,6 @@ int handle_bin_mode()
 
 	bin_mode = TRUE;
 
-	if (open_bin_file() < 0)
-		return -1;
-
 	if ((cce_pid = fork_cce()) < 0)
 		return -1;
 
@@ -185,6 +180,12 @@ int handle_bin_mode()
 
 int bin_loop()
 {
+	if (read_parser_data() < 0)
+		goto out;
+
+	if (open_bin_file() < 0)
+		goto out;
+
 	struct pollfd fds[2];
 	fds[0].fd = connfd;
 	fds[0].events = POLLIN;
@@ -226,8 +227,14 @@ int bin_loop()
 				goto out;
 		}
 
-		if (fds[1].revents != 0 && read_parser_data())
-			goto out;
+		if (fds[1].revents != 0)
+		{
+			if (read_parser_data() < 0)
+				goto out;
+
+			if (reopen_bin_file() < 0)
+				goto out;
+		}
 
 	}
 
@@ -241,11 +248,10 @@ int read_bin_data()
 {
 	assert(bin_mode);
 	assert(is_logged);
-	assert(bin.fp != NULL);
-	assert(bin.path != NULL);
 	assert(cce_in.fp != NULL);
 	assert(cce_pid > 0);
 	assert(parser_pid > 0);
+	assert(bin.fp != NULL);
 
 	int rc;
 	size_t len = BUFFER_SIZE;
@@ -260,14 +266,28 @@ int read_bin_data()
 
 	c_log(cli_id, "Bin data received: %zd bytes\n", rc);
 
-	fwrite(buf, sizeof(char), rc, bin.fp);
-
 	fwrite(buf, sizeof(char), rc, cce_in.fp);
+
+	fwrite(buf, sizeof(char), rc, bin.fp);
 
 	return 1;
 }
 
 int read_parser_data()
+{
+	if (read_pr_id() < 0)
+		return -1;
+
+	if (read_pr_name() < 0)
+		return -1;
+
+	if (read_pr_dir() < 0)
+		return -1;
+
+	return 1;
+}
+
+int read_pr_id()
 {
 	char c;
 	char buf[BUFFER_SIZE];
@@ -279,29 +299,86 @@ int read_parser_data()
 		return -1;
 	}
 
-	if (c == PROGRAM_ID)
+	if (c != PROGRAM_ID)
 	{
-		assert(BUFFER_SIZE > INT_LEN);
-
-		buf[len] = '\0';
-		program_id = atoi(buf);
+		_log("%s:%d Unexpected data in parser pipe\n", __FILE__, __LINE__);
+		return -1;
 	}
-	else if (c == PROGRAM_NEW || c == PROGRAM_CHANGED)
-	{
-		if (program_name != NULL)
-			free(program_name);
 
-		if ((program_name = (char *) malloc(len * sizeof(char))) == NULL)
+	buf[len] = '\0';
+	cur_pr.id = atoi(buf);
+
+	return 1;
+}
+
+int read_pr_name()
+{
+	char c;
+	char buf[BUFFER_SIZE];
+	size_t len = BUFFER_SIZE;
+	int rc;
+	if ((rc = read_block(parser_pipe_r, &c, buf, &len)) < 0)
+	{
+		m_perror("read_block", rc);
+		return -1;
+	}
+
+	if (c != PROGRAM_NEW && c != PROGRAM_CHANGED)
+	{
+		_log("%s:%d Unexpected data in parser pipe\n", __FILE__, __LINE__);
+		return -1;
+	}
+
+	if (cur_pr.name != NULL)
+		free(cur_pr.name);
+
+	if (len > 0)
+	{
+		if ((cur_pr.name = (char *) malloc(len + 1)) == NULL)
 		{
 			_perror("malloc");
 			return -1;
 		}
-		memcpy(program_name, buf, len);
-		program_len = len;
-
-		if (handle_program_change_cli() < 0)
-			return -1;
+		memcpy(cur_pr.name, buf, len);
+		cur_pr.name[len] = '\0';
 	}
+	else
+	{
+		cur_pr.name = NULL;
+	}
+
+	return 1;
+}
+
+int read_pr_dir()
+{
+	char c;
+	char buf[BUFFER_SIZE];
+	size_t len = BUFFER_SIZE;
+	int rc;
+	if ((rc = read_block(parser_pipe_r, &c, buf, &len)) < 0)
+	{
+		m_perror("read_block", rc);
+		return -1;
+	}
+
+	if (c != PROGRAM_DIR)
+	{
+		_log("%s:%d Unexpected data in parser pipe\n", __FILE__, __LINE__);
+		return -1;
+	}
+
+	if (cur_pr.dir != NULL)
+		free(cur_pr.dir);
+
+	if ((cur_pr.dir = (char *) malloc(len + 1)) == NULL)
+	{
+		_perror("malloc");
+		return -1;
+	}
+
+	memcpy(cur_pr.dir, buf, len);
+	cur_pr.dir[len] = '\0';
 
 	return 1;
 }
@@ -363,7 +440,10 @@ int open_parser_pipe()
 
 int open_bin_file()
 {
-	if (file_path(&bin.path, "bin", cli_id, program_id) < 0)
+	if (bin.path != NULL)
+		free(bin.path);
+
+	if ((bin.path = file_path(cur_pr.id, cur_pr.dir, "bin")) == NULL)
 		return -1;
 
 	if ((bin.fp = fopen(bin.path, "w+")) == NULL)
@@ -455,14 +535,6 @@ int init_cce_output()
 	return 1;
 }
 
-int handle_program_change_cli()
-{
-	if (reopen_bin_file() < 0)
-		return -1;
-
-	return 1;
-}
-
 void logged_out()
 {
 	_log("[%d] Disconnected\n", cli_id);
@@ -484,59 +556,4 @@ void logged_out()
 
 	if (cce_out.path != NULL && unlink(cce_out.path) < 0)
 		_perror("unlink");
-
-	remove_cli_info();
-}
-
-void remove_cli_info()
-{
-	FILE *fp = fopen(USERS_FILE_PATH, "r+");
-	if (fp == NULL)
-	{
-		_perror("fopen");
-		return;
-	}
-
-	if (0 != flock(fileno(fp), LOCK_EX))
-	{
-		_perror("flock");
-		fclose(fp);
-		return;
-	}
-
-	id_t *ids = (id_t *) malloc(cfg.max_conn * sizeof(id_t));
-	if (NULL == ids)
-	{
-		_perror("malloc");
-		fclose(fp);
-		return;
-	}
-
-	int i;
-	for (i = 0; !feof(fp); i++)
-		fscanf(fp, "%u ", &ids[i]);
-
-	rewind(fp);
-
-	if (ftruncate(fileno(fp), 0) < 0)
-	{
-		_perror("ftruncate");
-		return;
-	}
-
-	for (int j = 0; j < i; j++) {
-		if (ids[j] != cli_id)
-			fprintf(fp, "%u ", ids[j]);
-	}
-
-	if (0 != flock(fileno(fp), LOCK_UN))
-	{
-		_perror("flock");
-		fclose(fp);
-		free(ids);
-		return;
-	}
-
-	free(ids);
-	fclose(fp);
 }

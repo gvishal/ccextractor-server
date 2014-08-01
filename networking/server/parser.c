@@ -2,6 +2,7 @@
 #include "params.h"
 #include "parser.h"
 #include "networking.h"
+#include "db.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -24,9 +25,7 @@ unsigned cur_line;
 file_t txt;
 file_t xds;
 
-char *program_name; /* not null-terminated */
-id_t program_id;
-size_t program_len;
+struct pr_t cur_pr;
 
 int pipe_w; /* pipe write end */
 
@@ -52,6 +51,9 @@ pid_t fork_parser(id_t id, const char *cce_output, int pipe)
 	pipe_w = pipe;
 
 	if (open_buf_file() < 0)
+		exit(EXIT_FAILURE);
+
+	if (set_pr(NULL) < 0)
 		exit(EXIT_FAILURE);
 
 	if (parser_loop(cce_output) < 0)
@@ -107,14 +109,14 @@ int parser_loop(const char *cce_output)
 	return 1;
 }
 
-int parse_line(const char *line, size_t len)
+int parse_line(char *line, size_t len)
 {
 	int mode = CAPTIONS;
-	const char *rc;
+	char *rc;
 	if ((rc = is_xds(line)) != NULL)
 	{
 		mode = XDS;
-		if ((is_program_changed(rc)) && handle_program_change() < 0)
+		if ((rc = is_program_changed(rc)) && set_pr(rc) < 0)
 			return -1;
 	}
 	else if (append_to_txt(line, len) < 0)
@@ -130,40 +132,35 @@ int parse_line(const char *line, size_t len)
 	return 1;
 }
 
-int is_program_changed(const char *line)
+char *is_program_changed(char *line)
 {
-	static const char *pr = "Program name: ";
+	static char *pr = "Program name: ";
 	size_t len = strlen(pr);
 	if (strncmp(line, pr, len) != 0)
-		return FALSE;
+		return NULL;
 
-	const char *name = line + len;
+	char *name = line + len;
 	len = strlen(name);
 
 	char *nice_name = nice_str(name, &len);
 	if (NULL == nice_name)
-		return FALSE;
+		return NULL;
 
-	if (NULL == program_name || len != program_len)
-		goto ok;
+	if (NULL == cur_pr.name || len != strlen(cur_pr.name))
+		return nice_name;
 
 #if 0
-	if (strncmp(program_name, name, len) == 0)
+	if (strncmp(cur_pr.name, nice_name, len) == 0)
 	{
 		free(nice_name);
 		return FALSE;
 	}
 #endif
 
-ok:
-	if (program_name != NULL)
-		free(program_name);
-	program_name = nice_name;
-	program_len = len;
-	return TRUE;
+	return nice_name;
 }
 
-const char *is_xds(const char *line)
+char *is_xds(char *line)
 {
 	char *pipe; 
 	if ((pipe = strchr(line, '|')) == NULL)
@@ -180,31 +177,52 @@ const char *is_xds(const char *line)
 	return NULL;
 }
 
-int handle_program_change()
+int set_pr(char *new_name)
 {
-	c_log(cli_id, "Program changed\n");
+	c_log(cli_id, "Program changed: %s\n", new_name);
 
-	if (send_prgm_to_parent() < 0)
+	if (NULL == cur_pr.name)
+		free(cur_pr.name);
+
+	cur_pr.name = new_name;
+
+	if (creat_pr_dir(&cur_pr.dir) < 0)
 		return -1;
 
-	if (send_prgm_to_buf() < 0)
+	if (db_add_program(cli_id, &cur_pr.id, cur_pr.name, cur_pr.dir) < 0)
 		return -1;
 
-	if (reopen_txt_file() < 0)
+	if (send_pr_to_parent() < 0)
 		return -1;
 
-	if (reopen_xds_file() < 0)
-		return -1;
+	if (new_name != NULL)
+	{
+		if (send_pr_to_buf() < 0)
+			return -1;
 
-	program_id++;
+		/* XXX: don't reopen when previous program name wan NULL */
+		if (reopen_txt_file() < 0)
+			return -1;
+
+		if (reopen_xds_file() < 0)
+			return -1;
+	}
+	else
+	{
+		if (open_txt_file() < 0)
+			return -1;
+
+		if (open_xds_file() < 0)
+			return -1;
+	}
 
 	return 1;
 }
 
-int send_prgm_to_parent()
+int send_pr_to_parent()
 {
 	char id_str[INT_LEN] = {0};
-	sprintf(id_str, "%u", program_id);
+	sprintf(id_str, "%u", cur_pr.id);
 
 	int rc;
 	if ((rc = write_block(pipe_w, PROGRAM_ID, id_str, INT_LEN)) < 0)
@@ -213,33 +231,55 @@ int send_prgm_to_parent()
 		return -1;
 	}
 
+	/* fprintf(stderr, "!!!!%s\n", id_str); */
+
 	int c = PROGRAM_CHANGED;
-	if (0 == program_id)
+	if (0 == cur_pr.id)
 		c = PROGRAM_NEW;
 
-	if ((rc = write_block(pipe_w, c, program_name, program_len)) < 0)
+	if (cur_pr.name == NULL)
+		rc = write_block(pipe_w, c, NULL, 0);
+	else
+		rc = write_block(pipe_w, c, cur_pr.name, strlen(cur_pr.name));
+
+	/* fprintf(stderr, "!!!!!\n\n\n\n"); */
+	/* if (cur_pr.name != NULL) */
+	/* 	fwrite(cur_pr.name, 1, strlen(cur_pr.name), stderr); */
+	/* fprintf(stderr, "!!!!!\n\n\n\n"); */
+
+	if (rc < 0)
 	{
 		m_perror("write_block", rc);
 		return -1;
 	}
 
+	if ((rc = write_block(pipe_w, PROGRAM_DIR, cur_pr.dir, strlen(cur_pr.dir))) < 0)
+	{
+		m_perror("write_block", rc);
+		return -1;
+	}
+
+	/* fprintf(stderr, "!!!!!\n\n\n\n"); */
+	/* fwrite(cur_pr.dir, 1, strlen(cur_pr.dir), stderr); */
+	/* fprintf(stderr, "!!!!!\n\n\n\n"); */
+
 	return 1;
 }
 
-int send_prgm_to_buf()
+int send_pr_to_buf()
 {
 	char id_str[INT_LEN] = {0};
-	sprintf(id_str, "%u", program_id);
+	sprintf(id_str, "%u", cur_pr.id);
 
 	int rc;
 	if ((rc = append_to_buf(id_str, INT_LEN, PROGRAM_ID)) < 0)
 		return -1;
 
 	int c = PROGRAM_CHANGED;
-	if (0 == program_id)
+	if (0 == cur_pr.id)
 		c = PROGRAM_NEW;
 
-	if ((rc = append_to_buf(program_name, program_len, c)) < 0)
+	if ((rc = append_to_buf(cur_pr.name, strlen(cur_pr.name), c)) < 0)
 		return -1;
 
 	return 1;
@@ -325,11 +365,16 @@ int append_to_buf(const char *line, size_t len, char mode)
 int open_txt_file()
 {
 	assert(txt.fp == NULL);
+	assert(cur_pr.dir != NULL);
+	assert(cur_pr.id > 0);
 
-	if (file_path(&txt.path, "txt", cli_id, program_id) < 0)
+	if (txt.path != NULL)
+		free(txt.path);
+
+	if ((txt.path = file_path(cur_pr.id, cur_pr.dir, "txt")) == NULL)
 		return -1;
 
-	if ((txt.fp = fopen(txt.path, "w+x")) == NULL)
+	if ((txt.fp = fopen(txt.path, "w+")) == NULL)
 	{
 		_perror("fopen");
 		return -1;
@@ -340,6 +385,8 @@ int open_txt_file()
 		_perror("setvbuf");
 		return -1;
 	}
+
+	c_log(cli_id, "TXT file: %s\n", txt.path);
 
 	return 1;
 }
@@ -361,8 +408,13 @@ int reopen_txt_file()
 int open_xds_file()
 {
 	assert(xds.fp == NULL);
+	assert(cur_pr.dir != NULL);
+	assert(cur_pr.id > 0);
 
-	if (file_path(&xds.path, "xds.txt", cli_id, program_id) < 0)
+	if (xds.path != NULL)
+		free(xds.path);
+
+	if ((xds.path = file_path(cur_pr.id, cur_pr.dir, "xds.txt")) == NULL)
 		return -1;
 
 	if ((xds.fp = fopen(xds.path, "w+")) == NULL)
@@ -376,6 +428,8 @@ int open_xds_file()
 		_perror("setvbuf");
 		return -1;
 	}
+
+	c_log(cli_id, "XDS file: %s\n", xds.path);
 
 	return 1;
 }
@@ -424,10 +478,25 @@ int open_buf_file()
 	return 1;
 }
 
-int file_path(char **path, const char *ext, id_t cli_id, id_t prgm_id)
+char *file_path(id_t pr_id, const char *dir, const char *ext)
 {
+	assert(pr_id > 0);
 	assert(ext != NULL);
 
+	char *ret = (char *) malloc(PATH_MAX);
+	if (NULL == ret)
+	{
+		_perror("malloc");
+		return NULL;
+	}
+
+	sprintf(ret, "%s/%u.%s", dir, pr_id, ext);
+
+	return ret;
+}
+
+int creat_pr_dir(char **path)
+{
 	if (NULL == *path && (*path = (char *) malloc(PATH_MAX)) == NULL) 
 	{
 		_perror("malloc");
@@ -436,56 +505,18 @@ int file_path(char **path, const char *ext, id_t cli_id, id_t prgm_id)
 
 	time_t t = time(NULL);
 	struct tm *t_tm = localtime(&t);
-	char time_buf[30] = {0};
+	char time_buf[30];
 	strftime(time_buf, 30, "%G/%m-%b/%d", t_tm);
 
-	char dir[PATH_MAX] = {0};
-	snprintf(dir, PATH_MAX, "%s/%s", cfg.arch_dir, time_buf);
+	snprintf(*path, PATH_MAX, "%s/%s", cfg.arch_dir, time_buf);
 
-	if (_mkdir(dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH ) < 0)
+	if (_mkdir(*path, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH ) < 0)
 	{
 		_perror("_mkdir");
 		return -1;
 	}
 
-	memset(time_buf, 0, sizeof(time_buf));
-	strftime(time_buf, 30, "%H%M%S", t_tm);
+	c_log(cli_id, "Program dir: %s\n", *path);
 
-	snprintf(*path, PATH_MAX, "%s/%s-%u-%u.%s", dir, time_buf, cli_id, prgm_id, ext); 
-
-	return 0;
+	return 1;
 }
-
-/* int append_to_arch_info() */
-/* { */
-/* 	time_t t = time(NULL); */
-/* 	struct tm *t_tm = localtime(&t); */
-/*  */
-/* 	char time_buf[30] = {0}; */
-/* 	strftime(time_buf, 30, "%G/%m-%b/%d", t_tm); */
-/*  */
-/* 	char info_filepath[PATH_MAX]; */
-/* 	snprintf(info_filepath, PATH_MAX, "%s/%s/%s",  */
-/*     		cfg.arch_dir, */
-/*     		time_buf, */
-/*     		cfg.arch_info_filename); */
-/*  */
-/* 	FILE *info_fp = fopen(info_filepath, "a"); */
-/* 	if (NULL == info_fp) */
-/* 	{ */
-/* 		_log("fopen() error: %s\n", strerror(errno)); */
-/* 		return -1; */
-/* 	} */
-/*  */
-/* 	fprintf(info_fp, "%d %u %s:%s %s %s %s\n", */
-/* 			(int) t, */
-/* 			cli->id, */
-/* 			cli->host, */
-/* 			cli->serv, */
-/* 			cli_chld->bin_filepath, */
-/* 			cli_chld->txt.path, */
-/*  */
-/* 	fclose(info_fp); */
-/*  */
-/* 	return 0; */
-/* } */
