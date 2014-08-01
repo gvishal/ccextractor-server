@@ -4,7 +4,9 @@
 #include <sys/types.h>
 
 /* Protocol constants: */
+#ifndef INT_LEN
 #define INT_LEN         10
+#endif
 #define OK              1
 #define PASSWORD        2
 #define BIN_MODE        3

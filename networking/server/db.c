@@ -112,9 +112,54 @@ int db_get_last_id(id_t *new_id)
 	return 1;
 }
 
+int db_add_active_cli(id_t id)
+{
+	assert(id > 0);
+
+	char id_str[INT_LEN + 1] = {0};
+	snprintf(id_str, INT_LEN, "%u", id);
+
+	char query[QUERY_LEN] = {0};
+	int rc = snprintf(query, QUERY_LEN, 
+			"INSERT INTO active_clients(id) VALUES(\'%s\') ;",
+			id_str);
+
+	if (mysql_real_query(con, query, rc))
+	{
+		_log("MySQL query: %s\n", query);
+		mysql_perror("mysql_real_query", con);
+		return -1;
+	}
+
+	return 1;
+}
+
+int db_remove_active_cli(id_t id)
+{
+	assert(id > 0);
+
+	char id_str[INT_LEN] = {0};
+	snprintf(id_str, INT_LEN, "%u", id);
+
+	char query[QUERY_LEN] = {0};
+	int rc = snprintf(query, QUERY_LEN,
+			"DELETE FROM active_clients WHERE id = \'%s\' LIMIT 1 ;",
+			id_str);
+
+	if (mysql_real_query(con, query, rc))
+	{
+		_log("MySQL query: %s\n", query);
+		mysql_perror("mysql_real_query", con);
+		unlock_db();
+		return -1;
+	}
+
+	return 1;
+}
+
 int lock_db()
 {
-	if (0 != flock(dblock_fd, LOCK_EX)) 
+	if (0 != flock(dblock_fd, LOCK_EX))
 	{
 		_perror("flock");
 		close(dblock_fd);
@@ -126,7 +171,7 @@ int lock_db()
 
 int unlock_db()
 {
-	if (0 != flock(dblock_fd, LOCK_UN)) 
+	if (0 != flock(dblock_fd, LOCK_UN))
 	{
 		_perror("flock");
 		close(dblock_fd);

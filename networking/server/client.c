@@ -91,6 +91,9 @@ int greeting()
 	if (db_add_cli(host, serv, &cli_id) < 0)
 		return -1;
 
+	if (db_add_active_cli(cli_id) < 0)
+		return -1;
+
 	_log("[%u] Logged in\n", cli_id);
 
 	return 1;
@@ -463,6 +466,9 @@ int handle_program_change_cli()
 void logged_out()
 {
 	_log("[%d] Disconnected\n", cli_id);
+
+	if (cli_id > 0)
+		db_remove_active_cli(cli_id);
 
 	if (parser_pid > 0 && kill(parser_pid, SIGINT) < 0)
 		_perror("kill");

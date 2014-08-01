@@ -25,8 +25,10 @@
 #define DFT_DB_DBNAME "cce"
 
 #define USERS_FILE_PATH "connections.txt"
+#define TMP_FILE_PATH "./tmp_file" /* temprorary file for delete_n_lines */
 #define INF_READ_DELAY 300000000 /* Nano sec less than 10^9 */
 #define BUFFER_SIZE 20480
+#define DB_LOCK_FILE "db_lock"
 
 struct cfg_t
 {

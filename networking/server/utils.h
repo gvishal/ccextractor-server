@@ -24,7 +24,9 @@
 /* delete_n_lines(): */
 #define DEL_L_EOF -11 /* Unexpected eof */
 
-#define TMP_FILE_PATH "./tmp_file" /* temprorary file for delete_n_lines */
+#ifndef INT_LEN
+#define INT_LEN 10
+#endif
 
 typedef struct 
 {
