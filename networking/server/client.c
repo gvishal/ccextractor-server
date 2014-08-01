@@ -232,7 +232,7 @@ int bin_loop()
 			if (read_parser_data() < 0)
 				goto out;
 
-			if (reopen_bin_file() < 0)
+			if (open_bin_file() < 0)
 				goto out;
 		}
 
@@ -275,20 +275,6 @@ int read_bin_data()
 
 int read_parser_data()
 {
-	if (read_pr_id() < 0)
-		return -1;
-
-	if (read_pr_name() < 0)
-		return -1;
-
-	if (read_pr_dir() < 0)
-		return -1;
-
-	return 1;
-}
-
-int read_pr_id()
-{
 	char c;
 	char buf[BUFFER_SIZE];
 	size_t len = BUFFER_SIZE;
@@ -299,86 +285,17 @@ int read_pr_id()
 		return -1;
 	}
 
-	if (c != PROGRAM_ID)
+	if (c != PR_BIN_PATH)
 	{
 		_log("%s:%d Unexpected data in parser pipe\n", __FILE__, __LINE__);
 		return -1;
 	}
 
-	buf[len] = '\0';
-	cur_pr.id = atoi(buf);
-
-	return 1;
-}
-
-int read_pr_name()
-{
-	char c;
-	char buf[BUFFER_SIZE];
-	size_t len = BUFFER_SIZE;
-	int rc;
-	if ((rc = read_block(parser_pipe_r, &c, buf, &len)) < 0)
-	{
-		m_perror("read_block", rc);
-		return -1;
-	}
-
-	if (c != PROGRAM_NEW && c != PROGRAM_CHANGED)
-	{
-		_log("%s:%d Unexpected data in parser pipe\n", __FILE__, __LINE__);
-		return -1;
-	}
-
-	if (cur_pr.name != NULL)
-		free(cur_pr.name);
-
-	if (len > 0)
-	{
-		if ((cur_pr.name = (char *) malloc(len + 1)) == NULL)
-		{
-			_perror("malloc");
-			return -1;
-		}
-		memcpy(cur_pr.name, buf, len);
-		cur_pr.name[len] = '\0';
-	}
-	else
-	{
-		cur_pr.name = NULL;
-	}
-
-	return 1;
-}
-
-int read_pr_dir()
-{
-	char c;
-	char buf[BUFFER_SIZE];
-	size_t len = BUFFER_SIZE;
-	int rc;
-	if ((rc = read_block(parser_pipe_r, &c, buf, &len)) < 0)
-	{
-		m_perror("read_block", rc);
-		return -1;
-	}
-
-	if (c != PROGRAM_DIR)
-	{
-		_log("%s:%d Unexpected data in parser pipe\n", __FILE__, __LINE__);
-		return -1;
-	}
-
-	if (cur_pr.dir != NULL)
-		free(cur_pr.dir);
-
-	if ((cur_pr.dir = (char *) malloc(len + 1)) == NULL)
-	{
-		_perror("malloc");
-		return -1;
-	}
-
-	memcpy(cur_pr.dir, buf, len);
-	cur_pr.dir[len] = '\0';
+	if (bin.path != NULL)
+		free(bin.path);
+	bin.path = (char *) malloc(len + 1);
+	memcpy(bin.path, buf, len);
+	bin.path[len] = '\0';
 
 	return 1;
 }
@@ -440,11 +357,10 @@ int open_parser_pipe()
 
 int open_bin_file()
 {
-	if (bin.path != NULL)
-		free(bin.path);
+	assert(bin.path != NULL);
 
-	if ((bin.path = file_path(cur_pr.id, cur_pr.dir, "bin")) == NULL)
-		return -1;
+	if (bin.fp != NULL)
+		fclose(bin.fp);
 
 	if ((bin.fp = fopen(bin.path, "w+")) == NULL)
 	{
@@ -461,20 +377,6 @@ int open_bin_file()
 	c_log(cli_id, "BIN file: %s\n", bin.path);
 
 	return 1;
-}
-
-int reopen_bin_file()
-{
-	assert(bin.fp != NULL);
-	assert(bin.path != NULL);
-
-	fclose(bin.fp);
-	bin.fp = NULL;
-
-	free(bin.path);
-	bin.path = NULL;
-
-	return open_bin_file();
 }
 
 int open_cce_input()

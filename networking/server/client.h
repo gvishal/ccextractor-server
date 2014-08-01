@@ -18,7 +18,6 @@ int read_pr_dir();
 
 int open_parser_pipe();
 int open_bin_file();
-int reopen_bin_file();
 int open_cce_input();
 int init_cce_output();
 

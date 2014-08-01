@@ -8,6 +8,7 @@ struct pr_t
 	id_t id;
 	char *name;
 	char *dir;
+	time_t start;
 };
 
 pid_t fork_parser(id_t id, const char *cce_output, int pipe_w);
@@ -33,7 +34,7 @@ int append_to_buf(const char *line, size_t len, char mode);
 int append_to_txt(const char *line, size_t len);
 int append_to_xds(const char *line, size_t len);
 
-int creat_pr_dir(char **path);
+int creat_pr_dir(char **path, time_t *start);
 char *file_path(id_t prgm_id, const char *dir, const char *ext);
 
 #endif /* end of include guard: PARSER_H */

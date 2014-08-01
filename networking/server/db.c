@@ -157,11 +157,10 @@ int db_remove_active_cli(id_t id)
 	return 1;
 }
 
-int db_add_program(id_t cli_id, id_t *pgrm_id, char *name, char *dir)
+int db_add_program(id_t cli_id, id_t *pgrm_id, time_t start, char *name)
 {
 	assert(cli_id > 0);
 	assert(pgrm_id != NULL);
-	assert(dir != NULL);
 
 	if (lock_db() < 0)
 		return -1;
@@ -170,27 +169,29 @@ int db_add_program(id_t cli_id, id_t *pgrm_id, char *name, char *dir)
 	char *end = query;
 
 	if (NULL == name)
-		strcpy(end, "INSERT INTO programs (client_id, dir) VALUES(\'");
+		strcpy(end, "INSERT INTO programs (client_id, start_date) VALUES(\'");
 	else
-		strcpy(end, "INSERT INTO programs (client_id, name, dir) VALUES(\'");
+		strcpy(end, "INSERT INTO programs (client_id, start_date, name) VALUES(\'");
 	end += strlen(query);
 
 	end += sprintf(end, "%u", cli_id);
 
-	strcpy(end, "\', \'");
+	strcpy(end, "\', FROM_UNIXTIME(");
 	end += strlen(end);
+
+	end += sprintf(end, "%lu", (unsigned long) start);
+
+	*end++ = ')';
 
 	if (name != NULL)
 	{
-		end += mysql_real_escape_string(con, end, name, strlen(name));
-
-		strcpy(end, "\', \'");
+		strcpy(end, ", \'");
 		end += strlen(end);
+		end += mysql_real_escape_string(con, end, name, strlen(name));
+		*end++ = '\'';
 	}
 
-	end += mysql_real_escape_string(con, end, dir, strlen(dir));
-
-	strcpy(end, "\') ;");
+	strcpy(end, ") ;");
 	end += strlen(end);
 
 	if (mysql_real_query(con, query, end - query))

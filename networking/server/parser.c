@@ -186,10 +186,10 @@ int set_pr(char *new_name)
 
 	cur_pr.name = new_name;
 
-	if (creat_pr_dir(&cur_pr.dir) < 0)
+	if (creat_pr_dir(&cur_pr.dir, &cur_pr.start) < 0)
 		return -1;
 
-	if (db_add_program(cli_id, &cur_pr.id, cur_pr.name, cur_pr.dir) < 0)
+	if (db_add_program(cli_id, &cur_pr.id, cur_pr.start, cur_pr.name) < 0)
 		return -1;
 
 	if (send_pr_to_parent() < 0)
@@ -221,47 +221,19 @@ int set_pr(char *new_name)
 
 int send_pr_to_parent()
 {
-	char id_str[INT_LEN] = {0};
-	sprintf(id_str, "%u", cur_pr.id);
+	char *path = file_path(cur_pr.id, cur_pr.dir, "bin");
+	if (NULL == path)
+		return -1;
 
 	int rc;
-	if ((rc = write_block(pipe_w, PROGRAM_ID, id_str, INT_LEN)) < 0)
+	if ((rc = write_block(pipe_w, PR_BIN_PATH, path, strlen(path))) < 0)
 	{
 		m_perror("write_block", rc);
+		free(path);
 		return -1;
 	}
 
-	/* fprintf(stderr, "!!!!%s\n", id_str); */
-
-	int c = PROGRAM_CHANGED;
-	if (0 == cur_pr.id)
-		c = PROGRAM_NEW;
-
-	if (cur_pr.name == NULL)
-		rc = write_block(pipe_w, c, NULL, 0);
-	else
-		rc = write_block(pipe_w, c, cur_pr.name, strlen(cur_pr.name));
-
-	/* fprintf(stderr, "!!!!!\n\n\n\n"); */
-	/* if (cur_pr.name != NULL) */
-	/* 	fwrite(cur_pr.name, 1, strlen(cur_pr.name), stderr); */
-	/* fprintf(stderr, "!!!!!\n\n\n\n"); */
-
-	if (rc < 0)
-	{
-		m_perror("write_block", rc);
-		return -1;
-	}
-
-	if ((rc = write_block(pipe_w, PROGRAM_DIR, cur_pr.dir, strlen(cur_pr.dir))) < 0)
-	{
-		m_perror("write_block", rc);
-		return -1;
-	}
-
-	/* fprintf(stderr, "!!!!!\n\n\n\n"); */
-	/* fwrite(cur_pr.dir, 1, strlen(cur_pr.dir), stderr); */
-	/* fprintf(stderr, "!!!!!\n\n\n\n"); */
+	free(path);
 
 	return 1;
 }
@@ -495,7 +467,7 @@ char *file_path(id_t pr_id, const char *dir, const char *ext)
 	return ret;
 }
 
-int creat_pr_dir(char **path)
+int creat_pr_dir(char **path, time_t *start)
 {
 	if (NULL == *path && (*path = (char *) malloc(PATH_MAX)) == NULL) 
 	{
@@ -503,8 +475,8 @@ int creat_pr_dir(char **path)
 		return -1;
 	}
 
-	time_t t = time(NULL);
-	struct tm *t_tm = localtime(&t);
+	*start = time(NULL);
+	struct tm *t_tm = localtime(start);
 	char time_buf[30];
 	strftime(time_buf, 30, "%G/%m-%b/%d", t_tm);
 

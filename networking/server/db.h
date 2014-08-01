@@ -24,7 +24,6 @@
    `start_date` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
    `end_date` timestamp NULL DEFAULT NULL,
    `name` varchar(300) COLLATE utf8_bin DEFAULT NULL,
-   `dir` varchar(2048) COLLATE utf8_bin DEFAULT NULL,
    PRIMARY KEY (`id`),
    FOREIGN KEY (`client_id`) REFERENCES clients(id)
  ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=1 ;
@@ -50,7 +49,7 @@ int db_get_last_id(id_t *new_id);
 int db_add_active_cli(id_t id);
 int db_remove_active_cli(id_t id);
 
-int db_add_program(id_t cli_id, id_t *pgrm_id, char *name, char *dir);
+int db_add_program(id_t cli_id, id_t *pgrm_id, time_t start, char *name);
 
 int db_get_last_pgrm_id(id_t *pgrm_id);
 

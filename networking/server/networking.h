@@ -19,7 +19,7 @@
 #define PROGRAM_ID      102
 #define PROGRAM_NEW     103
 #define PROGRAM_CHANGED 106
-#define PROGRAM_DIR     107
+#define PR_BIN_PATH     107
 #define CAPTIONS        104
 #define XDS             105
 
