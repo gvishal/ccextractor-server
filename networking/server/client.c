@@ -3,6 +3,7 @@
 #include "parser.h"
 #include "networking.h"
 #include "client.h"
+#include "db.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -21,6 +22,8 @@
 
 int connfd;
 id_t cli_id;
+char *host;
+char *serv;
 
 unsigned is_logged;
 
@@ -39,7 +42,7 @@ char *program_name; /* not null-terminated */
 id_t program_id;
 size_t program_len;
 
-pid_t fork_client(id_t id, int fd, int listenfd)
+pid_t fork_client(int fd, int listenfd, char *h, char *s)
 {
 	pid_t pid = fork();
 
@@ -50,14 +53,15 @@ pid_t fork_client(id_t id, int fd, int listenfd)
 	}
 	else if (pid > 0)
 	{
-		c_log(id, "Client forked, pid=%d\n", pid);
+		c_log(0, "Client forked, pid=%d\n", pid); //TODO change id
 		return pid;
 	}
 
 	close(listenfd);
 
 	connfd = fd;
-	cli_id = id;
+	host = h;
+	serv = s;
 
 	if (greeting() < 0)
 		goto fail;
@@ -84,7 +88,7 @@ int greeting()
 	if (write_byte(connfd, OK) != 1)
 		return -1;
 
-	if (add_cli_info() < 0)
+	if (db_add_cli(host, serv, &cli_id) < 0)
 		return -1;
 
 	_log("[%u] Logged in\n", cli_id);
@@ -456,36 +460,6 @@ int handle_program_change_cli()
 	return 1;
 }
 
-int add_cli_info()
-{
-	FILE *fp = fopen(USERS_FILE_PATH, "a");
-	if (fp == NULL)
-	{
-		_perror("fopen");
-		return -1;
-	}
-
-	if (0 != flock(fileno(fp), LOCK_EX)) 
-	{
-		_perror("flock");
-		fclose(fp);
-		return -1;
-	}
-
-	fprintf(fp, "%u ", cli_id);
-
-	if (0 != flock(fileno(fp), LOCK_UN)) 
-	{
-		_perror("flock");
-		fclose(fp);
-		return -1;
-	}
-
-	fclose(fp);
-
-	return 1;
-}
-
 void logged_out()
 {
 	_log("[%d] Disconnected\n", cli_id);
@@ -517,7 +491,7 @@ void remove_cli_info()
 		return;
 	}
 
-	if (0 != flock(fileno(fp), LOCK_EX)) 
+	if (0 != flock(fileno(fp), LOCK_EX))
 	{
 		_perror("flock");
 		fclose(fp);
@@ -549,7 +523,7 @@ void remove_cli_info()
 			fprintf(fp, "%u ", ids[j]);
 	}
 
-	if (0 != flock(fileno(fp), LOCK_UN)) 
+	if (0 != flock(fileno(fp), LOCK_UN))
 	{
 		_perror("flock");
 		fclose(fp);

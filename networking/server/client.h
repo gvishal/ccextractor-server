@@ -3,7 +3,7 @@
 
 #include <sys/types.h>
 
-pid_t fork_client(id_t id, int connfd, int listenfd);
+pid_t fork_client(int fd, int listenfd, char *h, char *s);
 
 int greeting();
 int check_password();
@@ -22,7 +22,6 @@ int init_cce_output();
 int handle_program_change_cli();
 
 // int logged_in();
-int add_cli_info();
 void logged_out();
 void remove_cli_info();
 

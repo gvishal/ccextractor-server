@@ -29,8 +29,6 @@ struct cli_t
 
 	char *host;
 	char *serv;
-
-	id_t id;
 } *cli;
 
 size_t cli_cnt;
@@ -125,7 +123,7 @@ int main()
 		if (cli_cnt == cfg.max_conn)
 			_log("Connection limit reached, ignoring new connections\n");
 
-		if ((cli[id].pid = fork_client(cli[id].id, connfd, listen_sd)) < 0)
+		if ((cli[id].pid = fork_client(connfd, listen_sd, cli[id].host, cli[id].serv)) < 0)
 		{
 			write_byte(connfd, ERROR);
 			close_conn(id);
@@ -164,7 +162,7 @@ int add_new_cli(int fd, struct sockaddr *cliaddr, socklen_t clilen)
 	if ((rc = getnameinfo(cliaddr, clilen, 
 					host, sizeof(host), serv, sizeof(serv), 0)) != 0)
 	{
-		c_log(cli[id].id, "getnameinfo() error: %s\n", gai_strerror(rc));
+		_log("getnameinfo() error: %s\n", gai_strerror(rc));
 		return -1;
 	}
 
@@ -182,16 +180,6 @@ int add_new_cli(int fd, struct sockaddr *cliaddr, socklen_t clilen)
 		return -1;
 	}
 	memcpy(cli[id].serv, serv, serv_len);
-
-new_id:
-	last_used_id++;
-	if (0 == last_used_id)
-		last_used_id = 1;
-	for (unsigned i = 0; i < cfg.max_conn; i++)
-		if (cli[i].id == last_used_id)
-			goto new_id; 
-
-	cli[id].id = last_used_id; /* TODO: save it to file */
 
 	_log("Connected %s:%s\n", cli[id].host, cli[id].serv);
 
@@ -224,8 +212,7 @@ void close_conn(int id)
 {
 	close(cli[id].fd);
 
-	_log("[%d] (%s:%s) Disconnected\n",
-			cli[id].id, cli[id].host, cli[id].serv);
+	_log("%s:%s Disconnected\n", cli[id].host, cli[id].serv);
 
 	free_cli(id);
 }

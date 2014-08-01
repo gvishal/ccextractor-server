@@ -14,7 +14,7 @@
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `address` varchar(256) COLLATE utf8_bin NOT NULL,
   `port` varchar(6) COLLATE utf8_bin NOT NULL,
-  `date` date NOT NULL,
+  `date` timestamp NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=1 ;
 
@@ -34,7 +34,15 @@ CREATE TABLE IF NOT EXISTS `programs` (
 
 */
 
+#define QUERY_LEN 2048
+
 int init_db();
+
+int db_add_cli(const char *host, const char *serv, id_t *new_id);
+int db_get_last_id(id_t *new_id);
+
+int lock_db();
+int unlock_db();
 
 #endif /* end of include guard: DB_H */
 
