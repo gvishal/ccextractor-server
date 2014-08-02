@@ -157,10 +157,10 @@ int db_remove_active_cli(id_t id)
 	return 1;
 }
 
-int db_add_program(id_t cli_id, id_t *pgrm_id, time_t start, char *name)
+int db_add_program(id_t cli_id, id_t *pr_id, time_t start, char *name)
 {
 	assert(cli_id > 0);
-	assert(pgrm_id != NULL);
+	assert(pr_id != NULL);
 
 	if (lock_db() < 0)
 		return -1;
@@ -202,7 +202,7 @@ int db_add_program(id_t cli_id, id_t *pgrm_id, time_t start, char *name)
 		return -1;
 	}
 
-	if (db_get_last_pgrm_id(pgrm_id) < 0)
+	if (db_get_last_pr_id(pr_id) < 0)
 	{
 		unlock_db();
 		return -1;
@@ -211,7 +211,7 @@ int db_add_program(id_t cli_id, id_t *pgrm_id, time_t start, char *name)
 	return 1;
 }
 
-int db_get_last_pgrm_id(id_t *pgrm_id)
+int db_get_last_pr_id(id_t *pr_id)
 {
 	if (mysql_query(con, "SELECT MAX(id) FROM programs ;"))
 	{
@@ -233,7 +233,53 @@ int db_get_last_pgrm_id(id_t *pgrm_id)
 		return -1;
 	}
 
-	*pgrm_id = atoi(row[0]);
+	*pr_id = atoi(row[0]);
+
+	return 1;
+}
+
+int db_set_pr_name(id_t pr_id, char *name)
+{
+	assert(pr_id > 0);
+	assert(name != NULL);
+
+	char query[QUERY_LEN] = {0};
+	char *end = query;
+
+	strcpy(end, "UPDATE programs SET name = \'");
+	end += strlen(query);
+
+	end += mysql_real_escape_string(con, end, name, strlen(name));
+
+	end += sprintf(end, "\' WHERE id = \'%u\' LIMIT 1 ;", pr_id);
+
+	if (mysql_real_query(con, query, end - query))
+	{
+		_log("MySQL query: %s\n", query);
+		mysql_perror("mysql_real_query", con);
+		return -1;
+	}
+
+	return 1;
+}
+
+int db_set_pr_endtime(id_t pr_id)
+{
+	assert(pr_id > 0);
+
+	char query[QUERY_LEN] = {0};
+	char *end = query;
+
+	end += sprintf(end,
+			"UPDATE programs SET end_date = NOW() WHERE id = \'%u\' LIMIT 1 ;",
+			pr_id);
+
+	if (mysql_real_query(con, query, end - query))
+	{
+		_log("MySQL query: %s\n", query);
+		mysql_perror("mysql_real_query", con);
+		return -1;
+	}
 
 	return 1;
 }

@@ -3,14 +3,6 @@
 
 #include <sys/types.h>
 
-struct pr_t
-{
-	id_t id;
-	char *name;
-	char *dir;
-	time_t start;
-};
-
 pid_t fork_parser(id_t id, const char *cce_output, int pipe_w);
 
 int parser_loop();
@@ -27,8 +19,6 @@ int send_pr_to_buf();
 int open_buf_file();
 int open_txt_file();
 int open_xds_file();
-int reopen_txt_file();
-int reopen_xds_file();
 
 int append_to_buf(const char *line, size_t len, char mode);
 int append_to_txt(const char *line, size_t len);

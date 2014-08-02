@@ -38,8 +38,6 @@ file_t cce_out;
 pid_t parser_pid;
 int parser_pipe_r; /* Read end */
 
-struct pr_t cur_pr;
-
 pid_t fork_client(int fd, int listenfd, char *h, char *s)
 {
 	pid_t pid = fork();

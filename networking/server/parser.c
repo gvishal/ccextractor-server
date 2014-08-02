@@ -25,7 +25,13 @@ unsigned cur_line;
 file_t txt;
 file_t xds;
 
-struct pr_t cur_pr;
+struct pr_t
+{
+	id_t id;
+	char *name;
+	char *dir;
+	time_t start;
+} cur_pr;
 
 int pipe_w; /* pipe write end */
 
@@ -143,7 +149,7 @@ char *is_program_changed(char *line)
 	len = strlen(name);
 
 	char *nice_name = nice_str(name, &len);
-	if (NULL == nice_name)
+	if (NULL == nice_name || 0 == len)
 		return NULL;
 
 	if (NULL == cur_pr.name || len != strlen(cur_pr.name))
@@ -181,38 +187,44 @@ int set_pr(char *new_name)
 {
 	c_log(cli_id, "Program changed: %s\n", new_name);
 
+	int was_null = TRUE;
+
 	if (NULL == cur_pr.name)
 		free(cur_pr.name);
-
-	cur_pr.name = new_name;
-
-	if (creat_pr_dir(&cur_pr.dir, &cur_pr.start) < 0)
-		return -1;
-
-	if (db_add_program(cli_id, &cur_pr.id, cur_pr.start, cur_pr.name) < 0)
-		return -1;
-
-	if (send_pr_to_parent() < 0)
-		return -1;
-
-	if (new_name != NULL)
-	{
-		if (send_pr_to_buf() < 0)
-			return -1;
-
-		/* XXX: don't reopen when previous program name wan NULL */
-		if (reopen_txt_file() < 0)
-			return -1;
-
-		if (reopen_xds_file() < 0)
-			return -1;
-	}
 	else
+		was_null = FALSE;
+
+	if ((was_null) == (new_name == NULL)) /* TODO comment or something */
 	{
+		cur_pr.name = new_name;
+
+		if (cur_pr.id > 0 && db_set_pr_endtime(cur_pr.id) < 0)
+			return -1;
+
+		if (creat_pr_dir(&cur_pr.dir, &cur_pr.start) < 0)
+			return -1;
+
+		if (db_add_program(cli_id, &cur_pr.id, cur_pr.start, cur_pr.name) < 0)
+			return -1;
+
+		if (send_pr_to_parent() < 0)
+			return -1;
+
+		if (new_name != NULL && send_pr_to_buf() < 0)
+			return -1;
+
 		if (open_txt_file() < 0)
 			return -1;
 
 		if (open_xds_file() < 0)
+			return -1;
+	}
+
+	if (was_null && new_name != NULL)
+	{
+		cur_pr.name = new_name;
+
+		if (db_set_pr_name(cur_pr.id, cur_pr.name) < 0)
 			return -1;
 	}
 
@@ -336,9 +348,11 @@ int append_to_buf(const char *line, size_t len, char mode)
 
 int open_txt_file()
 {
-	assert(txt.fp == NULL);
 	assert(cur_pr.dir != NULL);
 	assert(cur_pr.id > 0);
+
+	if (txt.fp != NULL)
+		fclose(txt.fp);
 
 	if (txt.path != NULL)
 		free(txt.path);
@@ -363,25 +377,13 @@ int open_txt_file()
 	return 1;
 }
 
-int reopen_txt_file()
-{
-	assert(txt.fp != NULL);
-	assert(txt.path != NULL);
-
-	fclose(txt.fp);
-	txt.fp = NULL;
-
-	free(txt.path);
-	txt.path = NULL;
-
-	return open_txt_file();
-}
-
 int open_xds_file()
 {
-	assert(xds.fp == NULL);
 	assert(cur_pr.dir != NULL);
 	assert(cur_pr.id > 0);
+
+	if (xds.fp != NULL)
+		fclose(xds.fp);
 
 	if (xds.path != NULL)
 		free(xds.path);
@@ -404,20 +406,6 @@ int open_xds_file()
 	c_log(cli_id, "XDS file: %s\n", xds.path);
 
 	return 1;
-}
-
-int reopen_xds_file()
-{
-	assert(xds.fp != NULL);
-	assert(xds.path != NULL);
-
-	fclose(xds.fp);
-	xds.fp = NULL;
-
-	free(xds.path);
-	xds.path = NULL;
-
-	return open_xds_file();
 }
 
 int open_buf_file()

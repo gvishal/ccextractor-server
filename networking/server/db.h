@@ -49,8 +49,9 @@ int db_get_last_id(id_t *new_id);
 int db_add_active_cli(id_t id);
 int db_remove_active_cli(id_t id);
 
-int db_add_program(id_t cli_id, id_t *pgrm_id, time_t start, char *name);
-
-int db_get_last_pgrm_id(id_t *pgrm_id);
+int db_add_program(id_t cli_id, id_t *pr_id, time_t start, char *name);
+int db_get_last_pr_id(id_t *pr_id);
+int db_set_pr_name(id_t pr_id, char *name);
+int db_set_pr_endtime(id_t pr_id);
 
 #endif /* end of include guard: DB_H */
