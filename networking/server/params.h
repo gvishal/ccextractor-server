@@ -29,6 +29,7 @@
 #define INF_READ_DELAY 300000000 /* Nano sec less than 10^9 */
 #define BUFFER_SIZE 20480
 #define DB_LOCK_FILE "db_lock"
+#define BIN_HEADER_LEN 11
 
 struct cfg_t
 {

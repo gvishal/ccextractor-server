@@ -10,6 +10,7 @@ int check_password();
 int handle_bin_mode();
 int bin_loop();
 int read_bin_data();
+int read_bin_header();
 
 int read_parser_data();
 int read_pr_id();

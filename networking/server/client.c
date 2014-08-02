@@ -38,6 +38,8 @@ file_t cce_out;
 pid_t parser_pid;
 int parser_pipe_r; /* Read end */
 
+char bin_header[BIN_HEADER_LEN];
+
 pid_t fork_client(int fd, int listenfd, char *h, char *s)
 {
 	pid_t pid = fork();
@@ -150,9 +152,21 @@ int handle_bin_mode()
 	if (c != BIN_MODE)
 		return -1;
 
-	c_log(cli_id, "Bin header\n");
+	c_log(cli_id, "Bin mode\n");
 
 	bin_mode = TRUE;
+
+	if (write_byte(connfd, OK) != 1)
+		return -1;
+
+	if (read_bin_header() < 0)
+		return -1;
+
+	if (set_nonblocking(connfd) < 0)
+	{
+		_perror("set_nonblocking");
+		return -1;
+	}
 
 	if ((cce_pid = fork_cce()) < 0)
 		return -1;
@@ -164,14 +178,31 @@ int handle_bin_mode()
 	if ((parser_pid = fork_parser(cli_id, cce_out.path, pipe_w_end)) < 0)
 		return -1;
 
-	if (set_nonblocking(connfd) < 0)
+	return 1;
+}
+
+int read_bin_header()
+{
+	int rc;
+	if ((rc = readn(connfd, bin_header, BIN_HEADER_LEN)) <= 0)
 	{
-		_perror("set_nonblocking");
+		if (rc < 0)
+			c_perror(cli_id, "readn", rc);
 		return -1;
 	}
 
-	if (write_byte(connfd, OK) != 1)
+	if (memcmp(bin_header, "\xCC\xCC\xED", 3))
+	{
+		c_log(cli_id, "Wrong bin header\n");
 		return -1;
+	}
+
+	c_log(cli_id, "Bin header recieved:\n");
+	c_log(cli_id,
+			"File created by %02X version: %02X%02X, format version: %02X%02X\n",
+			bin_header[3],
+			bin_header[4], bin_header[5],
+			bin_header[6], bin_header[7]);
 
 	return 1;
 }
@@ -259,7 +290,7 @@ int read_bin_data()
 	{
 		if (rc < 0)
 			c_perror(cli_id, "readn", rc);
-		return rc;
+		return -1;
 	}
 
 	c_log(cli_id, "Bin data received: %zd bytes\n", rc);
@@ -356,6 +387,7 @@ int open_parser_pipe()
 int open_bin_file()
 {
 	assert(bin.path != NULL);
+	assert(memcmp(bin_header, "\xCC\xCC\xED", 3) == 0);
 
 	if (bin.fp != NULL)
 		fclose(bin.fp);
@@ -374,11 +406,15 @@ int open_bin_file()
 
 	c_log(cli_id, "BIN file: %s\n", bin.path);
 
+	fwrite(bin_header, sizeof(char), BIN_HEADER_LEN, bin.fp);
+
 	return 1;
 }
 
 int open_cce_input()
 {
+	assert(memcmp(bin_header, "\xCC\xCC\xED", 3) == 0);
+
 	if ((cce_in.path = (char *) malloc(PATH_MAX)) == NULL)
 	{
 		_perror("malloc");
@@ -409,6 +445,8 @@ int open_cce_input()
 		_perror("setvbuf");
 		return -1;
 	}
+
+	fwrite(bin_header, sizeof(char), BIN_HEADER_LEN, cce_in.fp);
 
 	c_log(cli_id, "CCExtractor input fifo file: %s\n", cce_in.path);
 
