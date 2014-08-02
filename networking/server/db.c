@@ -134,6 +134,28 @@ int db_add_active_cli(id_t id)
 	return 1;
 }
 
+int db_set_pr_arctive_cli(id_t id, id_t pr_id)
+{
+	assert(id > 0);
+	assert(pr_id > 0);
+
+	char query[QUERY_LEN] = {0};
+	char *end = query;
+
+	end += sprintf(end,
+			"UPDATE active_clients SET program_id = %u WHERE id = %u LIMIT 1 ;",
+			pr_id, id);
+
+	if (mysql_real_query(con, query, end - query))
+	{
+		_log("MySQL query: %s\n", query);
+		mysql_perror("mysql_real_query", con);
+		return -1;
+	}
+
+	return 1;
+}
+
 int db_remove_active_cli(id_t id)
 {
 	assert(id > 0);

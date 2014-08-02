@@ -15,6 +15,7 @@
 #include <assert.h>
 #include <time.h>
 
+#include <sys/wait.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <sys/file.h>
@@ -51,40 +52,54 @@ pid_t fork_client(int fd, int listenfd, char *h, char *s)
 	}
 	else if (pid > 0)
 	{
-		c_log(0, "Client forked, pid=%d\n", pid); //TODO change id
+		c_log(0, "Client forked, pid = %d\n", pid); //TODO change id
 		return pid;
 	}
 
 	close(listenfd);
 
+	_signal(SIGCHLD, sigchld_client);
+	_signal(SIGINT, cleanup);
+
 	connfd = fd;
 	host = h;
 	serv = s;
 
-	if (greeting() < 0)
-		goto fail;
+	int rc;
+	if ((rc = greeting()) <= 0)
+		goto out;
 
-	if (handle_bin_mode() < 0)
-		goto fail;
+	if ((rc = handle_bin_mode()) <= 0)
+		goto out;
 
-	if (bin_loop() < 0)
-		goto fail;
+	if ((rc = bin_loop()) <= 0)
+		goto out;
 
+out:
+	cleanup();
+
+	if (rc < 0)
+	{
+		write_byte(connfd, ERROR);
+		exit(EXIT_FAILURE);
+	}
 	exit(EXIT_SUCCESS);
-fail:
-	/* write_byte(connfd, ERROR); */
-	exit(EXIT_FAILURE);
 }
 
 int greeting()
 {
-	if (cfg.use_pwd == TRUE && check_password() <= 0)
-		return -1;
+	int rc;
+	if (cfg.use_pwd == TRUE && (rc = check_password()) <= 0)
+		return rc;
 
 	is_logged = TRUE;
 
-	if (write_byte(connfd, OK) != 1)
-		return -1;
+	if ((rc = write_byte(connfd, OK)) <= 0)
+	{
+		if (rc < 0)
+			_perror("write_byte");
+		return rc;
+	}
 
 	if (db_add_cli(host, serv, &cli_id) < 0)
 		return -1;
@@ -107,19 +122,23 @@ int check_password()
 	while(1)
 	{
 		if ((rc = write_byte(connfd, PASSWORD)) <= 0)
+		{
+			if (rc < 0)
+				_perror("write_byte");
 			return rc;
+		}
 
 		if ((rc = read_block(connfd, &c, buf, &len)) <= 0)
 		{
-			c_perror(cli_id, "read_block", rc);
+			if (rc < 0)
+				c_perror(cli_id, "read_block", rc);
 			return rc;
 		}
 
 		if (c != PASSWORD)
-			return -1;
+			return 0;
 
 		c_log(cli_id, "Password: %s\n", buf);
-
 
 		if (0 != strcmp(cfg.pwd, buf))
 		{
@@ -128,7 +147,11 @@ int check_password()
 			c_log(cli_id, "Wrong password\n");
 
 			if ((rc = write_byte(connfd, WRONG_PASSWORD)) <= 0)
+			{
+				if (rc < 0)
+					_perror("write_byte");
 				return rc;
+			}
 
 			continue;
 		}
@@ -145,22 +168,27 @@ int handle_bin_mode()
 	int rc;
 	if ((rc = read_block(connfd, &c, NULL, NULL)) <= 0)
 	{
-		c_perror(cli_id, "read_block", rc);
-		return -1;
+		if (rc < 0)
+			c_perror(cli_id, "read_block", rc);
+		return rc;
 	}
 
 	if (c != BIN_MODE)
-		return -1;
+		return 0;
 
 	c_log(cli_id, "Bin mode\n");
 
 	bin_mode = TRUE;
 
-	if (write_byte(connfd, OK) != 1)
-		return -1;
+	if ((rc = write_byte(connfd, OK)) != 1)
+	{
+		if (rc < 0)
+			_perror("write_byte");
+		return rc;
+	}
 
-	if (read_bin_header() < 0)
-		return -1;
+	if ((rc = read_bin_header()) <= 0)
+		return rc;
 
 	if (set_nonblocking(connfd) < 0)
 	{
@@ -188,13 +216,13 @@ int read_bin_header()
 	{
 		if (rc < 0)
 			c_perror(cli_id, "readn", rc);
-		return -1;
+		return rc;
 	}
 
 	if (memcmp(bin_header, "\xCC\xCC\xED", 3))
 	{
 		c_log(cli_id, "Wrong bin header\n");
-		return -1;
+		return 0;
 	}
 
 	c_log(cli_id, "Bin header recieved:\n");
@@ -209,10 +237,12 @@ int read_bin_header()
 
 int bin_loop()
 {
-	if (read_parser_data() < 0)
+	int ret = 0;
+
+	if ((ret = read_parser_data()) < 0)
 		goto out;
 
-	if (open_bin_file() < 0)
+	if ((ret = open_bin_file()) < 0)
 		goto out;
 
 	struct pollfd fds[2];
@@ -222,17 +252,14 @@ int bin_loop()
 	fds[1].events = POLLIN;
 	nfds_t ndfs = 2;
 
-	int ret = 1;
-
 	while(1)
 	{
-		if (poll(fds, ndfs, -1) < 0)
+		if ((ret = poll(fds, ndfs, -1)) < 0)
 		{
 			if (EINTR == errno)
 				continue;
 
 			_perror("poll");
-			ret = -1;
 			goto out;
 		}
 
@@ -240,8 +267,7 @@ int bin_loop()
 		{
 			if (fds[0].revents & POLLHUP)
 			{
-				_log("[%d] Disconnected (poll)\n", cli_id); /* TODO remove from here */
-				ret = 1;
+				ret = 0;
 				goto out;
 			}
 
@@ -258,17 +284,18 @@ int bin_loop()
 
 		if (fds[1].revents != 0)
 		{
-			if (read_parser_data() < 0)
+			if ((ret = read_parser_data()) < 0)
 				goto out;
 
-			if (open_bin_file() < 0)
+			if ((ret = open_bin_file()) < 0)
 				goto out;
 		}
-
 	}
 
 out:
-	logged_out();
+	_log("[%d] Disconnected\n", cli_id);
+
+	cleanup();
 
 	return ret;
 }
@@ -290,7 +317,7 @@ int read_bin_data()
 	{
 		if (rc < 0)
 			c_perror(cli_id, "readn", rc);
-		return -1;
+		return rc;
 	}
 
 	c_log(cli_id, "Bin data received: %zd bytes\n", rc);
@@ -308,9 +335,10 @@ int read_parser_data()
 	char buf[BUFFER_SIZE];
 	size_t len = BUFFER_SIZE;
 	int rc;
-	if ((rc = read_block(parser_pipe_r, &c, buf, &len)) < 0)
+	if ((rc = read_block(parser_pipe_r, &c, buf, &len)) <= 0)
 	{
-		m_perror("read_block", rc);
+		if (rc < 0)
+			m_perror("read_block", rc);
 		return -1;
 	}
 
@@ -366,7 +394,7 @@ pid_t fork_cce()
 		}
 	}
 
-	c_log(cli_id, "CCExtractor forked, pid=%d\n", pid);
+	c_log(cli_id, "CCExtractor forked, pid = %d\n", pid);
 
 	return pid;
 }
@@ -473,25 +501,88 @@ int init_cce_output()
 	return 1;
 }
 
-void logged_out()
+void cleanup()
 {
-	_log("[%d] Disconnected\n", cli_id);
-
 	if (cli_id > 0)
+	{
 		db_remove_active_cli(cli_id);
+		cli_id = 0;
+	}
 
-	if (parser_pid > 0 && kill(parser_pid, SIGINT) < 0)
-		_perror("kill");
+	if (parser_pid > 0)
+	{
+		if (kill(parser_pid, SIGINT) < 0)
+			_perror("kill");
+		parser_pid = -1;
+	}
 
-	if (cce_pid > 0 && kill(cce_pid, SIGINT) < 0)
-		_perror("kill");
+	if (cce_pid > 0)
+	{
+		if (kill(cce_pid, SIGINT) < 0)
+			_perror("kill");
+		cce_pid = -1;
+	}
 
 	if (cce_in.fp != NULL)
+	{
 		fclose(cce_in.fp);
+		cce_in.fp = NULL;
+	}
 
-	if (cce_in.path != NULL && unlink(cce_in.path) < 0)
-		_perror("unlink");
+	if (cce_in.path != NULL)
+	{
+		if (unlink(cce_in.path) < 0)
+			_perror("unlink");
+		free(cce_in.path);
+		cce_in.path = NULL;
+	}
 
-	if (cce_out.path != NULL && unlink(cce_out.path) < 0)
-		_perror("unlink");
+	if (cce_out.path != NULL)
+	{
+		if (unlink(cce_out.path) < 0)
+			_perror("unlink");
+		free(cce_out.path);
+		cce_out.path = NULL;
+	}
+}
+
+void sigchld_client()
+{
+	/* c_log(cli_id, "sigchld_client() handler\n"); */
+	pid_t pid;
+	int stat;
+	int failed = FALSE;
+
+	while ((pid = waitpid(-1, &stat, WNOHANG)) > 0)
+	{
+		if (cce_pid == pid)
+		{
+			c_log(cli_id, "CCExtractor (pid = %d) terminated\n", pid);
+			cce_pid = -1;
+		}
+		else if (parser_pid == pid)
+		{
+			c_log(cli_id, "Parser (pid = %d) terminated\n", pid);
+			parser_pid = -1;
+		}
+		else
+		{
+			c_log(cli_id, "pid %d terminated\n", pid);
+		}
+
+		if (!WIFEXITED(stat) || WEXITSTATUS(stat) != EXIT_SUCCESS)
+			failed = TRUE;
+	}
+
+	_log("[%d] Disconnected\n", cli_id);
+
+	cleanup();
+
+	if (failed)
+	{
+		write_byte(connfd, ERROR);
+		exit(EXIT_FAILURE);
+	}
+
+	exit(EXIT_SUCCESS);
 }

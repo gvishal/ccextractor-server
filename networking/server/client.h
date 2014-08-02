@@ -22,7 +22,10 @@ int open_bin_file();
 int open_cce_input();
 int init_cce_output();
 
+void cleanup();
 void logged_out();
+
+void sigchld_client();
 
 pid_t fork_cce();
 #endif /* end of include guard: CLIENT_H */

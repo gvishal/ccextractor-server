@@ -44,7 +44,6 @@ int main()
 		exit(EXIT_FAILURE);
 	}
 
-	/* line buffering in stdout */
 	if (setvbuf(stdout, NULL, _IOLBF, 0) < 0) 
 	{
 		_perror("setvbuf");
@@ -186,7 +185,6 @@ int add_new_cli(int fd, struct sockaddr *cliaddr, socklen_t clilen)
 	return id;
 }
 
-
 void free_cli(int id)
 {
 	if (cli[id].host != NULL)
@@ -238,6 +236,7 @@ void open_log_file()
 
 void sig_chld()
 {
+	/* c_log(-1, "sig_chld() handler\n"); */
 	pid_t pid;
 	int stat;
 

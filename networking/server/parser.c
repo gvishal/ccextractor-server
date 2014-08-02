@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
+#include <signal.h>
 #include <errno.h>
 #include <assert.h>
 #include <time.h>
@@ -49,23 +50,28 @@ pid_t fork_parser(id_t id, const char *cce_output, int pipe)
 	}
 	else if (pid != 0)
 	{
-		c_log(id, "Parser forked, pid=%d\n", pid);
+		c_log(id, "Parser forked, pid = %d\n", pid);
 		return pid;
 	}
 
 	cli_id = id;
 	pipe_w = pipe;
 
+	_signal(SIGINT, sigint_parser);
+
 	if (open_buf_file() < 0)
-		exit(EXIT_FAILURE);
+		goto out;
 
 	if (set_pr(NULL) < 0)
-		exit(EXIT_FAILURE);
+		goto out;
 
 	if (parser_loop(cce_output) < 0)
-		exit(EXIT_FAILURE);
+		goto out;
 
-	exit(EXIT_SUCCESS);
+out:
+	cleanup_parser();
+
+	exit(EXIT_FAILURE);
 }
 
 int parser_loop(const char *cce_output)
@@ -87,7 +93,7 @@ int parser_loop(const char *cce_output)
 		if (fgetpos(fp, &pos) < 0)
 		{
 			_perror("fgetpos");
-			exit(EXIT_FAILURE);
+			return -1;
 		}
 
 		if ((rc = getline(&line, &len, fp)) <= 0)
@@ -96,13 +102,13 @@ int parser_loop(const char *cce_output)
 			if (fsetpos(fp, &pos) < 0)
 			{
 				_perror("fgetpos");
-				exit(EXIT_FAILURE);
+				return -1;
 			}
 
 			if (nanosleep((struct timespec[]){{0, INF_READ_DELAY}}, NULL) < 0)
 			{
 				_perror("nanosleep");
-				exit(EXIT_FAILURE);
+				return -1;
 			}
 
 			continue;
@@ -133,7 +139,6 @@ int parse_line(char *line, size_t len)
 
 	if (append_to_buf(line, len, mode) < 0)
 		return -1;
-
 
 	return 1;
 }
@@ -205,6 +210,9 @@ int set_pr(char *new_name)
 			return -1;
 
 		if (db_add_program(cli_id, &cur_pr.id, cur_pr.start, cur_pr.name) < 0)
+			return -1;
+
+		if (db_set_pr_arctive_cli(cli_id, cur_pr.id) < 0)
 			return -1;
 
 		if (send_pr_to_parent() < 0)
@@ -480,3 +488,34 @@ int creat_pr_dir(char **path, time_t *start)
 
 	return 1;
 }
+
+void cleanup_parser()
+{
+	if (cur_pr.id > 0)
+	{
+		db_set_pr_endtime(cur_pr.id);
+		cur_pr.id = 0;
+	}
+
+	if (buf.fp != NULL)
+	{
+		fclose(buf.fp);
+		buf.fp = NULL;
+	}
+
+	if (buf.path != NULL)
+	{
+		if (unlink(buf.path) < 0)
+			_perror("unlink");
+		buf.path = NULL;
+	}
+}
+
+void sigint_parser()
+{
+	/* c_log(cli_id, "sigint_parser() handler\n"); */
+	cleanup_parser();
+
+	exit(EXIT_SUCCESS);
+}
+
