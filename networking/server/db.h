@@ -39,8 +39,11 @@
 #define QUERY_LEN 2048
 
 int init_db();
+int db_conn();
+void db_close_conn();
 
-int lock_db();
+int lock_cli_tbl();
+int lock_pr_tbl();
 int unlock_db();
 
 int db_add_cli(const char *host, const char *serv, id_t *new_id);
@@ -54,6 +57,5 @@ int db_add_program(id_t cli_id, id_t *pr_id, time_t start, char *name);
 int db_get_last_pr_id(id_t *pr_id);
 int db_set_pr_name(id_t pr_id, char *name);
 int db_set_pr_endtime(id_t pr_id);
-
 
 #endif /* end of include guard: DB_H */

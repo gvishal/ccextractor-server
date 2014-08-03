@@ -76,4 +76,7 @@ char *nice_str(const char *s, size_t *len);
 /* Sets socket in non blocking mode */
 int set_nonblocking(int fd);
 
+/* Copies src sting to dest, including \0, return number of copied bytes */
+size_t strmov(char *dest, char *src);
+
 #endif /* end of include guard: UTILS_H */

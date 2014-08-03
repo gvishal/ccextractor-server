@@ -314,3 +314,11 @@ int set_nonblocking(int fd)
 	return ioctl(fd, FIONBIO, &f);
 #endif
 }
+
+size_t strmov(char *dest, char *src)
+{
+	char *end = src;
+	while ((*dest++ = *end++));
+
+	return end - src - 1;
+}

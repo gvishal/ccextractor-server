@@ -12,9 +12,19 @@
 #include <mysql.h>
 
 MYSQL *con;
-int dblock_fd;
 
 int init_db()
+{
+	if (mysql_library_init(0, NULL, NULL))
+	{
+		_log("could not initialize MySQL library\n");
+		return -1;
+	}
+
+	return 1;
+}
+
+int db_conn()
 {
 	con = mysql_init(NULL);
 	if (NULL == con)
@@ -31,14 +41,16 @@ int init_db()
 		return -1;
 	}
 
-	if ((dblock_fd = open(DB_LOCK_FILE, O_RDWR)) < 0)
-	{
-		_perror("open");
-		mysql_close(con);
-		return -1;
-	}
-
 	return 1;
+}
+
+void db_close_conn()
+{
+	if (NULL == con)
+		return;
+
+	mysql_close(con);
+	con = NULL;
 }
 
 int db_add_cli(const char *host, const char *serv, id_t *new_id)
@@ -49,20 +61,17 @@ int db_add_cli(const char *host, const char *serv, id_t *new_id)
 	char query[QUERY_LEN] = {0};
 	char *end = query;
 
-	strcpy(end, "INSERT INTO clients (address, port, date) VALUES(\'");
-	end += strlen(query);
+	end += strmov(end, "INSERT INTO clients (address, port, date) VALUES(\'");
 
 	end += mysql_real_escape_string(con, end, host, strlen(host));
 
-	strcpy(end, "\', \'");
-	end += strlen(end);
+	end += strmov(end, "\', \'");
 
 	end += mysql_real_escape_string(con, end, serv, strlen(serv));
 
-	strcpy(end, "\', NOW()) ;");
-	end += strlen(end);
+	end += strmov(end, "\', NOW()) ;");
 
-	if (lock_db() < 0)
+	if (lock_cli_tbl() < 0)
 		return -1;
 
 	if (mysql_real_query(con, query, end - query))
@@ -176,6 +185,8 @@ int db_remove_active_cli(id_t id)
 		return -1;
 	}
 
+	unlock_db();
+
 	return 1;
 }
 
@@ -184,37 +195,29 @@ int db_add_program(id_t cli_id, id_t *pr_id, time_t start, char *name)
 	assert(cli_id > 0);
 	assert(pr_id != NULL);
 
-	if (lock_db() < 0)
+	if (lock_pr_tbl() < 0)
 		return -1;
 
 	char query[QUERY_LEN] = {0};
 	char *end = query;
 
 	if (NULL == name)
-		strcpy(end, "INSERT INTO programs (client_id, start_date) VALUES(\'");
+		end += strmov(end, "INSERT INTO programs (client_id, start_date) VALUES(\'");
 	else
-		strcpy(end, "INSERT INTO programs (client_id, start_date, name) VALUES(\'");
-	end += strlen(query);
+		end += strmov(end, "INSERT INTO programs (client_id, start_date, name) VALUES(\'");
 
 	end += sprintf(end, "%u", cli_id);
 
-	strcpy(end, "\', FROM_UNIXTIME(");
-	end += strlen(end);
-
-	end += sprintf(end, "%lu", (unsigned long) start);
-
-	*end++ = ')';
+	end += sprintf(end, "\', FROM_UNIXTIME(%lu)", (unsigned long) start);
 
 	if (name != NULL)
 	{
-		strcpy(end, ", \'");
-		end += strlen(end);
+		end += strmov(end, ", \'");
 		end += mysql_real_escape_string(con, end, name, strlen(name));
 		*end++ = '\'';
 	}
 
-	strcpy(end, ") ;");
-	end += strlen(end);
+	end += strmov(end, ") ;");
 
 	if (mysql_real_query(con, query, end - query))
 	{
@@ -229,6 +232,8 @@ int db_add_program(id_t cli_id, id_t *pr_id, time_t start, char *name)
 		unlock_db();
 		return -1;
 	}
+
+	unlock_db();
 
 	return 1;
 }
@@ -268,8 +273,7 @@ int db_set_pr_name(id_t pr_id, char *name)
 	char query[QUERY_LEN] = {0};
 	char *end = query;
 
-	strcpy(end, "UPDATE programs SET name = \'");
-	end += strlen(query);
+	end += strmov(end, "UPDATE programs SET name = \'");
 
 	end += mysql_real_escape_string(con, end, name, strlen(name));
 
@@ -306,12 +310,22 @@ int db_set_pr_endtime(id_t pr_id)
 	return 1;
 }
 
-int lock_db()
+int lock_cli_tbl()
 {
-	if (0 != flock(dblock_fd, LOCK_EX))
+	if (mysql_query(con, "LOCK TABLES clients WRITE ;"))
 	{
-		_perror("flock");
-		close(dblock_fd);
+		mysql_perror("mysql_real_query", con);
+		return -1;
+	}
+
+	return 1;
+}
+
+int lock_pr_tbl()
+{
+	if (mysql_query(con, "LOCK TABLES programs WRITE;"))
+	{
+		mysql_perror("mysql_real_query", con);
 		return -1;
 	}
 
@@ -320,13 +334,11 @@ int lock_db()
 
 int unlock_db()
 {
-	if (0 != flock(dblock_fd, LOCK_UN))
+	if (mysql_query(con, "UNLOCK TABLES"))
 	{
-		_perror("flock");
-		close(dblock_fd);
+		mysql_perror("mysql_real_query", con);
 		return -1;
 	}
 
 	return 1;
 }
-
