@@ -12,19 +12,10 @@
 #include <mysql.h>
 
 MYSQL *con;
+int cli_lock = -1;
+int pr_lock = -1;
 
 int init_db()
-{
-	if (mysql_library_init(0, NULL, NULL))
-	{
-		_log("could not initialize MySQL library\n");
-		return -1;
-	}
-
-	return 1;
-}
-
-int db_conn()
 {
 	con = mysql_init(NULL);
 	if (NULL == con)
@@ -41,16 +32,21 @@ int db_conn()
 		return -1;
 	}
 
+	if ((cli_lock = open(CLI_TBL_LOCK, O_RDWR | O_CREAT, S_IRWXU)) < 0)
+	{
+		_perror("open");
+		mysql_close(con);
+		return -1;
+	}
+
+	if ((pr_lock = open(PR_TBL_LOCK, O_RDWR | O_CREAT, S_IRWXU)) < 0)
+	{
+		_perror("open");
+		mysql_close(con);
+		return -1;
+	}
+
 	return 1;
-}
-
-void db_close_conn()
-{
-	if (NULL == con)
-		return;
-
-	mysql_close(con);
-	con = NULL;
 }
 
 int db_add_cli(const char *host, const char *serv, id_t *new_id)
@@ -58,8 +54,8 @@ int db_add_cli(const char *host, const char *serv, id_t *new_id)
 	assert(host != NULL);
 	assert(serv != NULL);
 
-	char query[QUERY_LEN] = {0};
-	char *end = query;
+	char q[QUERY_LEN] = {0};
+	char *end = q;
 
 	end += strmov(end, "INSERT INTO clients (address, port, date) VALUES(\'");
 
@@ -74,21 +70,19 @@ int db_add_cli(const char *host, const char *serv, id_t *new_id)
 	if (lock_cli_tbl() < 0)
 		return -1;
 
-	if (mysql_real_query(con, query, end - query))
+	if (query(q) < 0)
 	{
-		_log("MySQL query: %s\n", query);
-		mysql_perror("mysql_real_query", con);
-		unlock_db();
+		unlock_cli_tbl();
 		return -1;
 	}
 
 	if (db_get_last_id(new_id) < 0)
 	{
-		unlock_db();
+		unlock_cli_tbl();
 		return -1;
 	}
 
-	if (unlock_db() < 0)
+	if (unlock_cli_tbl() < 0)
 		return -1;
 
 	return 1;
@@ -96,11 +90,8 @@ int db_add_cli(const char *host, const char *serv, id_t *new_id)
 
 int db_get_last_id(id_t *new_id)
 {
-	if (mysql_query(con, "SELECT MAX(id) FROM clients ;"))
-	{
-		mysql_perror("mysql_real_query", con);
+	if (query("SELECT MAX(id) FROM clients ;") < 0)
 		return -1;
-	}
 
 	MYSQL_RES *result = mysql_store_result(con);
 	if (NULL == result)
@@ -125,20 +116,11 @@ int db_add_active_cli(id_t id)
 {
 	assert(id > 0);
 
-	char id_str[INT_LEN + 1] = {0};
-	snprintf(id_str, INT_LEN, "%u", id);
+	char q[QUERY_LEN] = {0};
+	sprintf(q, "INSERT INTO active_clients(id) VALUES(\'%u\') ;", id);
 
-	char query[QUERY_LEN] = {0};
-	int rc = snprintf(query, QUERY_LEN,
-			"INSERT INTO active_clients(id) VALUES(\'%s\') ;",
-			id_str);
-
-	if (mysql_real_query(con, query, rc))
-	{
-		_log("MySQL query: %s\n", query);
-		mysql_perror("mysql_real_query", con);
+	if (query(q) < 0)
 		return -1;
-	}
 
 	return 1;
 }
@@ -148,19 +130,13 @@ int db_set_pr_arctive_cli(id_t id, id_t pr_id)
 	assert(id > 0);
 	assert(pr_id > 0);
 
-	char query[QUERY_LEN] = {0};
-	char *end = query;
+	char q[QUERY_LEN] = {0};
 
-	end += sprintf(end,
-			"UPDATE active_clients SET program_id = %u WHERE id = %u LIMIT 1 ;",
+	sprintf(q, "UPDATE active_clients SET program_id = %u WHERE id = %u LIMIT 1 ;",
 			pr_id, id);
 
-	if (mysql_real_query(con, query, end - query))
-	{
-		_log("MySQL query: %s\n", query);
-		mysql_perror("mysql_real_query", con);
+	if (query(q) < 0)
 		return -1;
-	}
 
 	return 1;
 }
@@ -169,23 +145,11 @@ int db_remove_active_cli(id_t id)
 {
 	assert(id > 0);
 
-	char id_str[INT_LEN] = {0};
-	snprintf(id_str, INT_LEN, "%u", id);
+	char q[QUERY_LEN] = {0};
+	sprintf(q, "DELETE FROM active_clients WHERE id = \'%u\' LIMIT 1 ;", id);
 
-	char query[QUERY_LEN] = {0};
-	int rc = snprintf(query, QUERY_LEN,
-			"DELETE FROM active_clients WHERE id = \'%s\' LIMIT 1 ;",
-			id_str);
-
-	if (mysql_real_query(con, query, rc))
-	{
-		_log("MySQL query: %s\n", query);
-		mysql_perror("mysql_real_query", con);
-		unlock_db();
+	if (query(q) < 0)
 		return -1;
-	}
-
-	unlock_db();
 
 	return 1;
 }
@@ -198,8 +162,8 @@ int db_add_program(id_t cli_id, id_t *pr_id, time_t start, char *name)
 	if (lock_pr_tbl() < 0)
 		return -1;
 
-	char query[QUERY_LEN] = {0};
-	char *end = query;
+	char q[QUERY_LEN] = {0};
+	char *end = q;
 
 	if (NULL == name)
 		end += strmov(end, "INSERT INTO programs (client_id, start_date) VALUES(\'");
@@ -219,32 +183,28 @@ int db_add_program(id_t cli_id, id_t *pr_id, time_t start, char *name)
 
 	end += strmov(end, ") ;");
 
-	if (mysql_real_query(con, query, end - query))
+	if (query(q) < 0)
 	{
-		_log("MySQL query: %s\n", query);
-		mysql_perror("mysql_real_query", con);
-		unlock_db();
+		unlock_pr_tbl();
 		return -1;
 	}
 
 	if (db_get_last_pr_id(pr_id) < 0)
 	{
-		unlock_db();
+		unlock_pr_tbl();
 		return -1;
 	}
 
-	unlock_db();
+	if (unlock_pr_tbl() < 0)
+		return -1;
 
 	return 1;
 }
 
 int db_get_last_pr_id(id_t *pr_id)
 {
-	if (mysql_query(con, "SELECT MAX(id) FROM programs ;"))
-	{
-		mysql_perror("mysql_real_query", con);
+	if (query("SELECT MAX(id) FROM programs ;") < 0)
 		return -1;
-	}
 
 	MYSQL_RES *result = mysql_store_result(con);
 	if (NULL == result)
@@ -270,8 +230,8 @@ int db_set_pr_name(id_t pr_id, char *name)
 	assert(pr_id > 0);
 	assert(name != NULL);
 
-	char query[QUERY_LEN] = {0};
-	char *end = query;
+	char q[QUERY_LEN] = {0};
+	char *end = q;
 
 	end += strmov(end, "UPDATE programs SET name = \'");
 
@@ -279,12 +239,8 @@ int db_set_pr_name(id_t pr_id, char *name)
 
 	end += sprintf(end, "\' WHERE id = \'%u\' LIMIT 1 ;", pr_id);
 
-	if (mysql_real_query(con, query, end - query))
-	{
-		_log("MySQL query: %s\n", query);
-		mysql_perror("mysql_real_query", con);
+	if (query(q) < 0)
 		return -1;
-	}
 
 	return 1;
 }
@@ -293,28 +249,24 @@ int db_set_pr_endtime(id_t pr_id)
 {
 	assert(pr_id > 0);
 
-	char query[QUERY_LEN] = {0};
-	char *end = query;
+	char q[QUERY_LEN] = {0};
 
-	end += sprintf(end,
-			"UPDATE programs SET end_date = NOW() WHERE id = \'%u\' LIMIT 1 ;",
+	sprintf(q, "UPDATE programs SET end_date = NOW() WHERE id = \'%u\' LIMIT 1 ;",
 			pr_id);
 
-	if (mysql_real_query(con, query, end - query))
-	{
-		_log("MySQL query: %s\n", query);
-		mysql_perror("mysql_real_query", con);
+	if (query(q) < 0)
 		return -1;
-	}
 
 	return 1;
 }
 
 int lock_cli_tbl()
 {
-	if (mysql_query(con, "LOCK TABLES clients WRITE ;"))
+	assert(cli_lock >= 0);
+
+	if (0 != flock(cli_lock, LOCK_EX)) 
 	{
-		mysql_perror("mysql_real_query", con);
+		_perror("flock");
 		return -1;
 	}
 
@@ -323,19 +275,48 @@ int lock_cli_tbl()
 
 int lock_pr_tbl()
 {
-	if (mysql_query(con, "LOCK TABLES programs WRITE;"))
+	assert(pr_lock >= 0);
+
+	if (0 != flock(pr_lock, LOCK_EX)) 
 	{
-		mysql_perror("mysql_real_query", con);
+		_perror("flock");
 		return -1;
 	}
 
 	return 1;
 }
 
-int unlock_db()
+int unlock_cli_tbl()
 {
-	if (mysql_query(con, "UNLOCK TABLES"))
+	assert(cli_lock >= 0);
+
+	if (0 != flock(cli_lock, LOCK_UN)) 
 	{
+		_perror("flock");
+		return -1;
+	}
+
+	return 1;
+}
+
+int unlock_pr_tbl()
+{
+	assert(pr_lock >= 0);
+
+	if (0 != flock(pr_lock, LOCK_UN)) 
+	{
+		_perror("flock");
+		return -1;
+	}
+
+	return 1;
+}
+
+int query(const char *q)
+{
+	if (mysql_real_query(con, q, strlen(q)))
+	{
+		_log("MySQL query: %s\n", q);
 		mysql_perror("mysql_real_query", con);
 		return -1;
 	}

@@ -61,15 +61,11 @@ pid_t fork_client(int fd, int listenfd, char *h, char *s)
 	_signal(SIGCHLD, sigchld_client);
 	_signal(SIGINT, cleanup);
 
-	int rc;
-
-	if ((rc = db_conn()) < 0)
-		goto out;
-
 	connfd = fd;
 	host = h;
 	serv = s;
 
+	int rc;
 	if ((rc = greeting()) <= 0)
 		goto out;
 
@@ -548,11 +544,6 @@ void cleanup()
 		free(cce_out.path);
 		cce_out.path = NULL;
 	}
-
-	/* XXX */
-	/* Wait for parser SIGINT handler to set program end time */
-	nanosleep((struct timespec[]){{0, INF_READ_DELAY}}, NULL);
-	db_close_conn();
 }
 
 void sigchld_client()

@@ -39,12 +39,13 @@
 #define QUERY_LEN 2048
 
 int init_db();
-int db_conn();
-void db_close_conn();
+
+int query(const char *q);
 
 int lock_cli_tbl();
 int lock_pr_tbl();
-int unlock_db();
+int unlock_cli_tbl();
+int unlock_pr_tbl();
 
 int db_add_cli(const char *host, const char *serv, id_t *new_id);
 int db_get_last_id(id_t *new_id);
