@@ -32,6 +32,12 @@ int init_db()
 		return -1;
 	}
 
+	if (creat_tables() < 0)
+		return -1;
+
+	if (query("TRUNCATE active_clients ;") < 0)
+		return -1;
+
 	if ((cli_lock = open(CLI_TBL_LOCK, O_RDWR | O_CREAT, S_IRWXU)) < 0)
 	{
 		_perror("open");
@@ -43,6 +49,51 @@ int init_db()
 	{
 		_perror("open");
 		mysql_close(con);
+		return -1;
+	}
+
+	return 1;
+}
+
+int creat_tables()
+{
+	if (query(
+		"CREATE TABLE IF NOT EXISTS `clients` ("
+		"  `id` int(11) NOT NULL AUTO_INCREMENT,"
+		"  `address` varchar(256) COLLATE utf8_bin NOT NULL,"
+		"  `port` varchar(6) COLLATE utf8_bin NOT NULL,"
+		"  `date` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+		"  PRIMARY KEY (`id`)"
+		") ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=1 ;"
+		) < 0)
+	{
+		return -1;
+	}
+
+	if (query(
+		" CREATE TABLE IF NOT EXISTS `programs` ("
+		"   `id` int(11) NOT NULL AUTO_INCREMENT,"
+		"   `client_id` int(11) NOT NULL,"
+		"   `start_date` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+		"   `end_date` timestamp NULL DEFAULT NULL,"
+		"   `name` varchar(300) COLLATE utf8_bin DEFAULT NULL,"
+		"   PRIMARY KEY (`id`),"
+		"   FOREIGN KEY (`client_id`) REFERENCES clients(id)"
+		" ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=1 ;"
+		) < 0)
+	{
+		return -1;
+	}
+
+	if (query(
+		" CREATE TABLE IF NOT EXISTS `active_clients` ("
+		"   `id` int(11) NOT NULL,"
+		"   `program_id` int(11) DEFAULT NULL,"
+		"   FOREIGN KEY (`id`) REFERENCES clients(id),"
+		"   FOREIGN KEY (`program_id`) REFERENCES programs(id)"
+		" ) ENGINE=InnoDB DEFAULT CHARSET=latin1;"
+		) < 0)
+	{
 		return -1;
 	}
 
