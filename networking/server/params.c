@@ -14,7 +14,6 @@ int init_cfg()
 	cfg.wrong_pwd_delay = DFT_WRONG_PASSW_DELAY;
 	cfg.buf_dir = DFT_BUF_FILE_DIR;
 	cfg.arch_dir = DFT_ARCHIVE_DIR;
-	cfg.arch_info_filename = DFT_ARCHIVE_INFO_FILENAME;
 	cfg.create_logs = DFT_CREATE_LOGS;
 	cfg.log_dir = DFT_LOG_DIR;
 	cfg.log_clients = DFT_CLIENT_LOGS;
@@ -340,4 +339,35 @@ int parse_config_file()
 out:
 	fclose(fp);
 	return rc;
+}
+
+int creat_dirs()
+{
+	struct stat st = {0};
+
+	if (stat(cfg.buf_dir, &st) == -1 && _mkdir(cfg.buf_dir, MODE755) < 0)
+	{
+		_perror("_mkdir");
+		return -1;
+	}
+
+	if (stat(cfg.log_dir, &st) == -1 && _mkdir(cfg.log_dir, MODE755) < 0)
+	{
+		_perror("_mkdir");
+		return -1;
+	}
+
+	if (stat(cfg.arch_dir, &st) == -1 && _mkdir(cfg.arch_dir, MODE755) < 0)
+	{
+		_perror("_mkdir");
+		return -1;
+	}
+
+	if (stat(cfg.cce_output_dir, &st) == -1 && _mkdir(cfg.cce_output_dir, MODE755) < 0)
+	{
+		_perror("_mkdir");
+		return -1;
+	}
+
+	return 1;
 }

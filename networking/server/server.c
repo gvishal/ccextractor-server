@@ -56,6 +56,9 @@ int main()
 		exit(EXIT_FAILURE);
 	}
 
+	if (creat_dirs() < 0)
+		return -1;
+
 	if (init_db() < 0)
 		exit(EXIT_FAILURE);
 
