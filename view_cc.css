@@ -1,0 +1,16 @@
+div {
+	float: left;
+	width: 100%;
+}
+
+#pr_name, #name_lbl, #links_lbl, #pr_links, #xds_lbl {
+	width: initial;
+}
+
+#pr_links, #pr_name {
+	padding-left: 5px;
+}
+
+#pr_name_cc, #conn_closed_cc {
+	font-weight: bold;
+}
