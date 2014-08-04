@@ -218,13 +218,13 @@ int set_pr(char *new_name)
 		if (send_pr_to_parent() < 0)
 			return -1;
 
-		if (new_name != NULL && send_pr_to_buf() < 0)
-			return -1;
-
 		if (open_txt_file() < 0)
 			return -1;
 
 		if (open_xds_file() < 0)
+			return -1;
+
+		if (send_pr_to_buf() < 0)
 			return -1;
 	}
 
@@ -267,11 +267,20 @@ int send_pr_to_buf()
 	if ((rc = append_to_buf(id_str, INT_LEN, PROGRAM_ID)) < 0)
 		return -1;
 
+	static int is_new = TRUE;
 	int c = PROGRAM_CHANGED;
-	if (0 == cur_pr.id)
+	if (is_new)
 		c = PROGRAM_NEW;
+	is_new = FALSE;
 
-	if ((rc = append_to_buf(cur_pr.name, strlen(cur_pr.name), c)) < 0)
+	char *s = "Unknown";
+	if (cur_pr.name != NULL)
+		s = cur_pr.name;
+
+	if ((rc = append_to_buf(s, strlen(s), c)) < 0)
+		return -1;
+
+	if ((rc = append_to_buf(cur_pr.dir, strlen(cur_pr.dir), PROGRAM_DIR)) < 0)
 		return -1;
 
 	return 1;

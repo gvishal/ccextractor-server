@@ -1,14 +1,5 @@
 <?php
-define('INT_LEN', 10);
-
-define('PROGRAM_ID',     102);
-define('RESET_PROGRAM',  103);
-define('CONN_CLOSED',    101);
-define('DOWNLOAD_LINKS', 201);
-
-define('OFFSET', 800);
-
-define('ARCH_INFO_FILENAME', "info.txt");
+require("config.php");
 
 function json_quote($str)
 {
@@ -25,6 +16,24 @@ function json_quote($str)
 function nice_str($str)
 {
 	return json_quote(htmlspecialchars(trim($str)));
+}
+
+function pr_link($dir, $id, $ext, $name, $comma)
+{
+	$path = $dir . "/" . $id . "." . $ext;
+	if (!file_exists($path))
+		return $comma;
+
+	if ($comma)
+		echo ",\n";
+
+	echo "{";
+	echo "\"command\": \"" . DOWNLOAD_LINKS. "\",";
+	echo "\"filepath\": \"" . $path . "\",";
+	echo "\"name\": \"" . $name . "\"";
+	echo "}";
+
+	return true;
 }
 
 function seek_next_block($fp)
@@ -44,22 +53,21 @@ function seek_next_block($fp)
 }
 
 if (!array_key_exists("id", $_GET))
-	return;
+	exit();
 
 $client_id = intval($_GET["id"]);
 
 if (!array_key_exists("st", $_GET))
-	return;
+	exit();
 
-$filepath = "./tmp/" . $client_id . ".txt";
+$filepath = $cfg["buffer_files_dir"] . "/" . $client_id . ".txt";
 if (!file_exists($filepath)) {
 	echo "[\n";
 	echo "{";
 	echo "\"command\": \"" . CONN_CLOSED. "\"";
 	echo "}";
 	echo "]";
-	return;
-
+	exit();
 }
 
 if (($fp = fopen($filepath, "r")) == 0)
@@ -89,10 +97,9 @@ if ($line < $start) {
 	} while ($line > $start);
 }
 
-$last_prgm_id = 0;
-
 echo "[\n";
-$pr_comma = false;
+$pr_id = 0;
+$comma = false;
 while (1) {
 	fgetc($fp); 
 	if (feof($fp)) 
@@ -105,23 +112,34 @@ while (1) {
 	$cc = fread($fp, $len);
 	fread($fp, 2);
 
-
 	if ($line < $start)
 		continue;
 
 	if ($command == PROGRAM_ID) {
-		$last_prgm_id = intval($cc);
+		$pr_id = intval($cc);
 		continue;
 	}
 
-	if ($pr_comma)
+	if ($command == PROGRAM_DIR) {
+		if (0 == $pr_id)
+			continue;
+
+		$comma = pr_link($cc, $pr_id, "txt", "txt", $comma);
+		$comma = pr_link($cc, $pr_id, "xds.txt", "xds", $comma);
+		$comma = pr_link($cc, $pr_id, "bin", "bin", $comma);
+
+		continue;
+	}
+
+	if ($comma)
 		echo ",\n";
+
 	echo "{";
 	echo "\"line\": \"" . $line . "\",";
 	echo "\"command\": \"" . $command . "\",";
 	echo "\"data\": \"" . nice_str($cc) . "\"";
 	echo "}";
-	$pr_comma = true;
+	$comma = true;
 }
 
 echo "]";

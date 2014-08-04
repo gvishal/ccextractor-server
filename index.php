@@ -1,11 +1,15 @@
 <?php
 require("config.php");
 
-function pr_dir($time)
+function pr_link($time, $id, $ext, $name)
 {
 	global $cfg;
+	$path = $cfg["archive_files_dir"] . strftime("/%Y/%m/%d/", $time) . $id . "." . $ext;
 
-	return $cfg["archive_files_dir"] . strftime("/%Y/%m/%d/", $time);
+	if (!file_exists($path))
+		return;
+
+	echo "\t\t\t<a href=\"" . $path . "\">" . $name . "</a> \n";
 }
 
 $link = mysqli_connect($cfg["mysql_host"], $cfg["mysql_user"], $cfg["mysql_password"], $cfg["mysql_db_name"]);
@@ -118,9 +122,9 @@ if ($result = mysqli_query($link, $q_all_pr)) {
 			echo "</td>\n";
 
 			echo "\t\t<td>\n";
-			echo "\t\t\t<a href=\"" . pr_dir($etime) . $id . ".txt\">txt</a> \n";
-			echo "\t\t\t<a href=\"" . pr_dir($etime) . $id . ".xds.txt\">xds</a> \n";
-			echo "\t\t\t<a href=\"" . pr_dir($etime) . $id . ".bin\">bin</a> \n";
+			pr_link($etime, $id, "txt", "txt");
+			pr_link($etime, $id, "xds.txt", "xds");
+			pr_link($etime, $id, "bin", "bin");
 			echo "\t\t</td>\n";
 
 			echo "\n\t</tr>\n";
