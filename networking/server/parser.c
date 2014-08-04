@@ -131,8 +131,14 @@ int parse_line(char *line, size_t len)
 		if ((rc = is_program_changed(rc)) && set_pr(rc) < 0)
 			return -1;
 	}
-	else if (append_to_txt(line, len) < 0)
-		return -1;
+	else
+	{
+		if (db_store_cc(line, len) < 0)
+			return -1;
+
+		if (append_to_txt(line, len) < 0)
+			return -1;
+	}
 
 	if (append_to_xds(line, len) < 0)
 		return -1;
@@ -164,7 +170,7 @@ char *is_program_changed(char *line)
 	if (strncmp(cur_pr.name, nice_name, len) == 0)
 	{
 		free(nice_name);
-		return FALSE;
+		return NULL;
 	}
 #endif
 
@@ -173,7 +179,7 @@ char *is_program_changed(char *line)
 
 char *is_xds(char *line)
 {
-	char *pipe; 
+	char *pipe;
 	if ((pipe = strchr(line, '|')) == NULL)
 		return NULL;
 	pipe++;
@@ -237,6 +243,34 @@ int set_pr(char *new_name)
 	}
 
 	return 1;
+}
+
+int db_store_cc(char *line, size_t len)
+{
+	char *pipe; 
+	if ((pipe = strchr(line, '|')) == NULL)
+		return 1;
+	pipe++;
+	if ((pipe = strchr(pipe, '|')) == NULL)
+		return 1;
+	pipe++;
+
+	static const char *s = "XDS";
+	if (strncmp(pipe, s, 3) == 0)
+		return 1;
+	pipe += 4; /* without '|' */
+
+	len -= (pipe - line) + 1; /* +1 for \n */
+	char *cc = nice_str(pipe, &len);
+	if (NULL == cc || 0 == len)
+		return 1;
+
+	cc[len - 1] = '\n';
+
+	int rc = db_append_cc(cur_pr.id, cc, len);
+	free(cc);
+
+	return rc;
 }
 
 int send_pr_to_parent()

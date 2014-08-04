@@ -13,6 +13,8 @@ char *is_xds(char *line);
 char *is_program_changed(char *line);
 int set_pr(char *new_name);
 
+int db_store_cc(char *line, size_t len);
+
 int send_pr_to_parent();
 int send_pr_to_buf();
 

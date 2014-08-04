@@ -15,8 +15,7 @@ MYSQL *con;
 int cli_lock = -1;
 int pr_lock = -1;
 
-int init_db()
-{
+int init_db() {
 	con = mysql_init(NULL);
 	if (NULL == con)
 	{
@@ -87,6 +86,7 @@ int creat_tables()
 		"   `start_date` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,"
 		"   `end_date` timestamp NULL DEFAULT NULL,"
 		"   `name` varchar(300) COLLATE utf8_bin DEFAULT NULL,"
+		"   `cc` text COLLATE utf8_bin,"
 		"   PRIMARY KEY (`id`),"
 		"   FOREIGN KEY (`client_id`) REFERENCES clients(id)"
 		" ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=1 ;"
@@ -315,6 +315,32 @@ int db_set_pr_endtime(id_t pr_id)
 	sprintf(q, "UPDATE programs SET end_date = NOW() WHERE id = \'%u\' LIMIT 1 ;",
 			pr_id);
 
+	if (query(q) < 0)
+		return -1;
+
+	return 1;
+}
+
+int db_append_cc(id_t pr_id, char *cc, size_t len)
+{
+	assert(pr_id > 0);
+	assert(len > 0);
+	assert(cc != NULL);
+
+	char q[QUERY_LEN] = {0};
+	char *e = q;
+
+	e += strmov(e, "UPDATE programs SET cc = IFNULL(CONCAT(cc, \'");
+
+	e += mysql_real_escape_string(con, e, cc, len);
+
+	e += strmov(e, "\'), \'");
+
+	e += mysql_real_escape_string(con, e, cc, len);
+
+	e += sprintf(e, "\') WHERE id = \'%u\' LIMIT 1 ;", pr_id);
+
+	_log("%s\n", q);
 	if (query(q) < 0)
 		return -1;
 
