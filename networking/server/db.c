@@ -25,7 +25,7 @@ int init_db()
 	}
 
 	if (mysql_real_connect(con, cfg.db_host, cfg.db_user, cfg.db_passwd,
-				cfg.db_dbname, 0, NULL, 0) == NULL)
+				NULL, 0, NULL, 0) == NULL)
 	{
 		mysql_perror("mysql_real_connect", con);
 		mysql_close(con);
@@ -57,6 +57,16 @@ int init_db()
 
 int creat_tables()
 {
+	char q[QUERY_LEN];
+	sprintf(q, "CREATE DATABASE IF NOT EXISTS %s ;", cfg.db_dbname);
+	if (query(q) < 0)
+		return -1;
+
+	sprintf(q, "USE %s ;", cfg.db_dbname);
+	if (query(q) < 0)
+		return -1;
+
+
 	if (query(
 		"CREATE TABLE IF NOT EXISTS `clients` ("
 		"  `id` int(11) NOT NULL AUTO_INCREMENT,"

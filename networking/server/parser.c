@@ -474,7 +474,7 @@ int creat_pr_dir(char **path, time_t *start)
 	*start = time(NULL);
 	struct tm *t_tm = localtime(start);
 	char time_buf[30];
-	strftime(time_buf, 30, "%G/%m-%b/%d", t_tm);
+	strftime(time_buf, 30, "%G/%m/%d", t_tm);
 
 	snprintf(*path, PATH_MAX, "%s/%s", cfg.arch_dir, time_buf);
 
