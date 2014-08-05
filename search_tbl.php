@@ -19,17 +19,36 @@ if (mysqli_connect_errno()) {
 }
 
 $where = "WHERE 1 ";
+$join = "LEFT JOIN (clients) ON (programs.client_id = clients.id) ";
 
 if (array_key_exists("from", $_GET))
 {
 	$from = mysqli_real_escape_string($link, $_GET['from']);
-	$where .= "AND start_date >= '" . $from . "' ";
+	$where .= "AND programs.start_date >= '" . $from . "' ";
 }
 
 if (array_key_exists("to", $_GET))
 {
 	$to = mysqli_real_escape_string($link, $_GET['to']);
-	$where .= "AND end_date <= '" . $to . "' ";
+	$where .= "AND programs.end_date <= '" . $to . "' ";
+}
+
+if (array_key_exists("addr", $_GET))
+{
+	$addr = mysqli_real_escape_string($link, $_GET['addr']);
+	$where .= "AND clients.address LIKE '%" . $addr . "%' ";
+}
+
+if (array_key_exists("pr", $_GET))
+{
+	$pr = mysqli_real_escape_string($link, $_GET['pr']);
+	$where .= "AND programs.name LIKE '%" . $pr . "%' ";
+}
+
+if (array_key_exists("text", $_GET))
+{
+	$text = mysqli_real_escape_string($link, $_GET['text']);
+	$where .= "AND programs.cc LIKE '%" . $text . "%' ";
 }
 
 $page = 1;
@@ -38,7 +57,9 @@ if (array_key_exists("page", $_GET))
 if ($page <= 0)
 	$page = 1;
 
-$q_cnt = "SELECT COUNT(*) FROM programs " . $where . " ;";
+$q_cnt =
+	"SELECT COUNT(*) FROM programs " .
+	$join .  $where . " ;";
 
 $result = mysqli_query($link, $q_cnt);
 if (!$result)
@@ -59,20 +80,19 @@ $next_page_url = $_SERVER["PHP_SELF"] . "?" . http_build_query($_GET);
 
 $start = ($page - 1) * RESULTS_PER_PAGE;
 
-$q = 
-	"SELECT id, UNIX_TIMESTAMP(start_date), start_date, end_date, name " .
+$q =
+	"SELECT programs.id, UNIX_TIMESTAMP(programs.start_date), programs.start_date, programs.end_date, programs.name, clients.address " .
 	"FROM programs " .
-	$where .
+	$join . $where .
 	"LIMIT " . $start . ", " . RESULTS_PER_PAGE . " ;";
 
-if ($result = mysqli_query($link, $q)) {
 ?>
 <div id="ctrl_box">
 	<div id="stat">
 		<?=$res_cnt?> programs found. Page <?=$page?> of <?=$page_cnt?>
 	</div>
 	<div id="arrows">
-		<div> 
+		<div>
 			<? if ($prev_page <= 0) { ?>
 			&lt; Prev
 			<? } else { ?>
@@ -88,14 +108,18 @@ if ($result = mysqli_query($link, $q)) {
 		</div>
 	</div>
 </div>
+
+<?php
+if ($result = mysqli_query($link, $q)) {
+?>
 <table>
 	<tr>
 		<th>Start</th>
 		<th>End</th>
 		<th>Name</th>
+		<th>Sender</th>
 		<th>Links</th>
 	</tr>
-
 <?php
 	while ($row = mysqli_fetch_row($result)) {
 		$id = $row[0];
@@ -103,6 +127,7 @@ if ($result = mysqli_query($link, $q)) {
 		$start = $row[2];
 		$end = $row[3];
 		$pr_name = $row[4];
+		$addr = $row[5];
 
 		echo "\t<tr>\n";
 
@@ -122,6 +147,10 @@ if ($result = mysqli_query($link, $q)) {
 			echo "Unknown";
 		echo "</td>\n";
 
+		echo "\t\t<td>";
+		echo $addr;
+		echo "</td>\n";
+
 		echo "\t\t<td>\n";
 		pr_link($etime, $id, "txt", "txt");
 		pr_link($etime, $id, "xds.txt", "xds");
@@ -131,8 +160,9 @@ if ($result = mysqli_query($link, $q)) {
 		echo "\n\t</tr>\n";
 	}
 	echo "</table>";
-
 	mysqli_free_result($result);
+} else {
+	echo "Not found\n";
 }
 
 mysqli_close($link);
