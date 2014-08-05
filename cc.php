@@ -36,6 +36,16 @@ function pr_link($dir, $id, $ext, $name, $comma)
 	return true;
 }
 
+function pr_link_all($time, $id, $ext, $comma)
+{
+	global $cfg;
+	$path = $cfg["archive_files_dir"] . strftime("/%Y/%m/%d/", $time) . $id . "." . $ext;
+
+	if (file_exists($path))
+		return $path;
+	return "";
+}
+
 function seek_next_block($fp)
 {
 	$c1 = "";
@@ -63,9 +73,7 @@ if (!array_key_exists("st", $_GET))
 $filepath = $cfg["buffer_files_dir"] . "/" . $client_id . ".txt";
 if (!file_exists($filepath)) {
 	echo "[\n";
-	echo "{";
-	echo "\"command\": \"" . CONN_CLOSED. "\"";
-	echo "}";
+	echo "{\"command\": \"" . CONN_CLOSED. "\"}";
 	echo "]";
 	exit();
 }

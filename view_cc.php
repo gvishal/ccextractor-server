@@ -24,6 +24,9 @@ var PROGRAM_CHANGED = 106;
 
 var rc;
 var cur_links = "";
+var links = [];
+var links_i = 0;
+var links_j = 0;
 $(function() {
 	var line = 0;
 	update();
@@ -51,6 +54,15 @@ $(function() {
 					clearInterval(rc);
 					$("#ctrl").remove();
 
+
+					for (var j = 0; j < links_i; j++) {
+						var l = "<div id=\"cc_link\">" + links[j][0];
+						for (var k = 1; k < links[j].length; k++)
+							l += " " + links[j][k];
+						l += "</div>"
+						$(l).prependTo("#cc");
+					}
+
 				} else if (d.command == PROGRAM_NEW || d.command == PROGRAM_CHANGED) {
 					$(
 						"<div id=\"new_program\">Program name: " + 
@@ -61,11 +73,19 @@ $(function() {
 					if (d.command == PROGRAM_CHANGED)
 						$( "<div id=\"cc_link\">Download links: " + cur_links + "</div>").prependTo("#cc");
 
+					links[links_i] = [];
+					links[links_i][0] = d.data;
+					links_i++;
+					links_j = 1;
+
 					cur_links = "";
 					$("#pr_name").html(d.data);
 				} else if (d.command == DOWNLOAD_LINKS) {
 					cur_links += "<a href=\"" + d.filepath + "\">" + d.name + "</a> ";
 					$("#pr_links").html(cur_links);
+
+					links[links_i - 1][links_j] = "<a href=\"" + d.filepath + "\">" + d.name + "</a>";
+					links_j++;
 				}
 
 				if (d.command == CAPTIONS || d.command == XDS)

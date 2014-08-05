@@ -18,23 +18,23 @@ if (mysqli_connect_errno()) {
 	exit();
 }
 
-$q_actv_cli = "SELECT active_clients.id, clients.address, clients.port, programs.start_date, programs.name " .
-	 "FROM active_clients " .
-	 "LEFT JOIN (clients, programs) ON (active_clients.id = clients.id AND active_clients.program_id = programs.id);";
+$q_actv_cli = 
+	"SELECT active_clients.id, clients.address, clients.port, programs.start_date, programs.name " .
+	"FROM active_clients " .
+	"LEFT JOIN (clients, programs) ON (active_clients.id = clients.id AND active_clients.program_id = programs.id);";
 
-$q_all_pr = "SELECT id, UNIX_TIMESTAMP(start_date), start_date, end_date, name FROM programs ;";
+$q_all_pr = 
+	"SELECT id, UNIX_TIMESTAMP(start_date), start_date, end_date, name " .
+	"FROM programs " .
+	"ORDER BY id DESC " .
+	"LIMIT " . RESULTS_PER_PAGE . " ;";
 ?>
 
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
 <head>
 	<meta http-equiv="content-type" content="text/html; charset=utf-8; no-store">
-
-	<style>
-		table,td,th {
-			padding:2px 15px 2px 15px;
-		}
-	</style>
+	<link rel="stylesheet" type="text/css" href="index.css">
 </head>
 
 <body>
@@ -76,7 +76,6 @@ if ($result = mysqli_query($link, $q_actv_cli)) {
 		}
 
 		echo "</table>";
-
 	}
 
     mysqli_free_result($result);
@@ -86,7 +85,7 @@ if ($result = mysqli_query($link, $q_actv_cli)) {
 <?
 if ($result = mysqli_query($link, $q_all_pr)) {
 
-	echo "<h4>All programs: </h4>\n";
+	echo "<h4>Last " . RESULTS_PER_PAGE . " programs: </h4>\n";
 
 	if (mysqli_num_rows($result) == 0)
 	{
@@ -135,6 +134,8 @@ if ($result = mysqli_query($link, $q_all_pr)) {
     mysqli_free_result($result);
 }
 ?>
+
+<a href="search.php">Search database</a>
 
 </body>
 </html>
