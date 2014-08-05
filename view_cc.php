@@ -85,7 +85,7 @@ $(function() {
 		<div id="name_lbl">Current program: </div>
 		<div id="pr_name"></div>
 	</div>
-	<div id="links_box"> 
+	<div id="links_box">
 		<div id="links_lbl">Download links: </div>
 		<div id="pr_links"></div>
 	</div>

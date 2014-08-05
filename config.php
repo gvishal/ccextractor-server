@@ -31,4 +31,5 @@ define('XDS',             105);
 define('DOWNLOAD_LINKS',  201);
 
 define('OFFSET',          800);
+define('RESULTS_PER_PAGE', 10);
 ?>
