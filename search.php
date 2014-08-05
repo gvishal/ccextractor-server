@@ -21,31 +21,36 @@ if (mysqli_connect_errno()) {
 $where = "WHERE 1 ";
 $join = "LEFT JOIN (clients) ON (programs.client_id = clients.id) ";
 
-if (array_key_exists("from", $_GET))
+$from = "";
+if (array_key_exists("from", $_GET) && $_GET["from"] != "")
 {
 	$from = mysqli_real_escape_string($link, $_GET['from']);
 	$where .= "AND programs.start_date >= '" . $from . "' ";
 }
 
-if (array_key_exists("to", $_GET))
+$to = "";
+if (array_key_exists("to", $_GET) && $_GET["to"] != "")
 {
 	$to = mysqli_real_escape_string($link, $_GET['to']);
 	$where .= "AND programs.end_date <= '" . $to . "' ";
 }
 
-if (array_key_exists("addr", $_GET))
+$addr = "";
+if (array_key_exists("addr", $_GET) && $_GET["addr"] != "")
 {
 	$addr = mysqli_real_escape_string($link, $_GET['addr']);
 	$where .= "AND clients.address LIKE '%" . $addr . "%' ";
 }
 
-if (array_key_exists("pr", $_GET))
+$pr = "";
+if (array_key_exists("pr", $_GET) && $_GET["pr"] != "")
 {
 	$pr = mysqli_real_escape_string($link, $_GET['pr']);
 	$where .= "AND programs.name LIKE '%" . $pr . "%' ";
 }
 
-if (array_key_exists("text", $_GET))
+$text = "";
+if (array_key_exists("text", $_GET) && $_GET["text"] != "")
 {
 	$text = mysqli_real_escape_string($link, $_GET['text']);
 	$where .= "AND programs.cc LIKE '%" . $text . "%' ";
@@ -85,21 +90,56 @@ $q =
 	"FROM programs " .
 	$join . $where .
 	"LIMIT " . $start . ", " . RESULTS_PER_PAGE . " ;";
-
 ?>
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<meta http-equiv="content-type" content="text/html; charset=utf-8; no-store">
+	<link rel="stylesheet" type="text/css" href="search.css">
+</head>
+
+<body>
+
+<form id="search_form" action="<?=$_SERVER["PHP_SELF"]?>" method="get">
+	<div class="frm_line">
+		<div class="frm_text">From:</div>
+		<input type="text" name="from" value="<?=$from?>">(YYYY-MM-DD HH:MM:SS)
+	</div>
+	<div class="frm_line">
+		<div class="frm_text">To:</div>
+		<input type="text" name="to" value="<?=$to?>">
+	</div>
+	<div class="frm_line">
+		<div class="frm_text">Program name:</div>
+		<input type="text" name="pr" value="<?=$pr?>">
+	</div>
+	<div class="frm_line">
+		<div class="frm_text">Sender address:</div>
+		<input type="text" name="addr" value=<?=$addr?>>
+	</div>
+	<div class="frm_line">
+		<div class="frm_text">Contains text:</div>
+		<input type="text" name="text" value=<?=$text?>>
+	</div>
+	<div class="frm_line">
+		<input type="submit" id="search_btn" value="Search">
+	</div>
+</form>
+
 <div id="ctrl_box">
 	<div id="stat">
 		<?=$res_cnt?> programs found. Page <?=$page?> of <?=$page_cnt?>
 	</div>
 	<div id="arrows">
-		<div>
+		<div id="prev">
 			<? if ($prev_page <= 0) { ?>
 			&lt; Prev
 			<? } else { ?>
 			<a href="<?=$prev_page_url?>">&lt; Prev</a>
 			<? } ?>
 		</div>
-		<div>
+		<div id="next">
 			<? if ($next_page > $page_cnt) { ?>
 			Next &gt;
 			<? } else { ?>
@@ -167,3 +207,6 @@ if ($result = mysqli_query($link, $q)) {
 
 mysqli_close($link);
 ?>
+
+</body>
+</html>

@@ -1,0 +1,50 @@
+body {
+	width: 1000px;
+}
+
+table {
+	width: 100%;
+	table-layout: fixed;
+	word-wrap: break-word;
+}
+
+th {
+	text-align: left;
+}
+
+#ctrl_box {
+	width: 100%;
+	float: left;
+	padding-top: 10px;
+	padding-bottom: 10px;
+}
+
+#stat {
+	float: left;
+}
+
+#arrows {
+	float: right;
+	padding-right: 110px;
+}
+
+#prev {
+	float: left;
+}
+
+#next {
+	padding-left: 10px;
+	float: left;
+	display:inline;
+}
+
+.frm_line {
+	width: 100%;
+	float: left;
+}
+
+.frm_text {
+	width: 105px;
+	float: left;
+
+}
