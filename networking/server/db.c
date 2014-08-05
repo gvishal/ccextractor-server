@@ -340,7 +340,6 @@ int db_append_cc(id_t pr_id, char *cc, size_t len)
 
 	e += sprintf(e, "\') WHERE id = \'%u\' LIMIT 1 ;", pr_id);
 
-	_log("%s\n", q);
 	if (query(q) < 0)
 		return -1;
 

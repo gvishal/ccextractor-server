@@ -16,7 +16,7 @@ int set_pr(char *new_name);
 int db_store_cc(char *line, size_t len);
 
 int send_pr_to_parent();
-int send_pr_to_buf();
+int send_pr_to_buf(int is_changed);
 
 int open_buf_file();
 int open_txt_file();

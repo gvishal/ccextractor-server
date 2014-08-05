@@ -166,13 +166,11 @@ char *is_program_changed(char *line)
 	if (NULL == cur_pr.name || len != strlen(cur_pr.name))
 		return nice_name;
 
-#if 0
 	if (strncmp(cur_pr.name, nice_name, len) == 0)
 	{
 		free(nice_name);
 		return NULL;
 	}
-#endif
 
 	return nice_name;
 }
@@ -205,6 +203,7 @@ int set_pr(char *new_name)
 	else
 		was_null = FALSE;
 
+
 	if ((was_null) == (new_name == NULL)) /* TODO comment or something */
 	{
 		cur_pr.name = new_name;
@@ -230,7 +229,7 @@ int set_pr(char *new_name)
 		if (open_xds_file() < 0)
 			return -1;
 
-		if (send_pr_to_buf() < 0)
+		if (send_pr_to_buf((!was_null && (new_name != NULL))) < 0)
 			return -1;
 	}
 
@@ -239,6 +238,9 @@ int set_pr(char *new_name)
 		cur_pr.name = new_name;
 
 		if (db_set_pr_name(cur_pr.id, cur_pr.name) < 0)
+			return -1;
+
+		if (send_pr_to_buf(FALSE) < 0)
 			return -1;
 	}
 
@@ -260,14 +262,16 @@ int db_store_cc(char *line, size_t len)
 		return 1;
 	pipe += 4; /* without '|' */
 
+	while (' ' == *pipe) pipe++;
+
 	len -= (pipe - line) + 1; /* +1 for \n */
 	char *cc = nice_str(pipe, &len);
 	if (NULL == cc || 0 == len)
 		return 1;
 
-	cc[len - 1] = '\n';
+	cc[len] = '\n';
 
-	int rc = db_append_cc(cur_pr.id, cc, len);
+	int rc = db_append_cc(cur_pr.id, cc, len + 1);
 	free(cc);
 
 	return rc;
@@ -292,7 +296,7 @@ int send_pr_to_parent()
 	return 1;
 }
 
-int send_pr_to_buf()
+int send_pr_to_buf(int is_changed)
 {
 	char id_str[INT_LEN] = {0};
 	sprintf(id_str, "%u", cur_pr.id);
@@ -301,11 +305,9 @@ int send_pr_to_buf()
 	if ((rc = append_to_buf(id_str, INT_LEN, PROGRAM_ID)) < 0)
 		return -1;
 
-	static int is_new = TRUE;
-	int c = PROGRAM_CHANGED;
-	if (is_new)
-		c = PROGRAM_NEW;
-	is_new = FALSE;
+	int c = PROGRAM_NEW;
+	if (is_changed)
+		c = PROGRAM_CHANGED;
 
 	char *s = "Unknown";
 	if (cur_pr.name != NULL)
