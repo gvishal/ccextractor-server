@@ -14,87 +14,7 @@ if (0 == $id)
 <head>
 	<meta http-equiv="content-type" content="text/html; charset=utf-8; no-store">
 	<script type="text/javascript" src="jquery-2.1.1.min.js"></script>
-<script type="text/javascript">
-var CONN_CLOSED =     101;
-var CAPTIONS =        104;
-var XDS =             105;
-var DOWNLOAD_LINKS =  201;
-var PROGRAM_NEW =     103;
-var PROGRAM_CHANGED = 106;
-
-var rc;
-var cur_links = "";
-var links = [];
-var links_i = 0;
-var links_j = 0;
-$(function() {
-	var line = 0;
-	update();
-	rc = setInterval(update, 1000);
-
-	function update() {
-		var done = false;
-		$.ajax({
-		type: "GET",
-			url: "cc.php",
-			dataType: "json",
-			data: {
-			id: "<?= $id ?>",
-				st: line
-		},
-		success: function(data) {
-			$.each(data, function(i, d) {
-				if (d.command == CAPTIONS) {
-					$("<div id=\"cc_line\">" + d.data + "</div>").prependTo("#cc");
-				} else if (d.command == XDS && $('#xds_chkbox').prop('checked')) {
-					$("<div id=\"cc_line\">" + d.data + "</div>").prependTo("#cc");
-				} else if (d.command == CONN_CLOSED) {
-					$( "<div id=\"conn_closed_cc\">Connection closed</div>").prependTo("#cc");
-
-					clearInterval(rc);
-					$("#ctrl").remove();
-
-
-					for (var j = 0; j < links_i; j++) {
-						var l = "<div id=\"cc_link\">" + links[j][0];
-						for (var k = 1; k < links[j].length; k++)
-							l += " " + links[j][k];
-						l += "</div>"
-						$(l).prependTo("#cc");
-					}
-
-				} else if (d.command == PROGRAM_NEW || d.command == PROGRAM_CHANGED) {
-					$(
-						"<div id=\"new_program\">Program name: " + 
-						"<span id=\"pr_name_cc\">" + d.data + "</span>" +
-						"</div>"
-					).prependTo("#cc");
-
-					if (d.command == PROGRAM_CHANGED)
-						$( "<div id=\"cc_link\">Download links: " + cur_links + "</div>").prependTo("#cc");
-
-					links[links_i] = [];
-					links[links_i][0] = d.data;
-					links_i++;
-					links_j = 1;
-
-					cur_links = "";
-					$("#pr_name").html(d.data);
-				} else if (d.command == DOWNLOAD_LINKS) {
-					cur_links += "<a href=\"" + d.filepath + "\">" + d.name + "</a> ";
-					$("#pr_links").html(cur_links);
-
-					links[links_i - 1][links_j] = "<a href=\"" + d.filepath + "\">" + d.name + "</a>";
-					links_j++;
-				}
-
-				if (d.command == CAPTIONS || d.command == XDS)
-					line = parseInt(d.line) + 1;
-			});
-		}
-		});
-	}
-});
+	<script type="text/javascript" src="./view_cc.js"></script>
 </script>
 <link rel="stylesheet" type="text/css" href="view_cc.css">
 </head>
@@ -103,7 +23,7 @@ $(function() {
 <div id="ctrl">
 	<div id="name_box">
 		<div id="name_lbl">Current program: </div>
-		<div id="pr_name"></div>
+		<div id="pr_name">Unknown</div>
 	</div>
 	<div id="links_box">
 		<div id="links_lbl">Download links: </div>
