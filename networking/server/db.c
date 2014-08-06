@@ -12,8 +12,7 @@
 #include <mysql.h>
 
 MYSQL *con;
-int cli_lock = -1;
-int pr_lock = -1;
+int db_lock = -1;
 
 int init_db() {
 	con = mysql_init(NULL);
@@ -37,14 +36,7 @@ int init_db() {
 	if (query("TRUNCATE active_clients ;") < 0)
 		return -1;
 
-	if ((cli_lock = open(CLI_TBL_LOCK, O_RDWR | O_CREAT, S_IRWXU)) < 0)
-	{
-		_perror("open");
-		mysql_close(con);
-		return -1;
-	}
-
-	if ((pr_lock = open(PR_TBL_LOCK, O_RDWR | O_CREAT, S_IRWXU)) < 0)
+	if ((db_lock = open(DB_LOCK, O_RDWR | O_CREAT, S_IRWXU)) < 0)
 	{
 		_perror("open");
 		mysql_close(con);
@@ -128,25 +120,22 @@ int db_add_cli(const char *host, const char *serv, id_t *new_id)
 
 	end += strmov(end, "\', NOW()) ;");
 
-	if (lock_cli_tbl() < 0)
+	if (lock_db() < 0)
 		return -1;
 
-	if (query(q) < 0)
-	{
-		unlock_cli_tbl();
-		return -1;
-	}
+	int rc = 1;
 
-	if (db_get_last_id(new_id) < 0)
-	{
-		unlock_cli_tbl();
-		return -1;
-	}
+	if ((rc = query(q)) < 0)
+		goto out;
 
-	if (unlock_cli_tbl() < 0)
+	if ((rc = db_get_last_id(new_id)) < 0)
+		goto out;
+
+out:
+	if (unlock_db() < 0)
 		return -1;
 
-	return 1;
+	return rc;
 }
 
 int db_get_last_id(id_t *new_id)
@@ -180,10 +169,7 @@ int db_add_active_cli(id_t id)
 	char q[QUERY_LEN] = {0};
 	sprintf(q, "INSERT INTO active_clients(id) VALUES(\'%u\') ;", id);
 
-	if (query(q) < 0)
-		return -1;
-
-	return 1;
+	return lock_query(q);
 }
 
 int db_set_pr_arctive_cli(id_t id, id_t pr_id)
@@ -196,10 +182,7 @@ int db_set_pr_arctive_cli(id_t id, id_t pr_id)
 	sprintf(q, "UPDATE active_clients SET program_id = %u WHERE id = %u LIMIT 1 ;",
 			pr_id, id);
 
-	if (query(q) < 0)
-		return -1;
-
-	return 1;
+	return lock_query(q);
 }
 
 int db_remove_active_cli(id_t id)
@@ -209,10 +192,7 @@ int db_remove_active_cli(id_t id)
 	char q[QUERY_LEN] = {0};
 	sprintf(q, "DELETE FROM active_clients WHERE id = \'%u\' LIMIT 1 ;", id);
 
-	if (query(q) < 0)
-		return -1;
-
-	return 1;
+	return lock_query(q);
 }
 
 int db_add_program(id_t cli_id, id_t *pr_id, time_t start, char *name)
@@ -220,7 +200,7 @@ int db_add_program(id_t cli_id, id_t *pr_id, time_t start, char *name)
 	assert(cli_id > 0);
 	assert(pr_id != NULL);
 
-	if (lock_pr_tbl() < 0)
+	if (lock_db() < 0)
 		return -1;
 
 	char q[QUERY_LEN] = {0};
@@ -244,22 +224,18 @@ int db_add_program(id_t cli_id, id_t *pr_id, time_t start, char *name)
 
 	end += strmov(end, ") ;");
 
-	if (query(q) < 0)
-	{
-		unlock_pr_tbl();
-		return -1;
-	}
+	int rc;
+	if ((rc = query(q)) < 0)
+		goto out;
 
-	if (db_get_last_pr_id(pr_id) < 0)
-	{
-		unlock_pr_tbl();
-		return -1;
-	}
+	if ((rc = db_get_last_pr_id(pr_id)) < 0)
+		goto out;
 
-	if (unlock_pr_tbl() < 0)
+out:
+	if (unlock_db() < 0)
 		return -1;
 
-	return 1;
+	return rc;
 }
 
 int db_get_last_pr_id(id_t *pr_id)
@@ -300,10 +276,7 @@ int db_set_pr_name(id_t pr_id, char *name)
 
 	end += sprintf(end, "\' WHERE id = \'%u\' LIMIT 1 ;", pr_id);
 
-	if (query(q) < 0)
-		return -1;
-
-	return 1;
+	return lock_query(q);
 }
 
 int db_set_pr_endtime(id_t pr_id)
@@ -315,10 +288,7 @@ int db_set_pr_endtime(id_t pr_id)
 	sprintf(q, "UPDATE programs SET end_date = NOW() WHERE id = \'%u\' LIMIT 1 ;",
 			pr_id);
 
-	if (query(q) < 0)
-		return -1;
-
-	return 1;
+	return lock_query(q);
 }
 
 int db_append_cc(id_t pr_id, char *cc, size_t len)
@@ -340,56 +310,31 @@ int db_append_cc(id_t pr_id, char *cc, size_t len)
 
 	e += sprintf(e, "\') WHERE id = \'%u\' LIMIT 1 ;", pr_id);
 
-	if (query(q) < 0)
-		return -1;
-
-	return 1;
+	return lock_query(q);
 }
 
-int lock_cli_tbl()
+int lock_db()
 {
-	assert(cli_lock >= 0);
+	assert(db_lock >= 0);
 
-	if (0 != flock(cli_lock, LOCK_EX)) 
+	if (lockf(db_lock, F_LOCK, 0) < 0)
+	/* if (0 != flock(db_lock, LOCK_EX))  */
 	{
 		_perror("flock");
 		return -1;
 	}
+	/* _log("\n\n\n!!!\n\n"); */
+
 
 	return 1;
 }
 
-int lock_pr_tbl()
+int unlock_db()
 {
-	assert(pr_lock >= 0);
+	assert(db_lock >= 0);
 
-	if (0 != flock(pr_lock, LOCK_EX)) 
-	{
-		_perror("flock");
-		return -1;
-	}
-
-	return 1;
-}
-
-int unlock_cli_tbl()
-{
-	assert(cli_lock >= 0);
-
-	if (0 != flock(cli_lock, LOCK_UN)) 
-	{
-		_perror("flock");
-		return -1;
-	}
-
-	return 1;
-}
-
-int unlock_pr_tbl()
-{
-	assert(pr_lock >= 0);
-
-	if (0 != flock(pr_lock, LOCK_UN)) 
+	if (lockf(db_lock, F_ULOCK, 0) < 0)
+	/* if (0 != flock(db_lock, LOCK_UN))  */
 	{
 		_perror("flock");
 		return -1;
@@ -408,4 +353,18 @@ int query(const char *q)
 	}
 
 	return 1;
+}
+
+int lock_query(const char *q)
+{
+	int rc;
+	if (lock_db() < 0)
+		return -1;
+
+	rc = query(q);
+
+	if (unlock_db() < 0)
+		return -1;
+
+	return rc;
 }

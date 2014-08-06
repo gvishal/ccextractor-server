@@ -8,12 +8,11 @@
 int init_db();
 int creat_tables();
 
-int query(const char *q);
+int lock_db();
+int unlock_db();
 
-int lock_cli_tbl();
-int lock_pr_tbl();
-int unlock_cli_tbl();
-int unlock_pr_tbl();
+int query(const char *q);
+int lock_query(const char *q);
 
 int db_add_cli(const char *host, const char *serv, id_t *new_id);
 int db_get_last_id(id_t *new_id);
