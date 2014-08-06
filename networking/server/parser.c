@@ -85,43 +85,47 @@ int parser_loop(const char *cce_output)
 
 	char *line = NULL;
 	size_t len = 0;
-	int rc;
+	int rc = 1;
+	int nread = 0;
 
 	fpos_t pos;
 	while (1)
 	{
-		if (fgetpos(fp, &pos) < 0)
+		if ((rc = fgetpos(fp, &pos)) < 0)
 		{
 			_perror("fgetpos");
-			return -1;
+			goto out;
 		}
 
-		if ((rc = getline(&line, &len, fp)) <= 0)
+		if ((nread = getline(&line, &len, fp)) <= 0)
 		{
 			clearerr(fp);
-			if (fsetpos(fp, &pos) < 0)
+			if ((rc = fsetpos(fp, &pos)) < 0)
 			{
 				_perror("fgetpos");
-				return -1;
+				goto out;
 			}
 
-			if (nanosleep((struct timespec[]){{0, INF_READ_DELAY}}, NULL) < 0)
+			rc = nanosleep((struct timespec[]){{0, INF_READ_DELAY}}, NULL);
+			if (rc < 0)
 			{
 				_perror("nanosleep");
-				return -1;
+				goto out;
 			}
 
 			continue;
 		}
 
-		if (parse_line(line, rc) < 0)
-			return -1;
+		if ((rc = parse_line(line, nread)) < 0)
+			goto out;
 
-		if (check_pr_timout() < 0)
-			return -1;
+		if ((rc = check_pr_timout()) < 0)
+			goto out;
 	}
 
-	return 1;
+out:
+	fclose(fp);
+	return rc;
 }
 
 int parse_line(char *line, size_t len)
@@ -323,7 +327,6 @@ int send_pr_to_buf(int is_changed)
 	first_run = FALSE;
 
 	char *s = "Unknown";
-	_log("\n\n\n3214234\n\n\n");
 	if (cur_pr.name != NULL)
 		s = cur_pr.name;
 
