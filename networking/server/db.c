@@ -318,13 +318,10 @@ int lock_db()
 	assert(db_lock >= 0);
 
 	if (lockf(db_lock, F_LOCK, 0) < 0)
-	/* if (0 != flock(db_lock, LOCK_EX))  */
 	{
 		_perror("flock");
 		return -1;
 	}
-	/* _log("\n\n\n!!!\n\n"); */
-
 
 	return 1;
 }
@@ -334,7 +331,6 @@ int unlock_db()
 	assert(db_lock >= 0);
 
 	if (lockf(db_lock, F_ULOCK, 0) < 0)
-	/* if (0 != flock(db_lock, LOCK_UN))  */
 	{
 		_perror("flock");
 		return -1;

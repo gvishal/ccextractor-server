@@ -22,7 +22,7 @@
 #define DFT_CCE_OUTPUT_DIR "./cce"
 #define DFT_DB_HOST "localhost"
 #define DFT_DB_USER "root"
-#define DFT_DB_PASSWORD "root"
+#define DFT_DB_PASSWORD NULL
 #define DFT_DB_DBNAME "cce"
 #define DFT_PR_TIMEOUT 2 * 40 * 60 /* sec */
 
