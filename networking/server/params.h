@@ -24,6 +24,7 @@
 #define DFT_DB_USER "root"
 #define DFT_DB_PASSWORD "root"
 #define DFT_DB_DBNAME "cce"
+#define DFT_PR_TIMEOUT 2 * 40 * 60 /* sec */
 
 #define TMP_FILE_PATH "./tmp_file" /* temprorary file for delete_n_lines */
 #define INF_READ_DELAY 300000000 /* Nano sec less than 10^9 */
@@ -54,6 +55,7 @@ struct cfg_t
 	char *db_user;
 	char *db_passwd;
 	char *db_dbname;
+	unsigned pr_timeout;
 
 	unsigned is_inited : 1;
 } cfg;

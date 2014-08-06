@@ -116,6 +116,9 @@ int parser_loop(const char *cce_output)
 
 		if (parse_line(line, rc) < 0)
 			return -1;
+
+		if (check_pr_timout() < 0)
+			return -1;
 	}
 
 	return 1;
@@ -203,8 +206,17 @@ int set_pr(char *new_name)
 	else
 		was_null = FALSE;
 
+	if (was_null && new_name != NULL)
+	{
+		cur_pr.name = new_name;
 
-	if ((was_null) == (new_name == NULL)) /* TODO comment or something */
+		if (db_set_pr_name(cur_pr.id, cur_pr.name) < 0)
+			return -1;
+
+		if (send_pr_to_buf(FALSE) < 0)
+			return -1;
+	}
+	else
 	{
 		cur_pr.name = new_name;
 
@@ -229,22 +241,21 @@ int set_pr(char *new_name)
 		if (open_xds_file() < 0)
 			return -1;
 
-		if (send_pr_to_buf((!was_null && (new_name != NULL))) < 0)
-			return -1;
-	}
-
-	if (was_null && new_name != NULL)
-	{
-		cur_pr.name = new_name;
-
-		if (db_set_pr_name(cur_pr.id, cur_pr.name) < 0)
-			return -1;
-
-		if (send_pr_to_buf(FALSE) < 0)
+		if (send_pr_to_buf(TRUE) < 0)
 			return -1;
 	}
 
 	return 1;
+}
+
+int check_pr_timout()
+{
+	time_t now = time(NULL);
+
+	if (now - cur_pr.start < cfg.pr_timeout)
+		return 1;
+
+	return set_pr(NULL);
 }
 
 int db_store_cc(char *line, size_t len)
@@ -305,11 +316,14 @@ int send_pr_to_buf(int is_changed)
 	if ((rc = append_to_buf(id_str, INT_LEN, PROGRAM_ID)) < 0)
 		return -1;
 
+	static int first_run = TRUE;
 	int c = PROGRAM_NEW;
-	if (is_changed)
+	if (is_changed && !first_run)
 		c = PROGRAM_CHANGED;
+	first_run = FALSE;
 
 	char *s = "Unknown";
+	_log("\n\n\n3214234\n\n\n");
 	if (cur_pr.name != NULL)
 		s = cur_pr.name;
 

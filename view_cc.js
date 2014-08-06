@@ -29,7 +29,6 @@ $(function() {
 	rc = setInterval(update, 1000);
 
 	function update() {
-		var done = false;
 		$.ajax({
 		type: "GET",
 			url: "cc.php",
@@ -75,8 +74,7 @@ $(function() {
 					$(l).prependTo("#cc");
 				}
 
-				if (d.command == CAPTIONS || d.command == XDS)
-					line = parseInt(d.line) + 1;
+				line = parseInt(d.line) + 1;
 			});
 		}
 		});

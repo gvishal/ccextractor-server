@@ -12,6 +12,7 @@ int parse_line(char *line, size_t len);
 char *is_xds(char *line);
 char *is_program_changed(char *line);
 int set_pr(char *new_name);
+int check_pr_timout();
 
 int db_store_cc(char *line, size_t len);
 

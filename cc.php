@@ -18,7 +18,7 @@ function nice_str($str)
 	return json_quote(htmlspecialchars(trim($str)));
 }
 
-function pr_link($dir, $id, $ext, $name, $comma)
+function pr_link($dir, $id, $ext, $name, $line, $comma)
 {
 	$path = $dir . "/" . $id . "." . $ext;
 	if (!file_exists($path))
@@ -28,6 +28,7 @@ function pr_link($dir, $id, $ext, $name, $comma)
 		echo ",\n";
 
 	echo "{";
+	echo "\"line\": \"" . $line . "\",";
 	echo "\"command\": \"" . DOWNLOAD_LINKS. "\",";
 	echo "\"filepath\": \"" . $path . "\",";
 	echo "\"name\": \"" . $name . "\"";
@@ -104,6 +105,11 @@ if (!file_exists($filepath)) {
 			$time = $row[1];
 			$name = $row[2];
 
+			if ($name == "")
+				$name = "Unknown";
+
+			// TODO: use this structure for every links
+
 			echo ",{";
 			echo "\"command\": \"" . CONN_CLOSED_LINKS . "\", ";
 			echo "\"name\": \"" . $name . "\", ";
@@ -174,9 +180,9 @@ while (1) {
 		if (0 == $pr_id)
 			continue;
 
-		$comma = pr_link($cc, $pr_id, "txt", "txt", $comma);
-		$comma = pr_link($cc, $pr_id, "xds.txt", "xds", $comma);
-		$comma = pr_link($cc, $pr_id, "bin", "bin", $comma);
+		$comma = pr_link($cc, $pr_id, "txt", "txt", $line, $comma);
+		$comma = pr_link($cc, $pr_id, "xds.txt", "xds", $line, $comma);
+		$comma = pr_link($cc, $pr_id, "bin", "bin", $line, $comma);
 
 		continue;
 	}
