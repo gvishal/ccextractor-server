@@ -36,14 +36,23 @@ function pr_link($dir, $id, $ext, $name, $comma)
 	return true;
 }
 
-function pr_link_all($time, $id, $ext, $comma)
+function pr_link_np($time, $id, $ext, $name, $comma)
 {
 	global $cfg;
 	$path = $cfg["archive_files_dir"] . strftime("/%Y/%m/%d/", $time) . $id . "." . $ext;
 
-	if (file_exists($path))
-		return $path;
-	return "";
+	if (!file_exists($path))
+		return $comma;
+
+	if ($comma)
+		echo ", ";
+
+	echo "{";
+	echo "\"name\": \"" . $name . "\", ";
+	echo "\"path\": \"" . $path . "\"";
+	echo "}";
+
+	return true;
 }
 
 function seek_next_block($fp)
@@ -72,8 +81,41 @@ if (!array_key_exists("st", $_GET))
 
 $filepath = $cfg["buffer_files_dir"] . "/" . $client_id . ".txt";
 if (!file_exists($filepath)) {
-	echo "[\n";
+	global $cfg;
+	global $client_id;
+
+	echo "[";
 	echo "{\"command\": \"" . CONN_CLOSED. "\"}";
+
+	$link = mysqli_connect($cfg["mysql_host"], $cfg["mysql_user"], $cfg["mysql_password"], $cfg["mysql_db_name"]);
+	if (mysqli_connect_errno()) {
+		echo "]";
+		exit();
+	}
+
+	$q =
+		"SELECT id, UNIX_TIMESTAMP(start_date), name " .
+		"FROM programs " .
+		"WHERE client_id = " . $client_id . " ;";
+
+	if ($result = mysqli_query($link, $q)) {
+		while ($row = mysqli_fetch_row($result)) {
+			$pr_id = $row[0];
+			$time = $row[1];
+			$name = $row[2];
+
+			echo ",{";
+			echo "\"command\": \"" . CONN_CLOSED_LINKS . "\", ";
+			echo "\"name\": \"" . $name . "\", ";
+			echo "\"links\": [";
+			$c = pr_link_np($time, $pr_id, "txt", "txt", false);
+			$c = pr_link_np($time, $pr_id, "xds.txt", "xds", $c);
+			$c = pr_link_np($time, $pr_id, "bin", "bin", $c);
+			echo "]";
+			echo "}";
+		}
+	}
+
 	echo "]";
 	exit();
 }

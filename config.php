@@ -19,17 +19,18 @@ if (!array_key_exists("archive_files_dir", $cfg))
 if (!array_key_exists("buffer_files_dir", $cfg))
 	$cfg["buffer_files_dir"] = "./tmp";
 
-define('INT_LEN',         10);
+define('INT_LEN',          10);
 
-define('CONN_CLOSED',     101);
-define('PROGRAM_ID',      102);
-define('PROGRAM_NEW',     103);
-define('PROGRAM_CHANGED', 106);
-define('PROGRAM_DIR',     108);
-define('CAPTIONS',        104);
-define('XDS',             105);
-define('DOWNLOAD_LINKS',  201);
+define('CONN_CLOSED',      101);
+define('PROGRAM_ID',       102);
+define('PROGRAM_NEW',      103);
+define('PROGRAM_CHANGED',  106);
+define('PROGRAM_DIR',      108);
+define('CAPTIONS',         104);
+define('XDS',              105);
+define('DOWNLOAD_LINKS',   201);
+define('CONN_CLOSED_LINKS',202);
 
-define('OFFSET',          800);
+define('OFFSET',           800);
 define('RESULTS_PER_PAGE', 10);
 ?>

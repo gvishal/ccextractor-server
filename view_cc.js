@@ -12,16 +12,17 @@ function getUrlParameter(sParam)
 	}
 }
 
-var CONN_CLOSED =     101;
-var CAPTIONS =        104;
-var XDS =             105;
-var DOWNLOAD_LINKS =  201;
-var PROGRAM_NEW =     103;
-var PROGRAM_CHANGED = 106;
+var CONN_CLOSED =       101;
+var CAPTIONS =          104;
+var XDS =               105;
+var PROGRAM_NEW =       103;
+var PROGRAM_CHANGED =   106;
+var DOWNLOAD_LINKS =    201;
+var CONN_CLOSED_LINKS = 202;
 
 var rc;
 var cur_links = "";
-var links = [];
+var is_closed = false;
 $(function() {
 	var line = 0;
 	update();
@@ -48,15 +49,7 @@ $(function() {
 
 					clearInterval(rc);
 					$("#ctrl").remove();
-
-					for (var j = 0; j < links.length; j++) {
-						var l = "<div id=\"cc_link\">" + links[j][0];
-						for (var k = 1; k < links[j].length; k++)
-							l += " " + links[j][k];
-						l += "</div>"
-						$(l).prependTo("#cc");
-					}
-
+					is_closed = true;
 				} else if (d.command == PROGRAM_NEW || d.command == PROGRAM_CHANGED) {
 					$(
 						"<div id=\"new_program\">Program name: " + 
@@ -67,18 +60,19 @@ $(function() {
 					if (d.command == PROGRAM_CHANGED)
 						$( "<div id=\"cc_link\">Download links: " + cur_links + "</div>").prependTo("#cc");
 
-					var end = links.length;
-					links[end] = [];
-					links[end][0] = d.data;
-
 					cur_links = "";
 					$("#pr_name").html(d.data);
 				} else if (d.command == DOWNLOAD_LINKS) {
 					cur_links += "<a href=\"" + d.filepath + "\">" + d.name + "</a> ";
 					$("#pr_links").html(cur_links);
+				} else if (d.command == CONN_CLOSED_LINKS) {
+					var l = "<div id=\"cc_link\">" + d.name + " ";
+					$.each(d.links, function(j, link) {
+						l += "<a href=\"" + link.path + "\">" + link.name + "</a> ";
+					});
+					l += "</div>";
 
-					var last = links.length - 1;
-					links[last][links[last].length] = "<a href=\"" + d.filepath + "\">" + d.name + "</a>";
+					$(l).prependTo("#cc");
 				}
 
 				if (d.command == CAPTIONS || d.command == XDS)

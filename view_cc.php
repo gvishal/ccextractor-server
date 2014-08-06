@@ -1,14 +1,3 @@
-<?php
-require("config.php");
-
-if (!array_key_exists("id", $_GET))
-	return;
-
-$id = intval($_GET["id"]);
-if (0 == $id)
-	return;
-?>
-
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
 <head>
