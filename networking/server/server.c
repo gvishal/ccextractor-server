@@ -62,7 +62,8 @@ int main()
 	if (init_db() < 0)
 		exit(EXIT_FAILURE);
 
-	int listen_sd = bind_server(cfg.port);
+	int fam;
+	int listen_sd = bind_server(cfg.port, &fam);
 	if (listen_sd < 0) 
 	{
 		m_perror("bind_server", rc);
@@ -88,12 +89,22 @@ int main()
 
 	while (1)
 	{
-		struct sockaddr cliaddr;
-		socklen_t clilen = sizeof(struct sockaddr);
+		socklen_t clilen;
+		if (AF_INET == fam)
+			clilen = sizeof(struct sockaddr_in);
+		else
+			clilen = sizeof(struct sockaddr_in6);
+		struct sockaddr *cliaddr = (struct sockaddr *) malloc(clilen);
+		if (NULL == cliaddr)
+		{
+			_perror("malloc");
+			goto end_server;
+		}
 
 		int connfd;
-		if ((connfd = accept(listen_sd, &cliaddr, &clilen)) < 0) 
+		if ((connfd = accept(listen_sd, cliaddr, &clilen)) < 0)
 		{
+			free(cliaddr);
 			if (EINTR == errno)
 			{
 				continue;
@@ -109,18 +120,22 @@ int main()
 		{
 			write_byte(connfd, CONN_LIMIT);
 			close(connfd);
+			free(cliaddr);
 
 			continue;
 		}
 
 		int id;
-		if ((id = add_new_cli(connfd, &cliaddr, clilen)) < 0)
+		if ((id = add_new_cli(connfd, cliaddr, clilen)) < 0)
 		{
 			write_byte(connfd, ERROR);
 			close_conn(cli_cnt - 1);
+			free(cliaddr);
 
 			continue;
 		}
+
+		free(cliaddr);
 
 		if (cli_cnt == cfg.max_conn)
 			_log("Connection limit reached, ignoring new connections\n");

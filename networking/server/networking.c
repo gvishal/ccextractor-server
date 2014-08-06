@@ -121,7 +121,7 @@ ssize_t write_block(int fd, char command, const char *buf, size_t buf_len)
 	return nwritten;
 }
 
-int bind_server(int port) 
+int bind_server(int port, int *fam)
 {
 	struct addrinfo hints;
 	memset(&hints, 0, sizeof(struct addrinfo));
@@ -157,6 +157,20 @@ int bind_server(int port)
 			continue;
 		}
 
+		if (AF_INET6 == p->ai_family)
+		{
+			int no = 0;
+			if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&no, sizeof(no)) < 0)
+			{
+				_perror("setsockopt");
+
+				if (p->ai_next != NULL)
+					printf("trying next addres ...\n");
+
+				continue;
+			}
+		}
+
 		if (0 == bind(sockfd, p->ai_addr, p->ai_addrlen))
 			break;
 
@@ -171,6 +185,8 @@ int bind_server(int port)
 
 	if (NULL == p)
 		return B_SRV_ERR;
+
+	*fam = p->ai_family;
 
 	if (0 != listen(sockfd, SOMAXCONN))
 	{

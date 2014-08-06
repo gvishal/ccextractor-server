@@ -38,6 +38,6 @@ ssize_t write_block(int fd, char command, const char *buf, size_t buf_len);
  * Returns socket that can accept connections. Socket is binded to any
  * local address with specified port
  */
-int bind_server(int port);
+int bind_server(int port, int *fam);
 
 #endif /* end of include guard: NETWORKING_H */
