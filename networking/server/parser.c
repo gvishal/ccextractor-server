@@ -320,6 +320,13 @@ int send_pr_to_buf(int is_changed)
 	if ((rc = append_to_buf(id_str, INT_LEN, PROGRAM_ID)) < 0)
 		return -1;
 
+	char time_str[INT_LEN] = {0};
+	sprintf(time_str, "%u", (unsigned)cur_pr.start);
+
+	/* TODO: use returned value from sprintf instead INT_LEN */
+	if ((rc = append_to_buf(time_str, INT_LEN, PROGRAM_DIR)) < 0)
+		return -1;
+
 	static int first_run = TRUE;
 	int c = PROGRAM_NEW;
 	if (is_changed && !first_run)
@@ -331,9 +338,6 @@ int send_pr_to_buf(int is_changed)
 		s = cur_pr.name;
 
 	if ((rc = append_to_buf(s, strlen(s), c)) < 0)
-		return -1;
-
-	if ((rc = append_to_buf(cur_pr.dir, strlen(cur_pr.dir), PROGRAM_DIR)) < 0)
 		return -1;
 
 	return 1;

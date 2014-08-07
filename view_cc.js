@@ -19,10 +19,10 @@ var PROGRAM_NEW =       103;
 var PROGRAM_CHANGED =   106;
 var DOWNLOAD_LINKS =    201;
 var CONN_CLOSED_LINKS = 202;
+var LINKS_QUIET =       205;
 
 var rc;
 var cur_links = "";
-var is_closed = false;
 $(function() {
 	var line = 0;
 	update();
@@ -39,31 +39,53 @@ $(function() {
 			},
 		success: function(data) {
 			$.each(data, function(i, d) {
-				if (d.command == CAPTIONS) {
+				if (d.command == LINKS_QUIET) {
+					$("#pr_name").html(d.name);
+
+					cur_links = "";
+					$.each(d.links, function(j, link) {
+						cur_links += "<a href=\"" + link.path + "\">" + link.name + "</a> ";
+					});
+
+					$("#pr_links").html(cur_links);
+				} else if (d.command == PROGRAM_NEW) {
+					$(
+						"<div id=\"new_program\">Program name: " + 
+						"<span id=\"pr_name_cc\">" + d.name + "</span>" +
+						"</div>"
+					).prependTo("#cc");
+					$("#pr_name").html(d.name);
+
+					cur_links = "";
+					$.each(d.links, function(j, link) {
+						cur_links += "<a href=\"" + link.path + "\">" + link.name + "</a> ";
+					});
+
+					$("#pr_links").html(cur_links);
+				} else if (d.command == PROGRAM_CHANGED) {
+					$(
+						"<div id=\"new_program\">Program name: " +
+						"<span id=\"pr_name_cc\">" + d.name + "</span>" +
+						"</div>"
+					).prependTo("#cc");
+					$("#pr_name").html(d.name);
+
+					$("<div id=\"cc_link\">Download links: " + cur_links + "</div>").prependTo("#cc");
+
+					cur_links = "";
+					$.each(d.links, function(j, link) {
+						cur_links += "<a href=\"" + link.path + "\">" + link.name + "</a> ";
+					});
+
+					$("#pr_links").html(cur_links);
+				} else if (d.command == CAPTIONS) {
 					$("<div id=\"cc_line\">" + d.data + "</div>").prependTo("#cc");
 				} else if (d.command == XDS && $('#xds_chkbox').prop('checked')) {
 					$("<div id=\"cc_line\">" + d.data + "</div>").prependTo("#cc");
 				} else if (d.command == CONN_CLOSED) {
 					$( "<div id=\"conn_closed_cc\">Connection closed</div>").prependTo("#cc");
-
 					clearInterval(rc);
 					$("#ctrl").remove();
-					is_closed = true;
-				} else if (d.command == PROGRAM_NEW || d.command == PROGRAM_CHANGED) {
-					$(
-						"<div id=\"new_program\">Program name: " + 
-						"<span id=\"pr_name_cc\">" + d.data + "</span>" +
-						"</div>"
-					).prependTo("#cc");
-
-					if (d.command == PROGRAM_CHANGED)
-						$( "<div id=\"cc_link\">Download links: " + cur_links + "</div>").prependTo("#cc");
-
-					cur_links = "";
-					$("#pr_name").html(d.data);
-				} else if (d.command == DOWNLOAD_LINKS) {
-					cur_links += "<a href=\"" + d.filepath + "\">" + d.name + "</a> ";
-					$("#pr_links").html(cur_links);
 				} else if (d.command == CONN_CLOSED_LINKS) {
 					var l = "<div id=\"cc_link\">" + d.name + " ";
 					$.each(d.links, function(j, link) {
