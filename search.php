@@ -70,7 +70,11 @@ $q_cnt =
 $result = mysqli_query($link, $q_cnt);
 if (!$result)
 	die("query failed: " . $q_cnt);
-$res_cnt = mysqli_fetch_row($result)[0];
+$row = mysqli_fetch_row($result);
+$res_cnt = 0;
+if ($row)
+	$res_cnt = $row[0];
+
 $page_cnt = ceil($res_cnt / RESULTS_PER_PAGE);
 
 if ($page > $page_cnt)
