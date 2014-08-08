@@ -171,14 +171,21 @@ int bind_server(int port, int *fam)
 			}
 		}
 
-		if (0 == bind(sockfd, p->ai_addr, p->ai_addrlen))
-			break;
+		if (bind(sockfd, p->ai_addr, p->ai_addrlen) < 0)
+		{
 
-		_log("bind() error: %s\n", strerror(errno));
-		if (p->ai_next != NULL)
-			printf("trying next addres ...\n");
+			_log("bind() error: %s\n", strerror(errno));
+			if (p->ai_next != NULL)
+				printf("trying next addres ...\n");
 
-		close(sockfd);
+			close(sockfd);
+
+			continue;
+		}
+
+		*fam = p->ai_family;
+
+		break;
 	}
 
 	freeaddrinfo(ai);
@@ -186,7 +193,6 @@ int bind_server(int port, int *fam)
 	if (NULL == p)
 		return B_SRV_ERR;
 
-	*fam = p->ai_family;
 
 	if (0 != listen(sockfd, SOMAXCONN))
 	{

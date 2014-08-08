@@ -154,11 +154,13 @@ int db_get_last_id(id_t *new_id)
 	if (NULL == row[0])
 	{
 		_log("%s:%d error: row[0] == NULL", __FILE__, __LINE__);
+		mysql_free_result(result);
 		return -1;
 	}
 
 	*new_id = atoi(row[0]);
 
+	mysql_free_result(result);
 	return 1;
 }
 
@@ -254,11 +256,13 @@ int db_get_last_pr_id(id_t *pr_id)
 	if (NULL == row[0])
 	{
 		_log("%s:%d error: row[0] == NULL", __FILE__, __LINE__);
+		mysql_free_result(result);
 		return -1;
 	}
 
 	*pr_id = atoi(row[0]);
 
+	mysql_free_result(result);
 	return 1;
 }
 

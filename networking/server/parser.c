@@ -573,6 +573,7 @@ void cleanup_parser()
 	{
 		if (unlink(buf.path) < 0)
 			_perror("unlink");
+		free(buf.path);
 		buf.path = NULL;
 	}
 }

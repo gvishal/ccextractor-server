@@ -4,6 +4,7 @@ require("config.php");
 function pr_link($time, $id, $ext, $name)
 {
 	global $cfg;
+	date_default_timezone_set("UTC");
 	$path = $cfg["archive_files_dir"] . strftime("/%Y/%m/%d/", $time) . $id . "." . $ext;
 
 	if (!file_exists($path))
