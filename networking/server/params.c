@@ -347,6 +347,8 @@ int parse_config_file()
 	}
 
 out:
+	if (line != NULL)
+		free(line);
 	fclose(fp);
 	return rc;
 }

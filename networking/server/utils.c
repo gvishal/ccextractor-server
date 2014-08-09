@@ -236,38 +236,50 @@ int delete_n_lines(FILE **fp, const char *filepath, size_t n)
 {
 	char *line = NULL;
 	size_t len = 0;
-	int rc;
+	ssize_t nread = 0;
+	int rc = 1;
 
 	rewind(*fp);
 
 	/* offset first lines */
 	for (size_t i = 0; i < n; i++) 
 	{
-		if ((rc = getline(&line, &len, *fp)) < 0)
-			return DEL_L_EOF;
+		if (getline(&line, &len, *fp) < 0) 
+		{
+			rc = DEL_L_EOF;
+			goto out;
+		}
 	}
 
 	FILE *tmp = fopen(TMP_FILE_PATH, "w+");
 	if (NULL == tmp)
-		return ERRNO;
+	{
+		rc = ERRNO;
+		goto out;
+	}
 
 	if (setvbuf(tmp, NULL, _IOLBF, 0) < 0) 
 	{
 		fclose(tmp);
-		return ERRNO;
+		rc = ERRNO;
+		goto out;
 	}
 
-	while ((rc = getline(&line, &len, *fp)) != -1)
-		fwrite(line, sizeof(char), rc, tmp);
+	while ((nread = getline(&line, &len, *fp)) != -1)
+		fwrite(line, sizeof(char), nread, tmp);
 
 	fclose(*fp);
 
 	*fp = tmp;
 
 	if (rename(TMP_FILE_PATH, filepath) != 0)
-		return ERRNO;
+		rc = ERRNO;
 
-	return 1;
+out:
+	if (line != NULL)
+		free(line);
+
+	return rc;
 }
 
 char *nice_str(const char *s, size_t *len)

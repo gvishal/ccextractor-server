@@ -167,8 +167,13 @@ char *is_program_changed(char *line)
 	len = strlen(name);
 
 	char *nice_name = nice_str(name, &len);
-	if (NULL == nice_name || 0 == len)
+	if (NULL == nice_name)
 		return NULL;
+	if (0 == len)
+	{
+		free(nice_name);
+		return NULL;
+	}
 
 	if (NULL == cur_pr.name || len != strlen(cur_pr.name))
 		return nice_name;
@@ -205,10 +210,11 @@ int set_pr(char *new_name)
 
 	int was_null = TRUE;
 
-	if (NULL == cur_pr.name)
+	if (cur_pr.name != NULL)
+	{
 		free(cur_pr.name);
-	else
 		was_null = FALSE;
+	}
 
 	if (was_null && new_name != NULL)
 	{
@@ -281,8 +287,12 @@ int db_store_cc(char *line, size_t len)
 
 	len -= (pipe - line) + 1; /* +1 for \n */
 	char *cc = nice_str(pipe, &len);
-	if (NULL == cc || 0 == len)
+	if (NULL == cc) 
 		return 1;
+	if (0 == len) {
+		free(cc);
+		return 1;
+	}
 
 	cc[len] = '\n';
 
