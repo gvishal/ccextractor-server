@@ -300,9 +300,24 @@ char *nice_str(const char *s, size_t *len)
 	memset(ret, 0, sizeof(char) * (*len));
 
 	int j = 0;
+	int is_sp = FALSE;
 	for (unsigned i = 0; i < *len; i++) {
 		if (!isprint(s[i]))
 			continue;
+
+		if (isspace(s[i]))
+		{
+			if (j != 0)
+				is_sp = TRUE;
+			continue;
+		}
+
+		if (is_sp)
+		{
+			ret[j] = ' ';
+			j++;
+			is_sp = FALSE;
+		}
 
 		ret[j] = s[i];
 		j++;
