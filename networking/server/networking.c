@@ -193,7 +193,6 @@ int bind_server(int port, int *fam)
 	if (NULL == p)
 		return B_SRV_ERR;
 
-
 	if (0 != listen(sockfd, SOMAXCONN))
 	{
 		close(sockfd);

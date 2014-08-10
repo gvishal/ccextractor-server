@@ -19,7 +19,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <sys/file.h>
-#include <limits.h> 
+#include <limits.h>
 
 int connfd;
 id_t cli_id;
@@ -320,7 +320,7 @@ int read_bin_data()
 		return rc;
 	}
 
-	c_log(cli_id, "Bin data received: %zd bytes\n", rc);
+	/* c_log(cli_id, "Bin data received: %zd bytes\n", rc); */
 
 	fwrite(buf, sizeof(char), rc, cce_in.fp);
 

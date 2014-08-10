@@ -26,7 +26,6 @@
 #define DFT_DB_DBNAME "cce"
 #define DFT_PR_TIMEOUT 2 * 40 * 60 /* sec */
 
-#define TMP_FILE_PATH "./tmp_file" /* temprorary file for delete_n_lines */
 #define INF_READ_DELAY 300000000 /* Nano sec less than 10^9 */
 #define BUFFER_SIZE 20480
 #define BIN_HEADER_LEN 11

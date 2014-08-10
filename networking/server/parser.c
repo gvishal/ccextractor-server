@@ -15,7 +15,7 @@
 
 #include <unistd.h>
 #include <sys/file.h>
-#include <limits.h> 
+#include <limits.h>
 
 id_t cli_id;
 
@@ -385,13 +385,10 @@ int append_to_buf(const char *line, size_t len, char mode)
 		return 1;
 	}
 
-	int rc; 
 	if (buf_line_cnt >= cfg.buf_max_lines)
 	{
-		if ((rc = delete_n_lines(&buf.fp, buf.path,
-					buf_line_cnt - cfg.buf_min_lines)) < 0)
+		if (delete_n_lines(&buf.fp, buf.path, buf_line_cnt - cfg.buf_min_lines) < 0)
 		{
-			m_perror("delete_n_lines", rc);
 			free(tmp);
 			return -1;
 		}

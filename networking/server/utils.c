@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <netdb.h>
+#include <limits.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/file.h>
@@ -129,8 +130,6 @@ const char *m_strerror(int rc)
 			return gai_strerror(errno);
 		case B_SRV_ERR:
 			return "Coudn't bind to the port";
-		case DEL_L_EOF:
-			return "Unexpected end-of-file";
 		case ERRNO:
 			return strerror(errno);
 		default:
@@ -232,7 +231,7 @@ void rand_str(char *s, size_t len)
 	return;
 }
 
-int delete_n_lines(FILE **fp, const char *filepath, size_t n)
+int delete_n_lines(FILE **fp, char *filepath, size_t n)
 {
 	char *line = NULL;
 	size_t len = 0;
@@ -244,24 +243,29 @@ int delete_n_lines(FILE **fp, const char *filepath, size_t n)
 	/* offset first lines */
 	for (size_t i = 0; i < n; i++) 
 	{
-		if (getline(&line, &len, *fp) < 0) 
+		if ((rc = getline(&line, &len, *fp)) < 0)
 		{
-			rc = DEL_L_EOF;
+			_perror("getline");
 			goto out;
 		}
 	}
 
-	FILE *tmp = fopen(TMP_FILE_PATH, "w+");
+	char tmp_path[PATH_MAX] = {0};
+	size_t l = strmov(tmp_path, filepath);
+	tmp_path[l] = '_';
+
+	FILE *tmp = fopen(tmp_path, "w+");
 	if (NULL == tmp)
 	{
-		rc = ERRNO;
+		_perror("fopen");
+		rc = -1;
 		goto out;
 	}
 
-	if (setvbuf(tmp, NULL, _IOLBF, 0) < 0) 
+	if ((rc = setvbuf(tmp, NULL, _IOLBF, 0)) < 0)
 	{
+		_perror("setvbuf");
 		fclose(tmp);
-		rc = ERRNO;
 		goto out;
 	}
 
@@ -272,8 +276,11 @@ int delete_n_lines(FILE **fp, const char *filepath, size_t n)
 
 	*fp = tmp;
 
-	if (rename(TMP_FILE_PATH, filepath) != 0)
-		rc = ERRNO;
+	if ((rc = rename(tmp_path, filepath)) < 0)
+	{
+		_perror("rename");
+		_log(0, "%s --> %s\n", tmp_path, filepath);
+	}
 
 out:
 	if (line != NULL)
@@ -345,6 +352,7 @@ int set_nonblocking(int fd)
 size_t strmov(char *dest, char *src)
 {
 	char *end = src;
+
 	while ((*dest++ = *end++));
 
 	return end - src - 1;

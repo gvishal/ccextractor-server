@@ -21,8 +21,6 @@
 /* bind_server(): */
 #define B_SRV_GAI -9 /* getaddrinfo() error val in errno */
 #define B_SRV_ERR -10 /* Could bind */
-/* delete_n_lines(): */
-#define DEL_L_EOF -11 /* Unexpected eof */
 
 #ifndef INT_LEN
 #define INT_LEN 10
@@ -68,7 +66,7 @@ int _mkdir(const char *dir, mode_t mode);
 void rand_str(char *s, size_t len);
 
 /* Deletes first n lines (end with \n) from the file */
-int delete_n_lines(FILE **fp, const char *filepath, size_t n);
+int delete_n_lines(FILE **fp, char *filepath, size_t n);
 
 /* Returns malloc'ed copy of `s` without not printable chars*/
 char *nice_str(const char *s, size_t *len);

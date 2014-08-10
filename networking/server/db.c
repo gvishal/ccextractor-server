@@ -78,7 +78,7 @@ int creat_tables()
 		"   `start_date` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,"
 		"   `end_date` timestamp NULL DEFAULT NULL,"
 		"   `name` varchar(300) COLLATE utf8_bin DEFAULT NULL,"
-		"   `cc` text COLLATE utf8_bin,"
+		"   `cc` mediumtext COLLATE utf8_bin,"
 		"   PRIMARY KEY (`id`),"
 		"   FOREIGN KEY (`client_id`) REFERENCES clients(id)"
 		" ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=1 ;"
