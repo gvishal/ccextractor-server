@@ -193,9 +193,7 @@ if ($line < $start) {
 }
 
 $pr_id = 0;
-$pr_name = "";
 $pr_start = 0;
-$pr_command = 0;
 
 while (1) {
 	fgetc($fp); 
@@ -219,7 +217,7 @@ while (1) {
 		$pr_start = intval($cc);
 		continue;
 	} else if ($command == PROGRAM_CHANGED || $command == PROGRAM_NEW) {
-		$comma = print_links($command, $pr_id, $pr_start, $pr_name, $comma, 1);
+		$comma = print_links($command, $pr_id, $pr_start, $cc, $comma, 1);
 		continue;
 	}
 
