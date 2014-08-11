@@ -163,7 +163,7 @@ if (0 == $start)
 		$time = $row[1];
 		$name = $row[2];
 
-		$comma = print_links(LINKS_QUIET, $pr_id, $time, $name, $comma, $start + 1);
+		$comma = print_links(LINKS_QUIET, $pr_id, $time, $name, $comma, $start);
 
 		mysqli_free_result($result);
 	}
@@ -218,7 +218,7 @@ while (1) {
 		$pr_start = intval($cc);
 		continue;
 	} else if ($command == PROGRAM_CHANGED || $command == PROGRAM_NEW) {
-		$comma = print_links($command, $pr_id, $pr_start, $cc, $comma, 1);
+		$comma = print_links($command, $pr_id, $pr_start, $cc, $comma, $line);
 		continue;
 	}
 

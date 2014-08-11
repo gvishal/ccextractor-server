@@ -21,7 +21,7 @@ id_t cli_id;
 
 file_t buf;
 unsigned buf_line_cnt;
-unsigned cur_line;
+unsigned cur_line = 1;
 
 file_t txt;
 file_t xds;
