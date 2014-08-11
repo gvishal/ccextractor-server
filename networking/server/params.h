@@ -25,6 +25,7 @@
 #define DFT_DB_PASSWORD NULL
 #define DFT_DB_DBNAME "cce"
 #define DFT_PR_TIMEOUT 2 * 40 * 60 /* sec */
+#define DFT_PR_REPORT_TIME 1 * 60 /* sec */
 
 #define INF_READ_DELAY 300000000 /* Nano sec less than 10^9 */
 #define BUFFER_SIZE 20480
@@ -54,6 +55,7 @@ struct cfg_t
 	char *db_passwd;
 	char *db_dbname;
 	unsigned pr_timeout;
+	unsigned pr_report_time;
 
 	unsigned is_inited : 1;
 } cfg;

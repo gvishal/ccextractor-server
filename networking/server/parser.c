@@ -33,6 +33,7 @@ struct pr_t
 	char *name;
 	char *dir;
 	time_t start;
+	time_t report_time;
 } cur_pr;
 
 int pipe_w; /* pipe write end */
@@ -187,6 +188,10 @@ char *is_program_changed(char *line)
 		free(nice_name);
 		return NULL;
 	}
+	else
+	{
+		cur_pr.report_time = time(NULL);
+	}
 
 	return nice_name;
 }
@@ -220,7 +225,9 @@ int set_pr(char *new_name)
 		was_null = FALSE;
 	}
 
-	if (was_null && new_name != NULL)
+	time_t now = time(NULL);
+	if (was_null && new_name != NULL
+			&& now - cur_pr.report_time < cfg.pr_report_time)
 	{
 		cur_pr.name = new_name;
 
@@ -233,6 +240,8 @@ int set_pr(char *new_name)
 	else
 	{
 		cur_pr.name = new_name;
+		cur_pr.start = now;
+		cur_pr.report_time = now;
 
 		if (cur_pr.id > 0 && db_set_pr_endtime(cur_pr.id) < 0)
 			return -1;
@@ -269,10 +278,18 @@ int check_pr_timout()
 {
 	time_t now = time(NULL);
 
-	if (now - cur_pr.start < cfg.pr_timeout)
-		return 1;
+	if (cur_pr.name != NULL)
+	{
+		if (now - cur_pr.report_time >= cfg.pr_report_time)
+			return set_pr(NULL);
+	}
+	else
+	{
+		if (now - cur_pr.start >= cfg.pr_timeout)
+			return set_pr(NULL);
+	}
 
-	return set_pr(NULL);
+	return 1;
 }
 
 int db_store_cc(char *line, size_t len)
@@ -630,7 +647,7 @@ int creat_pr_dir(char **path, time_t *start)
 		return -1;
 	}
 
-	*start = time(NULL);
+	/* *start = time(NULL); */
 	struct tm *t_tm = localtime(start);
 	char time_buf[30];
 	strftime(time_buf, 30, "%G/%m/%d", t_tm);

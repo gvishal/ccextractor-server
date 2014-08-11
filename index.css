@@ -1,0 +1,13 @@
+body {
+	width: 1000px;
+}
+
+table {
+	width: 100%;
+	table-layout: fixed;
+	word-wrap: break-word;
+}
+
+th {
+	text-align: left;
+}

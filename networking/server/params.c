@@ -27,6 +27,7 @@ int init_cfg()
 	cfg.db_passwd = DFT_DB_PASSWORD;
 	cfg.db_dbname = DFT_DB_DBNAME;
 	cfg.pr_timeout = DFT_PR_TIMEOUT;
+	cfg.pr_report_time = DFT_PR_REPORT_TIME;
 
 	if ((cfg.pwd = (char *) malloc(DFT_PASSW_LEN + 1)) == NULL) /* +1 for '\0' */
 		return ERRNO;
@@ -338,6 +339,15 @@ int parse_config_file()
 				goto out;
 			}
 			cfg.pr_timeout = val_num;
+		}
+		else if (strncmp(line, "program_report_timeout", key_len) == 0)
+		{
+			if (number != val_type)
+			{
+				rc = CFG_NUM;
+				goto out;
+			}
+			cfg.pr_report_time = val_num;
 		}
 		else
 		{
