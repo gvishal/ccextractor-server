@@ -30,7 +30,6 @@
 #define INF_READ_DELAY 300000000 /* Nano sec less than 10^9 */
 #define BUFFER_SIZE 20480
 #define BIN_HEADER_LEN 11
-#define DB_LOCK "db_lock"
 
 #define MODE755 S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH
 

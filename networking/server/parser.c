@@ -647,7 +647,6 @@ int creat_pr_dir(char **path, time_t *start)
 		return -1;
 	}
 
-	/* *start = time(NULL); */
 	struct tm *t_tm = localtime(start);
 	char time_buf[30];
 	strftime(time_buf, 30, "%G/%m/%d", t_tm);

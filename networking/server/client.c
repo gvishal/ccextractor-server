@@ -66,6 +66,10 @@ pid_t fork_client(int fd, int listenfd, char *h, char *s)
 	serv = s;
 
 	int rc;
+
+	if ((rc = db_conn()) < 0)
+		goto out;
+
 	if ((rc = greeting()) <= 0)
 		goto out;
 
@@ -545,6 +549,11 @@ void cleanup()
 		free(cce_out.path);
 		cce_out.path = NULL;
 	}
+
+	/* Wait for parser SIGINT handler to set program end time */
+	/* XXX: send pr_id to client and set it from here??? */
+	nanosleep((struct timespec[]){{0, 2 * INF_READ_DELAY}}, NULL);
+	db_close_conn();
 }
 
 void sigchld_client()

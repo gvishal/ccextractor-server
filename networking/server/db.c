@@ -12,23 +12,16 @@
 #include <mysql.h>
 
 MYSQL *con;
-int db_lock = -1;
 
 int init_db() {
-	con = mysql_init(NULL);
-	if (NULL == con)
+	if (mysql_library_init(0, NULL, NULL))
 	{
-		mysql_perror("mysql_init", con);
+		_log("could not initialize MySQL library\n");
 		return -1;
 	}
 
-	if (mysql_real_connect(con, cfg.db_host, cfg.db_user, cfg.db_passwd,
-				NULL, 0, NULL, 0) == NULL)
-	{
-		mysql_perror("mysql_real_connect", con);
-		mysql_close(con);
+	if (db_conn() < 0)
 		return -1;
-	}
 
 	if (creat_tables() < 0)
 		return -1;
@@ -36,12 +29,7 @@ int init_db() {
 	if (query("TRUNCATE active_clients ;") < 0)
 		return -1;
 
-	if ((db_lock = open(DB_LOCK, O_RDWR | O_CREAT, S_IRWXU)) < 0)
-	{
-		_perror("open");
-		mysql_close(con);
-		return -1;
-	}
+	db_close_conn();
 
 	return 1;
 }
@@ -102,6 +90,35 @@ int creat_tables()
 	return 1;
 }
 
+int db_conn()
+{
+	con = mysql_init(NULL);
+	if (NULL == con)
+	{
+		mysql_perror("mysql_init", con);
+		return -1;
+	}
+
+	if (mysql_real_connect(con, cfg.db_host, cfg.db_user, cfg.db_passwd,
+				cfg.db_dbname, 0, NULL, 0) == NULL)
+	{
+		mysql_perror("mysql_real_connect", con);
+		mysql_close(con);
+		return -1;
+	}
+
+	return 1;
+}
+
+void db_close_conn()
+{
+	if (NULL == con)
+		return;
+
+	mysql_close(con);
+	con = NULL;
+}
+
 int db_add_cli(const char *host, const char *serv, id_t *new_id)
 {
 	assert(host != NULL);
@@ -120,7 +137,7 @@ int db_add_cli(const char *host, const char *serv, id_t *new_id)
 
 	end += strmov(end, "\', NOW()) ;");
 
-	if (lock_db() < 0)
+	if (lock_cli_tbl() < 0)
 		return -1;
 
 	int rc = 1;
@@ -171,7 +188,7 @@ int db_add_active_cli(id_t id)
 	char q[QUERY_LEN] = {0};
 	sprintf(q, "INSERT INTO active_clients(id) VALUES(\'%u\') ;", id);
 
-	return lock_query(q);
+	return query(q);
 }
 
 int db_set_pr_arctive_cli(id_t id, id_t pr_id)
@@ -184,7 +201,7 @@ int db_set_pr_arctive_cli(id_t id, id_t pr_id)
 	sprintf(q, "UPDATE active_clients SET program_id = %u WHERE id = %u LIMIT 1 ;",
 			pr_id, id);
 
-	return lock_query(q);
+	return query(q);
 }
 
 int db_remove_active_cli(id_t id)
@@ -194,16 +211,13 @@ int db_remove_active_cli(id_t id)
 	char q[QUERY_LEN] = {0};
 	sprintf(q, "DELETE FROM active_clients WHERE id = \'%u\' LIMIT 1 ;", id);
 
-	return lock_query(q);
+	return query(q);
 }
 
 int db_add_program(id_t cli_id, id_t *pr_id, time_t start, char *name)
 {
 	assert(cli_id > 0);
 	assert(pr_id != NULL);
-
-	if (lock_db() < 0)
-		return -1;
 
 	char q[QUERY_LEN] = {0};
 	char *end = q;
@@ -225,6 +239,9 @@ int db_add_program(id_t cli_id, id_t *pr_id, time_t start, char *name)
 	}
 
 	end += strmov(end, ") ;");
+
+	if (lock_pr_tbl() < 0)
+		return -1;
 
 	int rc;
 	if ((rc = query(q)) < 0)
@@ -280,7 +297,7 @@ int db_set_pr_name(id_t pr_id, char *name)
 
 	end += sprintf(end, "\' WHERE id = \'%u\' LIMIT 1 ;", pr_id);
 
-	return lock_query(q);
+	return query(q);
 }
 
 int db_set_pr_endtime(id_t pr_id)
@@ -292,7 +309,7 @@ int db_set_pr_endtime(id_t pr_id)
 	sprintf(q, "UPDATE programs SET end_date = NOW() WHERE id = \'%u\' LIMIT 1 ;",
 			pr_id);
 
-	return lock_query(q);
+	return query(q);
 }
 
 int db_append_cc(id_t pr_id, char *cc, size_t len)
@@ -314,16 +331,25 @@ int db_append_cc(id_t pr_id, char *cc, size_t len)
 
 	e += sprintf(e, "\') WHERE id = \'%u\' LIMIT 1 ;", pr_id);
 
-	return lock_query(q);
+	return query(q);
 }
 
-int lock_db()
+int lock_cli_tbl()
 {
-	assert(db_lock >= 0);
-
-	if (lockf(db_lock, F_LOCK, 0) < 0)
+	if (mysql_query(con, "LOCK TABLES clients WRITE ;"))
 	{
-		_perror("flock");
+		mysql_perror("mysql_real_query", con);
+		return -1;
+	}
+
+	return 1;
+}
+
+int lock_pr_tbl()
+{
+	if (mysql_query(con, "LOCK TABLES programs WRITE;"))
+	{
+		mysql_perror("mysql_real_query", con);
 		return -1;
 	}
 
@@ -332,15 +358,7 @@ int lock_db()
 
 int unlock_db()
 {
-	assert(db_lock >= 0);
-
-	if (lockf(db_lock, F_ULOCK, 0) < 0)
-	{
-		_perror("flock");
-		return -1;
-	}
-
-	return 1;
+	return query("UNLOCK TABLES ;");
 }
 
 int query(const char *q)
@@ -353,18 +371,4 @@ int query(const char *q)
 	}
 
 	return 1;
-}
-
-int lock_query(const char *q)
-{
-	int rc;
-	if (lock_db() < 0)
-		return -1;
-
-	rc = query(q);
-
-	if (unlock_db() < 0)
-		return -1;
-
-	return rc;
 }
