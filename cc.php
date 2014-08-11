@@ -58,6 +58,7 @@ function print_links($command, $pr_id, $time, $name, $comma, $line)
 	echo "\"name\": \"" . $name . "\", ";
 	echo "\"links\": [";
 	$c = print_link($pr_id, $time, "txt", "txt", false);
+	$c = print_link($pr_id, $time, "srt", "srt", $c);
 	$c = print_link($pr_id, $time, "xds.txt", "xds", $c);
 	$c = print_link($pr_id, $time, "bin", "bin", $c);
 	echo "]";
@@ -162,7 +163,7 @@ if (0 == $start)
 		$time = $row[1];
 		$name = $row[2];
 
-		$comma = print_links(LINKS_QUIET, $pr_id, $time, $name, $comma, $start);
+		$comma = print_links(LINKS_QUIET, $pr_id, $time, $name, $comma, $start + 1);
 
 		mysqli_free_result($result);
 	}

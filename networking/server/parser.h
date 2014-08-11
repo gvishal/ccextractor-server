@@ -22,10 +22,12 @@ int send_pr_to_buf(int is_changed);
 int open_buf_file();
 int open_txt_file();
 int open_xds_file();
+int open_srt_file();
 
 int append_to_buf(const char *line, size_t len, char mode);
 int append_to_txt(const char *line, size_t len);
 int append_to_xds(const char *line, size_t len);
+int append_to_srt(const char *line);
 
 int creat_pr_dir(char **path, time_t *start);
 char *file_path(id_t prgm_id, const char *dir, const char *ext);

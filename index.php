@@ -123,6 +123,7 @@ if ($result = mysqli_query($link, $q_all_pr)) {
 
 			echo "\t\t<td>\n";
 			pr_link($etime, $id, "txt", "txt");
+			pr_link($etime, $id, "srt", "srt");
 			pr_link($etime, $id, "xds.txt", "xds");
 			pr_link($etime, $id, "bin", "bin");
 			echo "\t\t</td>\n";

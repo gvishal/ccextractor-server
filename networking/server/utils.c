@@ -244,6 +244,7 @@ int delete_n_lines(FILE **fp, char *filepath, size_t n)
 	for (size_t i = 0; i < n; i++) 
 	{
 		if ((rc = getline(&line, &len, *fp)) < 0)
+
 		{
 			_perror("getline");
 			goto out;
@@ -349,9 +350,9 @@ int set_nonblocking(int fd)
 #endif
 }
 
-size_t strmov(char *dest, char *src)
+size_t strmov(char *dest, const char *src)
 {
-	char *end = src;
+	const char *end = src;
 
 	while ((*dest++ = *end++));
 

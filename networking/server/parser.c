@@ -25,6 +25,7 @@ unsigned cur_line;
 
 file_t txt;
 file_t xds;
+file_t srt;
 
 struct pr_t
 {
@@ -145,6 +146,9 @@ int parse_line(char *line, size_t len)
 
 		if (append_to_txt(line, len) < 0)
 			return -1;
+
+		if (append_to_srt(line) < 0)
+			return -1;
 	}
 
 	if (append_to_xds(line, len) < 0)
@@ -249,6 +253,9 @@ int set_pr(char *new_name)
 			return -1;
 
 		if (open_xds_file() < 0)
+			return -1;
+
+		if (open_srt_file() < 0)
 			return -1;
 
 		if (send_pr_to_buf(TRUE) < 0)
@@ -373,6 +380,54 @@ int append_to_xds(const char *line, size_t len)
 	return 1;
 }
 
+int append_to_srt(const char *line)
+{
+	if (srt.fp == NULL && open_srt_file() < 0)
+		return -1;
+
+#define T_LEN 30
+	static char start[T_LEN] = {0};
+	static char end[T_LEN] = {0};
+	static char cc_buf[BUFFER_SIZE] = {0};
+	static char *buf_end = cc_buf;
+	static int cc_blk = 1;
+
+	const char *pipe;
+	if ((pipe = strchr(line, '|')) == NULL)
+		return 1;
+
+	const char *cur_st = line;
+	size_t cur_st_len = pipe - line;
+	const char *cur_en = pipe + 1;
+
+	if ((pipe = strchr(cur_en, '|')) == NULL)
+		return 1;
+	size_t cur_en_len = pipe - cur_en;
+
+	if ((pipe = strchr(pipe + 1, '|')) == NULL)
+		return 1;
+
+	const char *cur_cc = pipe + 1;
+
+	if (strncmp(cur_st, start, cur_st_len) != 0)
+	{
+		if (start[0] != 0)
+		{
+			fprintf(srt.fp, "%d\n%s --> %s\n%s\n", cc_blk, start, end, cc_buf);
+			cc_blk++;
+		}
+		buf_end = cc_buf;
+		*buf_end = '\0';
+
+		memcpy(start, cur_st, cur_st_len);
+		memcpy(end, cur_en, cur_en_len);
+	}
+
+	buf_end += strmov(buf_end, cur_cc);
+
+	return 1;
+}
+
 int append_to_buf(const char *line, size_t len, char mode)
 {
 	char *tmp = nice_str(line, &len);
@@ -447,7 +502,7 @@ int open_txt_file()
 		return -1;
 	}
 
-	if (setvbuf(txt.fp, NULL, _IOLBF, 0) < 0) 
+	if (setvbuf(txt.fp, NULL, _IOLBF, 0) < 0)
 	{
 		_perror("setvbuf");
 		return -1;
@@ -478,13 +533,44 @@ int open_xds_file()
 		return -1;
 	}
 
-	if (setvbuf(xds.fp, NULL, _IOLBF, 0) < 0) 
+	if (setvbuf(xds.fp, NULL, _IOLBF, 0) < 0)
 	{
 		_perror("setvbuf");
 		return -1;
 	}
 
 	c_log(cli_id, "XDS file: %s\n", xds.path);
+
+	return 1;
+}
+
+int open_srt_file()
+{
+	assert(cur_pr.dir != NULL);
+	assert(cur_pr.id > 0);
+
+	if (srt.fp != NULL)
+		fclose(srt.fp);
+
+	if (srt.path != NULL)
+		free(srt.path);
+
+	if ((srt.path = file_path(cur_pr.id, cur_pr.dir, "srt")) == NULL)
+		return -1;
+
+	if ((srt.fp = fopen(srt.path, "w+")) == NULL)
+	{
+		_perror("fopen");
+		return -1;
+	}
+
+	if (setvbuf(srt.fp, NULL, _IOLBF, 0) < 0)
+	{
+		_perror("setvbuf");
+		return -1;
+	}
+
+	c_log(cli_id, "SRT file: %s\n", srt.path);
 
 	return 1;
 }
@@ -508,7 +594,7 @@ int open_buf_file()
 		return -1;
 	}
 
-	if (setvbuf(buf.fp, NULL, _IOLBF, 0) < 0) 
+	if (setvbuf(buf.fp, NULL, _IOLBF, 0) < 0)
 	{
 		_perror("setvbuf");
 		return -1;

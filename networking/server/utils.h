@@ -75,6 +75,6 @@ char *nice_str(const char *s, size_t *len);
 int set_nonblocking(int fd);
 
 /* Copies src sting to dest, including \0, return number of copied bytes */
-size_t strmov(char *dest, char *src);
+size_t strmov(char *dest, const char *src);
 
 #endif /* end of include guard: UTILS_H */
