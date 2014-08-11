@@ -25,8 +25,8 @@ int open_xds_file();
 int open_srt_file();
 
 int append_to_buf(const char *line, size_t len, char mode);
-int append_to_txt(const char *line, size_t len);
-int append_to_xds(const char *line, size_t len);
+int append_to_txt(const char *line);
+int append_to_xds(const char *line);
 int append_to_srt(const char *line);
 
 int creat_pr_dir(char **path, time_t *start);

@@ -144,14 +144,14 @@ int parse_line(char *line, size_t len)
 		if (db_store_cc(line, len) < 0)
 			return -1;
 
-		if (append_to_txt(line, len) < 0)
+		if (append_to_txt(line) < 0)
 			return -1;
 
 		if (append_to_srt(line) < 0)
 			return -1;
 	}
 
-	if (append_to_xds(line, len) < 0)
+	if (append_to_xds(line) < 0)
 		return -1;
 
 	if (append_to_buf(line, len, mode) < 0)
@@ -360,22 +360,22 @@ int send_pr_to_buf(int is_changed)
 	return 1;
 }
 
-int append_to_txt(const char *line, size_t len)
+int append_to_txt(const char *line)
 {
 	if (txt.fp == NULL && open_txt_file() < 0)
 		return -1;
 
-	fwrite(line, sizeof(char), len, txt.fp);
+	fprintf(txt.fp, "%s", line);
 
 	return 1;
 }
 
-int append_to_xds(const char *line, size_t len)
+int append_to_xds(const char *line)
 {
 	if (xds.fp == NULL && open_xds_file() < 0)
 		return -1;
 
-	fwrite(line, sizeof(char), len, xds.fp);
+	fprintf(xds.fp, "%s", line);
 
 	return 1;
 }

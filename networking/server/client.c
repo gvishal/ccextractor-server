@@ -382,7 +382,8 @@ pid_t fork_cce()
 			"-quiet",
 			"-out=ttxt",
 			"-xds",
-			"-autoprogram",
+			"-autoprogram", /* TODO */
+			"-latin1",
 			"-o", cce_out.path,
 			NULL
 		};
