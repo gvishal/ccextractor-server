@@ -20,14 +20,15 @@ if (mysqli_connect_errno()) {
 }
 
 $q_actv_cli = 
-	"SELECT active_clients.id, clients.address, clients.port, programs.start_date, programs.name " .
+	"SELECT active_clients.id, clients.address, clients.port, clients.cc_name, programs.start_date, programs.name " .
 	"FROM active_clients " .
 	"LEFT JOIN (clients, programs) ON (active_clients.id = clients.id AND active_clients.program_id = programs.id);";
 
 $q_all_pr = 
-	"SELECT id, UNIX_TIMESTAMP(start_date), start_date, end_date, name " .
+	"SELECT programs.id, UNIX_TIMESTAMP(programs.start_date), programs.start_date, programs.end_date, clients.cc_name, programs.name " .
 	// "SELECT id, UNIX_TIMESTAMP(CONVERT_TZ(start_date, @@session.time_zone, '+00:00')), start_date, end_date, name " .
 	"FROM programs " .
+	"LEFT JOIN (clients) ON (clients.id = programs.client_id) " .
 	"ORDER BY id DESC " .
 	"LIMIT " . RESULTS_PER_PAGE . " ;";
 ?>
@@ -52,20 +53,28 @@ if ($result = mysqli_query($link, $q_actv_cli)) {
 	} else {
 		echo "<table>\n";
 
-		echo "\t<tr><th>Start</th><th>Address</th><th>Program Name</th></tr>\n";
+		echo "\t<tr><th>Start</th><th>Address</th><th>Channel</th><th>Program Name</th></tr>\n";
 
 		while ($row = mysqli_fetch_row($result)) {
 			$id = $row[0];
 			$addr = $row[1];
 			$port = $row[2];
-			$start = $row[3];
-			$pr_name = $row[4];
+			$cc_name = $row[3];
+			$start = $row[4];
+			$pr_name = $row[5];
 
 			echo "\t<tr>\n";
 
 			echo "\t\t<td>" . $start . "</td>\n";
 
 			echo "\t\t<td><a href=\"view_cc.php?id=" . $id .'">' . $addr . ':' . $port . "</a></td>\n";
+
+			echo "\t\t<td>";
+			if ($cc_name != "")
+				echo $cc_name;
+			else
+				echo "Unknown";
+			echo "</td>\n";
 
 			echo "\t\t<td>";
 			if ($pr_name != "")
@@ -95,14 +104,15 @@ if ($result = mysqli_query($link, $q_all_pr)) {
 	} else {
 		echo "<table>\n";
 
-		echo "\t<tr><th>Start</th><th>End</th><th>Name</th><th>Links</th></tr>\n";
+		echo "\t<tr><th>Start</th><th>End</th><th>Channel</th><th>Name</th><th>Links</th></tr>\n";
 
 		while ($row = mysqli_fetch_row($result)) {
 			$id = $row[0];
 			$etime = $row[1];
 			$start = $row[2];
 			$end = $row[3];
-			$pr_name = $row[4];
+			$cc_name = $row[4];
+			$pr_name = $row[5];
 
 			echo "\t<tr>\n";
 
@@ -111,6 +121,13 @@ if ($result = mysqli_query($link, $q_all_pr)) {
 			echo "\t\t<td>";
 			if ($end != "")
 				echo $end;
+			else
+				echo "Unknown";
+			echo "</td>\n";
+
+			echo "\t\t<td>";
+			if ($cc_name != "")
+				echo $cc_name;
 			else
 				echo "Unknown";
 			echo "</td>\n";

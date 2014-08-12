@@ -14,13 +14,17 @@
 		<div id="name_lbl">Current program: </div>
 		<div id="pr_name">Unknown</div>
 	</div>
+	<div id="cc_name_box">
+		<div id="cc_name_lbl"></div>
+		<div id="cc_name"></div>
+	</div>
 	<div id="links_box">
 		<div id="links_lbl">Download links: </div>
 		<div id="pr_links"></div>
 	</div>
 	<div id="xds_box">
 		<input type="checkbox" checked id="xds_chkbox">
-		<div id="xds_lbl"> Print XDS </div>
+		Print XDS
 	</div>
 </div>
 

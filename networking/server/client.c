@@ -190,8 +190,6 @@ int ctrl_switch()
 
 				rc = db_set_cc_name(cli_id, name);
 
-				_log("\n\n%s\n\n", name);
-
 				free(name);
 
 				if (rc < 0)

@@ -148,8 +148,9 @@ if (0 == $start)
 
 	$q =
 		// "SELECT id, UNIX_TIMESTAMP(CONVERT_TZ(start_date, @@session.time_zone, '+00:00')), name " .
-		"SELECT id, UNIX_TIMESTAMP(start_date), name " .
+		"SELECT programs.id, UNIX_TIMESTAMP(programs.start_date), programs.name, clients.cc_name " .
 		"FROM programs " .
+		"LEFT JOIN (clients) ON (clients.id = programs.client_id) " .
 		"WHERE client_id = " . $client_id . " " .
 		"ORDER BY id DESC " .
 		"LIMIT 1 ;";
@@ -164,8 +165,20 @@ if (0 == $start)
 		$pr_id = $row[0];
 		$time = $row[1];
 		$name = $row[2];
+		$cc_name = $row[3];
 
 		$comma = print_links(LINKS_QUIET, $pr_id, $time, $name, $comma, $start);
+
+		if ($comma)
+			echo ",";
+
+		echo "{";
+		echo "\"command\": \"" . CC_NAME . "\", ";
+		echo "\"line\": \"" . $start . "\", ";
+		echo "\"name\": \"" . nice_str($cc_name) . "\"";
+		echo "}";
+
+		$comma = true;
 
 		mysqli_free_result($result);
 	}
