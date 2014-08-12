@@ -185,12 +185,9 @@ char *is_program_changed(char *line)
 
 	if (strncmp(cur_pr.name, nice_name, len) == 0)
 	{
+		cur_pr.report_time = time(NULL);
 		free(nice_name);
 		return NULL;
-	}
-	else
-	{
-		cur_pr.report_time = time(NULL);
 	}
 
 	return nice_name;

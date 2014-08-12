@@ -51,7 +51,7 @@ int creat_tables()
 		"  `id` int(11) NOT NULL AUTO_INCREMENT,"
 		"  `address` varchar(256) COLLATE utf8_bin NOT NULL,"
 		"  `port` varchar(6) COLLATE utf8_bin NOT NULL,"
-		"  `date` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+		"  `date` timestamp NOT NULL,"
 		"  PRIMARY KEY (`id`)"
 		") ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=1 ;"
 		) < 0)
@@ -63,7 +63,7 @@ int creat_tables()
 		" CREATE TABLE IF NOT EXISTS `programs` ("
 		"   `id` int(11) NOT NULL AUTO_INCREMENT,"
 		"   `client_id` int(11) NOT NULL,"
-		"   `start_date` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+		"   `start_date` timestamp NOT NULL,"
 		"   `end_date` timestamp NULL DEFAULT NULL,"
 		"   `name` varchar(300) COLLATE utf8_bin DEFAULT NULL,"
 		"   `cc` mediumtext COLLATE utf8_bin,"
@@ -135,7 +135,7 @@ int db_add_cli(const char *host, const char *serv, id_t *new_id)
 
 	end += mysql_real_escape_string(con, end, serv, strlen(serv));
 
-	end += strmov(end, "\', NOW()) ;");
+	end += strmov(end, "\', CONVERT_TZ(NOW(), @@session.time_zone, '+00:00') ;");
 
 	if (lock_cli_tbl() < 0)
 		return -1;
@@ -229,7 +229,8 @@ int db_add_program(id_t cli_id, id_t *pr_id, time_t start, char *name)
 
 	end += sprintf(end, "%u", cli_id);
 
-	end += sprintf(end, "\', FROM_UNIXTIME(%lu)", (unsigned long) start);
+	end += sprintf(end, "\',  CONVERT_TZ(FROM_UNIXTIME(%lu), @@session.time_zone, '+00:00') ",
+			(unsigned long) start);
 
 	if (name != NULL)
 	{
@@ -306,7 +307,7 @@ int db_set_pr_endtime(id_t pr_id)
 
 	char q[QUERY_LEN] = {0};
 
-	sprintf(q, "UPDATE programs SET end_date = NOW() WHERE id = \'%u\' LIMIT 1 ;",
+	sprintf(q, "UPDATE programs SET end_date = UTC_TIMESTAMP() WHERE id = \'%u\' LIMIT 1 ;",
 			pr_id);
 
 	return query(q);

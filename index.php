@@ -26,6 +26,7 @@ $q_actv_cli =
 
 $q_all_pr = 
 	"SELECT id, UNIX_TIMESTAMP(start_date), start_date, end_date, name " .
+	// "SELECT id, UNIX_TIMESTAMP(CONVERT_TZ(start_date, @@session.time_zone, '+00:00')), start_date, end_date, name " .
 	"FROM programs " .
 	"ORDER BY id DESC " .
 	"LIMIT " . RESULTS_PER_PAGE . " ;";

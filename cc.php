@@ -109,6 +109,7 @@ if (!file_exists($buf_path)) {
 	}
 
 	$q =
+		// "SELECT id, UNIX_TIMESTAMP(CONVERT_TZ(start_date, @@session.time_zone, '+00:00')), name " .
 		"SELECT id, UNIX_TIMESTAMP(start_date), name " .
 		"FROM programs " .
 		"WHERE client_id = " . $client_id . " ;";
@@ -146,6 +147,7 @@ if (0 == $start)
 	}
 
 	$q =
+		// "SELECT id, UNIX_TIMESTAMP(CONVERT_TZ(start_date, @@session.time_zone, '+00:00')), name " .
 		"SELECT id, UNIX_TIMESTAMP(start_date), name " .
 		"FROM programs " .
 		"WHERE client_id = " . $client_id . " " .
