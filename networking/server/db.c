@@ -135,7 +135,7 @@ int db_add_cli(const char *host, const char *serv, id_t *new_id)
 
 	end += mysql_real_escape_string(con, end, serv, strlen(serv));
 
-	end += strmov(end, "\', CONVERT_TZ(NOW(), @@session.time_zone, '+00:00') ;");
+	end += strmov(end, "\', CONVERT_TZ(NOW(), @@session.time_zone, '+00:00')) ;");
 
 	if (lock_cli_tbl() < 0)
 		return -1;
@@ -179,6 +179,17 @@ int db_get_last_id(id_t *new_id)
 
 	mysql_free_result(result);
 	return 1;
+}
+
+int db_set_cc_name(id_t cli_id, const char *name)
+{
+	assert(cli_id > 0);
+	assert(name != NULL);
+
+	char q[QUERY_LEN] = {0};
+	sprintf(q, "UPDATE clients SET cc_name = \'%s\' WHERE id = %u ;", name, cli_id);
+
+	return query(q);
 }
 
 int db_add_active_cli(id_t id)

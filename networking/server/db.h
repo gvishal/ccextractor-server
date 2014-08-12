@@ -18,6 +18,7 @@ int query(const char *q);
 
 int db_add_cli(const char *host, const char *serv, id_t *new_id);
 int db_get_last_id(id_t *new_id);
+int db_set_cc_name(id_t cli_id, const char *name);
 
 int db_add_active_cli(id_t id);
 int db_set_pr_arctive_cli(id_t id, id_t pr_id);

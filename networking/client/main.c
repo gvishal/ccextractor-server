@@ -16,16 +16,27 @@
 
 #define ull unsigned long long
 
+void rand_str(char *s, size_t len)
+{
+	srand(time(NULL));
+    for (size_t i = 0; i < len; i++)
+        s[i] = rand() % (1 + 'z' - 'a') + 'a';
+
+    return;
+}
+
 int main(int argc, char *argv[])
 {
 	(void) setlocale(LC_ALL, "");
 
-	if (4 != argc) {
-		fprintf(stderr, "Usage: %s host port file\n", argv[0]);
+	if (5 != argc) {
+		fprintf(stderr, "Usage: %s host port file delay\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
 
-	connect_to_srv(argv[1], argv[2]);
+	char name[8] = {0};
+	rand_str(name, 7);
+	connect_to_srv(argv[1], argv[2], name);
 
 	FILE *fp = fopen(argv[3], "r");
 	if (NULL == fp)
@@ -56,6 +67,7 @@ int main(int argc, char *argv[])
 	uint16_t blk_cnt;
 	size_t len;
 
+	int delay = atoi(argv[4]);
 
 	while (!feof(fp))
 	{
@@ -87,7 +99,7 @@ int main(int argc, char *argv[])
 
 		net_send_cc(buf, len + 10);
 
-		nanosleep((struct timespec[]){{0, 300000000}}, NULL);
+		nanosleep((struct timespec[]){{0, delay}}, NULL);
 	}
 
 	fclose(fp);

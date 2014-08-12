@@ -299,13 +299,13 @@ char *nice_str(const char *s, size_t *len)
 
 	char *ret;
 
-	if ((ret = (char *) malloc(sizeof(char) * (*len))) == NULL)
+	if ((ret = (char *) malloc(sizeof(char) * (*len + 1))) == NULL)
 	{
 		_perror("malloc");
 		return NULL;
 	}
 
-	memset(ret, 0, sizeof(char) * (*len));
+	memset(ret, 0, sizeof(char) * (*len + 1));
 
 	int j = 0;
 	int is_sp = FALSE;

@@ -53,7 +53,7 @@ void pr_command(char c);
 
 int srv_sd = -1; /* Server socket descriptor */
 
-void connect_to_srv(const char *addr, const char *port)
+void connect_to_srv(const char *addr, const char *port, const char *cc_name)
 {
 	if (NULL == addr)
 	{
@@ -74,6 +74,12 @@ void connect_to_srv(const char *addr, const char *port)
 	}
 
 	if (ask_passwd(srv_sd) < 0)
+	{
+		printf("Unable to connect\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if (write_block(srv_sd, CC_NAME, cc_name, strlen(cc_name)) < 0)
 	{
 		printf("Unable to connect\n");
 		exit(EXIT_FAILURE);

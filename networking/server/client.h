@@ -7,6 +7,7 @@ pid_t fork_client(int fd, int listenfd, char *h, char *s);
 
 int greeting();
 int check_password();
+int ctrl_switch();
 int handle_bin_mode();
 int bin_loop();
 int read_bin_data();

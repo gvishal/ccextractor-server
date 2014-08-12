@@ -8,12 +8,13 @@
 #define OK              1
 #define PASSWORD        2
 #define BIN_MODE        3
+#define CC_NAME         4
 #define ERROR           51
 #define UNKNOWN_COMMAND 52
 #define WRONG_PASSWORD  53
 #define CONN_LIMIT      54
 
-void connect_to_srv(const char *addr, const char *port);
+void connect_to_srv(const char *addr, const char *port, const char *cc_name);
 
 void net_send_header(const char *data, size_t len);
 void net_send_cc(const char *data, size_t len);

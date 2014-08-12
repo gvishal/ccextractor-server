@@ -66,14 +66,13 @@ pid_t fork_client(int fd, int listenfd, char *h, char *s)
 	serv = s;
 
 	int rc;
-
 	if ((rc = db_conn()) < 0)
 		goto out;
 
 	if ((rc = greeting()) <= 0)
 		goto out;
 
-	if ((rc = handle_bin_mode()) <= 0)
+	if ((rc = ctrl_switch()) <= 0)
 		goto out;
 
 	if ((rc = bin_loop()) <= 0)
@@ -166,24 +165,56 @@ int check_password()
 	}
 }
 
-int handle_bin_mode()
+int ctrl_switch()
 {
 	char c;
-	int rc;
-	if ((rc = read_block(connfd, &c, NULL, NULL)) <= 0)
+	size_t len;
+	char buf[BUFFER_SIZE];
+	int rc = 1;
+	char *name;
+
+	while (1)
 	{
-		if (rc < 0)
-			c_perror(cli_id, "read_block", rc);
-		return rc;
+		len = BUFFER_SIZE;
+		if ((rc = read_block(connfd, &c, buf, &len)) <= 0)
+		{
+			if (rc < 0)
+				c_perror(cli_id, "read_block", rc);
+			return rc;
+		}
+
+		switch (c)
+		{
+			case CC_NAME:
+				name = nice_str(buf, &len);
+
+				rc = db_set_cc_name(cli_id, name);
+
+				_log("\n\n%s\n\n", name);
+
+				free(name);
+
+				if (rc < 0)
+					return rc;
+				break;
+			case BIN_MODE:
+				return handle_bin_mode();
+			default:
+				return 0;
+		}
+		continue;
 	}
 
-	if (c != BIN_MODE)
-		return 0;
+	return -1;
+}
 
+int handle_bin_mode()
+{
 	c_log(cli_id, "Bin mode\n");
 
 	bin_mode = TRUE;
 
+	int rc;
 	if ((rc = write_byte(connfd, OK)) != 1)
 	{
 		if (rc < 0)
