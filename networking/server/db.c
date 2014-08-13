@@ -107,6 +107,9 @@ int db_conn()
 		return -1;
 	}
 
+	if (query("SET time_zone='+00:00'; ") < 0)
+		return -1;
+
 	return 1;
 }
 
@@ -135,7 +138,7 @@ int db_add_cli(const char *host, const char *serv, id_t *new_id)
 
 	end += mysql_real_escape_string(con, end, serv, strlen(serv));
 
-	end += strmov(end, "\', CONVERT_TZ(NOW(), @@session.time_zone, '+00:00')) ;");
+	end += strmov(end, "\', UTC_TIMESTAMP()) ;");
 
 	if (lock_cli_tbl() < 0)
 		return -1;
@@ -240,8 +243,7 @@ int db_add_program(id_t cli_id, id_t *pr_id, time_t start, char *name)
 
 	end += sprintf(end, "%u", cli_id);
 
-	end += sprintf(end, "\',  CONVERT_TZ(FROM_UNIXTIME(%lu), @@session.time_zone, '+00:00') ",
-			(unsigned long) start);
+	end += sprintf(end, "\', FROM_UNIXTIME(%lu) ", (unsigned long) start);
 
 	if (name != NULL)
 	{
