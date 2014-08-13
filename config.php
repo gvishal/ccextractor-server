@@ -31,7 +31,7 @@ define('XDS',              105);
 define('DOWNLOAD_LINKS',   201);
 define('CONN_CLOSED_LINKS',202);
 define('LINKS_QUIET',      205);
-define('CC_NAME',          206);
+define('CC_DESC',          206);
 
 define('OFFSET',           800);
 define('RESULTS_PER_PAGE', 10);

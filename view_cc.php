@@ -14,9 +14,9 @@
 		<div id="name_lbl">Current program: </div>
 		<div id="pr_name">Unknown</div>
 	</div>
-	<div id="cc_name_box">
-		<div id="cc_name_lbl"></div>
-		<div id="cc_name"></div>
+	<div id="cc_desc_box">
+		<div id="cc_desc_lbl"></div>
+		<div id="cc_desc"></div>
 	</div>
 	<div id="links_box">
 		<div id="links_lbl">Download links: </div>

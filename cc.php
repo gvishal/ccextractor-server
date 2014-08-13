@@ -38,6 +38,7 @@ function print_link($pr_id, $time, $ext, $name, $comma)
 	echo "\"path\": \"" . $path . "\"";
 	echo "}";
 
+
 	return true;
 }
 
@@ -142,7 +143,7 @@ if (0 == $start)
 	}
 
 	$q =
-		"SELECT programs.id, UNIX_TIMESTAMP(programs.start_date), programs.name, clients.cc_name " .
+		"SELECT programs.id, UNIX_TIMESTAMP(programs.start_date), programs.name, clients.cc_desc " .
 		"FROM programs " .
 		"LEFT JOIN (clients) ON (clients.id = programs.client_id) " .
 		"WHERE client_id = " . $client_id . " " .
@@ -159,7 +160,7 @@ if (0 == $start)
 		$pr_id = $row[0];
 		$time = $row[1];
 		$name = $row[2];
-		$cc_name = $row[3];
+		$cc_desc = $row[3];
 
 		$comma = print_links(LINKS_QUIET, $pr_id, $time, $name, $comma, $start);
 
@@ -167,9 +168,9 @@ if (0 == $start)
 			echo ",";
 
 		echo "{";
-		echo "\"command\": \"" . CC_NAME . "\", ";
+		echo "\"command\": \"" . CC_DESC . "\", ";
 		echo "\"line\": \"" . $start . "\", ";
-		echo "\"name\": \"" . nice_str($cc_name) . "\"";
+		echo "\"desc\": \"" . nice_str($cc_desc) . "\"";
 		echo "}";
 
 		$comma = true;

@@ -3,11 +3,11 @@ div {
 	width: 100%;
 }
 
-#pr_name, #name_lbl, #cc_name_lbl, #cc_name, #links_lbl, #pr_links, #xds_lbl {
+#pr_name, #name_lbl, #cc_desc_lbl, #cc_desc, #links_lbl, #pr_links, #xds_lbl {
 	width: initial;
 }
 
-#pr_links, #pr_name, #cc_name {
+#pr_links, #pr_name, #cc_desc {
 	padding-left: 5px;
 }
 

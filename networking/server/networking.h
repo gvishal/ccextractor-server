@@ -10,8 +10,7 @@
 #define OK              1
 #define PASSWORD        2
 #define BIN_MODE        3
-#define CC_NAME         4
-// #define CC_TYPE         5 XXX
+#define CC_DESC         4
 #define ERROR           51
 #define UNKNOWN_COMMAND 52
 #define WRONG_PASSWORD  53

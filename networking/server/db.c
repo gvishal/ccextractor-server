@@ -50,6 +50,7 @@ int creat_tables()
 		"CREATE TABLE IF NOT EXISTS `clients` ("
 		"  `id` int(11) NOT NULL AUTO_INCREMENT,"
 		"  `address` varchar(256) COLLATE utf8_bin NOT NULL,"
+		"  `cc_desc` varchar(300) COLLATE utf8_bin DEFAULT NULL,"
 		"  `port` varchar(6) COLLATE utf8_bin NOT NULL,"
 		"  `date` timestamp NOT NULL,"
 		"  PRIMARY KEY (`id`)"
@@ -184,13 +185,13 @@ int db_get_last_id(id_t *new_id)
 	return 1;
 }
 
-int db_set_cc_name(id_t cli_id, const char *name)
+int db_set_cc_desc(id_t cli_id, const char *desc)
 {
 	assert(cli_id > 0);
-	assert(name != NULL);
+	assert(desc != NULL);
 
 	char q[QUERY_LEN] = {0};
-	sprintf(q, "UPDATE clients SET cc_name = \'%s\' WHERE id = %u ;", name, cli_id);
+	sprintf(q, "UPDATE clients SET cc_desc = \'%s\' WHERE id = %u ;", desc, cli_id);
 
 	return query(q);
 }

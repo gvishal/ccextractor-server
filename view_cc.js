@@ -17,7 +17,7 @@ var PROGRAM_CHANGED =   106;
 var DOWNLOAD_LINKS =    201;
 var CONN_CLOSED_LINKS = 202;
 var LINKS_QUIET =       205;
-var CC_NAME =           206;
+var CC_DESC =           206;
 
 var rc;
 var cur_links = "";
@@ -46,9 +46,9 @@ $(function() {
 					});
 
 					$("#pr_links").html(cur_links);
-				} else if (d.command == CC_NAME) {
-					$("#cc_name_lbl").html("Channel: ");
-					$("#cc_name").html(d.name);
+				} else if (d.command == CC_DESC) {
+					$("#cc_desc_lbl").html("Description: ");
+					$("#cc_desc").html(d.desc);
 				} else if (d.command == PROGRAM_NEW) {
 					$(
 						"<div id=\"new_program\">Program name: " + 

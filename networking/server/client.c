@@ -171,7 +171,7 @@ int ctrl_switch()
 	size_t len;
 	char buf[BUFFER_SIZE];
 	int rc = 1;
-	char *name;
+	char *desc;
 
 	while (1)
 	{
@@ -185,12 +185,12 @@ int ctrl_switch()
 
 		switch (c)
 		{
-			case CC_NAME:
-				name = nice_str(buf, &len);
+			case CC_DESC:
+				desc = nice_str(buf, &len);
 
-				rc = db_set_cc_name(cli_id, name);
+				rc = db_set_cc_desc(cli_id, desc);
 
-				free(name);
+				free(desc);
 
 				if (rc < 0)
 					return rc;
