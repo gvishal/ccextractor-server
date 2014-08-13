@@ -301,7 +301,7 @@ char *nice_str(const char *s, size_t *len)
 
 	if ((ret = (char *) malloc(sizeof(char) * (*len + 1))) == NULL)
 	{
-		_perror("malloc");
+		_perror("malloc"); /* TODO: sometimes it fails here */
 		return NULL;
 	}
 

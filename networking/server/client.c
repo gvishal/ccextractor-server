@@ -59,7 +59,7 @@ pid_t fork_client(int fd, int listenfd, char *h, char *s)
 	close(listenfd);
 
 	_signal(SIGCHLD, sigchld_client);
-	_signal(SIGINT, cleanup);
+	/* _signal(SIGINT, cleanup); */
 
 	connfd = fd;
 	host = h;
@@ -296,7 +296,7 @@ int bin_loop()
 			goto out;
 		}
 
-		if (fds[0].revents != 0)
+		else if (fds[0].revents != 0)
 		{
 			if (fds[0].revents & POLLHUP)
 			{
@@ -537,17 +537,21 @@ int init_cce_output()
 
 void cleanup()
 {
-	if (cli_id > 0)
-	{
-		db_remove_active_cli(cli_id);
-		cli_id = 0;
-	}
+	/* c_log(cli_id, "inside cleanup()\n"); */
 
 	if (parser_pid > 0)
 	{
+		/* c_log(cli_id, "Killing parser (pid = %d)\n", parser_pid); */
+
 		if (kill(parser_pid, SIGINT) < 0)
 			_perror("kill");
 		parser_pid = -1;
+
+		waitpid(parser_pid, NULL, 0);
+		/* then sigchld_client() will be reached */
+		/* unless cleanup() is already called from sigchld_client() */
+		/* e.g. ccextractor terminated */
+		/* and following SIGCHLD of parser will be disarded */
 	}
 
 	if (cce_pid > 0)
@@ -579,15 +583,16 @@ void cleanup()
 		cce_out.path = NULL;
 	}
 
-	/* Wait for parser SIGINT handler to set program end time */
-	/* XXX: send pr_id to client and set it from here??? */
-	nanosleep((struct timespec[]){{0, 2 * INF_READ_DELAY}}, NULL);
-	db_close_conn();
+	if (cli_id > 0)
+	{
+		db_remove_active_cli(cli_id);
+		cli_id = 0;
+	}
 }
 
 void sigchld_client()
 {
-	/* c_log(cli_id, "sigchld_client() handler\n"); */
+	/* c_log(cli_id, "inside sigchld_client() handler\n"); */
 	pid_t pid;
 	int stat;
 	int failed = FALSE;
@@ -613,9 +618,11 @@ void sigchld_client()
 			failed = TRUE;
 	}
 
-	_log("[%d] Disconnected\n", cli_id);
-
 	cleanup();
+
+	db_close_conn();
+
+	_log("[%d] Disconnected\n", cli_id);
 
 	if (failed)
 	{

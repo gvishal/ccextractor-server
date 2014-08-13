@@ -27,6 +27,8 @@ file_t txt;
 file_t xds;
 file_t srt;
 
+int sigint_received;
+
 struct pr_t
 {
 	id_t id;
@@ -101,6 +103,13 @@ int parser_loop(const char *cce_output)
 
 		if ((nread = getline(&line, &len, fp)) <= 0)
 		{
+			if (sigint_received)
+			{
+				/* _log("exiting from parser_loop()\n"); */
+				cleanup_parser();
+				exit(EXIT_SUCCESS);
+			}
+
 			clearerr(fp);
 			if ((rc = fsetpos(fp, &pos)) < 0)
 			{
@@ -111,6 +120,9 @@ int parser_loop(const char *cce_output)
 			rc = nanosleep((struct timespec[]){{0, INF_READ_DELAY}}, NULL);
 			if (rc < 0)
 			{
+				if (EINTR == errno)
+					continue;
+
 				_perror("nanosleep");
 				goto out;
 			}
@@ -686,9 +698,9 @@ void cleanup_parser()
 
 void sigint_parser()
 {
-	/* c_log(cli_id, "sigint_parser() handler\n"); */
-	cleanup_parser();
+	/* _log("inside sigint_parser()\n"); */
+	sigint_received = TRUE;
 
-	exit(EXIT_SUCCESS);
+	return;
 }
 
