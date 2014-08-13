@@ -35,4 +35,19 @@ define('CC_NAME',          206);
 
 define('OFFSET',           800);
 define('RESULTS_PER_PAGE', 10);
+
+function db_connect()
+{
+	global $cfg;
+
+	$link = mysqli_connect($cfg["mysql_host"], $cfg["mysql_user"], $cfg["mysql_password"], $cfg["mysql_db_name"]);
+	if (mysqli_connect_errno()) {
+		printf("Unable to connect to db: %s\n", mysqli_connect_error());
+		exit();
+	}
+
+	mysqli_query($link, "SET time_zone='+00:00';");
+
+	return $link;
+}
 ?>

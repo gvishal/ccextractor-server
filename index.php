@@ -13,11 +13,7 @@ function pr_link($time, $id, $ext, $name)
 	echo "\t\t\t<a href=\"" . $path . "\">" . $name . "</a> \n";
 }
 
-$link = mysqli_connect($cfg["mysql_host"], $cfg["mysql_user"], $cfg["mysql_password"], $cfg["mysql_db_name"]);
-if (mysqli_connect_errno()) {
-	printf("Unable to connect to db: %s\n", mysqli_connect_error());
-	exit();
-}
+$link = db_connect();
 
 $q_actv_cli = 
 	"SELECT active_clients.id, clients.address, clients.port, clients.cc_name, programs.start_date, programs.name " .
@@ -26,7 +22,6 @@ $q_actv_cli =
 
 $q_all_pr = 
 	"SELECT programs.id, UNIX_TIMESTAMP(programs.start_date), programs.start_date, programs.end_date, clients.cc_name, programs.name " .
-	// "SELECT id, UNIX_TIMESTAMP(CONVERT_TZ(start_date, @@session.time_zone, '+00:00')), start_date, end_date, name " .
 	"FROM programs " .
 	"LEFT JOIN (clients) ON (clients.id = programs.client_id) " .
 	"ORDER BY id DESC " .

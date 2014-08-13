@@ -13,11 +13,7 @@ function pr_link($time, $id, $ext, $name)
 	echo "\t\t\t<a href=\"" . $path . "\">" . $name . "</a> \n";
 }
 
-$link = mysqli_connect($cfg["mysql_host"], $cfg["mysql_user"], $cfg["mysql_password"], $cfg["mysql_db_name"]);
-if (mysqli_connect_errno()) {
-	printf("Unable to connect to db: %s\n", mysqli_connect_error());
-	exit();
-}
+$link = db_connect();
 
 $where = "WHERE 1 ";
 $join = "LEFT JOIN (clients) ON (programs.client_id = clients.id) ";

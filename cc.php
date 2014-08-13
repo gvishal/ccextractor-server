@@ -102,14 +102,9 @@ if (!file_exists($buf_path)) {
 	echo "\"command\": \"" . CONN_CLOSED. "\"";
 	echo "}";
 
-	$link = mysqli_connect($cfg["mysql_host"], $cfg["mysql_user"], $cfg["mysql_password"], $cfg["mysql_db_name"]);
-	if (mysqli_connect_errno()) {
-		echo "]";
-		exit();
-	}
+	$link = db_connect();
 
 	$q =
-		// "SELECT id, UNIX_TIMESTAMP(CONVERT_TZ(start_date, @@session.time_zone, '+00:00')), name " .
 		"SELECT id, UNIX_TIMESTAMP(start_date), name " .
 		"FROM programs " .
 		"WHERE client_id = " . $client_id . " ;";
@@ -147,7 +142,6 @@ if (0 == $start)
 	}
 
 	$q =
-		// "SELECT id, UNIX_TIMESTAMP(CONVERT_TZ(start_date, @@session.time_zone, '+00:00')), name " .
 		"SELECT programs.id, UNIX_TIMESTAMP(programs.start_date), programs.name, clients.cc_name " .
 		"FROM programs " .
 		"LEFT JOIN (clients) ON (clients.id = programs.client_id) " .
