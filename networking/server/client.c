@@ -326,7 +326,8 @@ int bin_loop()
 	}
 
 out:
-	_log("[%d] Disconnected\n", cli_id);
+	if (0 == ret)
+		_log("[%d] Closed connection\n", cli_id);
 
 	cleanup();
 
@@ -540,9 +541,7 @@ void cleanup()
 	if (parser_pid > 0)
 	{
 		/* c_log(cli_id, "inside cleanup() - SIGUSR2 parser (pid = %d)\n", parser_pid); */
-		if (kill(parser_pid, SIGUSR2) < 0)
-			_perror("kill");
-		else
+		if (kill(parser_pid, SIGUSR2) == 0)
 			waitpid(parser_pid, NULL, 0);
 		/* then sigchld_client() will be reached, which will set
 		 * parser_pid to -1, */
@@ -585,6 +584,9 @@ void cleanup()
 	if (cli_id > 0)
 	{
 		db_remove_active_cli(cli_id);
+		db_close_conn();
+
+		_log("[%d] Disconnected\n", cli_id);
 		cli_id = 0;
 	}
 }
@@ -619,10 +621,6 @@ void sigchld_client()
 
 	cleanup();
 
-	db_close_conn();
-
-	_log("[%d] Disconnected\n", cli_id);
-
 	if (failed)
 	{
 		write_byte(connfd, ERROR);
@@ -641,9 +639,8 @@ void kill_children()
 		/* _log("inside kill_children() - killing parser (pid = %d)\n", parser_pid); */
 		id_t p = parser_pid; /* so it won't be killed again in sigchld_client */
 		parser_pid = -1;
-		if (kill(p, SIGUSR1) < 0)
-			_perror("kill");
-		else
+
+		if (kill(p, SIGUSR1) == 0)
 			waitpid(p, NULL, 0);
 	}
 

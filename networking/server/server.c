@@ -281,6 +281,9 @@ void cleanup_server()
 		id_t p = cli[i].pid;
 		cli[i].pid = 0;
 
+		if (kill(p, 0) < 0)
+			continue;
+
 		/* _log("sending SIGUSR1 to %d\n", p); */
 		if (kill(p, SIGUSR1) < 0)
 			_perror("kill");
