@@ -27,7 +27,9 @@ void cleanup();
 void logged_out();
 
 void sigchld_client();
+void kill_children();
 
 pid_t fork_cce();
+
 #endif /* end of include guard: CLIENT_H */
 

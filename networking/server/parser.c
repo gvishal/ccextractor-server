@@ -27,7 +27,7 @@ file_t txt;
 file_t xds;
 file_t srt;
 
-int sigint_received;
+int sigusr2_received;
 
 struct pr_t
 {
@@ -61,7 +61,8 @@ pid_t fork_parser(id_t id, const char *cce_output, int pipe)
 	cli_id = id;
 	pipe_w = pipe;
 
-	_signal(SIGINT, sigint_parser);
+	_signal(SIGUSR1, sigusr1_parser);
+	_signal(SIGUSR2, sigusr2_parser);
 
 	if (open_buf_file() < 0)
 		goto out;
@@ -103,7 +104,7 @@ int parser_loop(const char *cce_output)
 
 		if ((nread = getline(&line, &len, fp)) <= 0)
 		{
-			if (sigint_received)
+			if (sigusr2_received)
 			{
 				/* _log("exiting from parser_loop()\n"); */
 				cleanup_parser();
@@ -696,11 +697,20 @@ void cleanup_parser()
 	}
 }
 
-void sigint_parser()
+void sigusr2_parser()
 {
-	/* _log("inside sigint_parser()\n"); */
-	sigint_received = TRUE;
+	/* _log("inside sigusr2_parser()\n"); */
+	sigusr2_received = TRUE;
 
+	/* XXX: seed up parsing and db queries */
 	return;
+}
+
+void sigusr1_parser()
+{
+	/* _log("inside sigusr1_parser()\n"); */
+
+	cleanup_parser();
+	exit(EXIT_SUCCESS);
 }
 

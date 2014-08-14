@@ -33,7 +33,8 @@ int creat_pr_dir(char **path, time_t *start);
 char *file_path(id_t prgm_id, const char *dir, const char *ext);
 
 void cleanup_parser();
-void sigint_parser();
+void sigusr2_parser();
+void sigusr1_parser();
 
 #endif /* end of include guard: PARSER_H */
 

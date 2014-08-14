@@ -77,7 +77,8 @@ int main()
 	if (cfg.create_logs)
 		open_log_file();
 
-	_signal(SIGCHLD, sig_chld);
+	_signal(SIGCHLD, sigchld_server);
+	_signal(SIGINT, cleanup_server);
 
 	cli = (struct cli_t *) malloc((sizeof(struct cli_t)) * (cfg.max_conn));
 	if (NULL == cli)
@@ -252,9 +253,9 @@ void open_log_file()
 	printf("strerr is redirected to log file: %s\n", log_filepath);
 }
 
-void sig_chld()
+void sigchld_server()
 {
-	/* c_log(-1, "sig_chld() handler\n"); */
+	/* c_log(-1, "sigchld_server() handler\n"); */
 	pid_t pid;
 	int stat;
 
@@ -268,4 +269,24 @@ void sig_chld()
 			free_cli(i);
 		}
 	}
+}
+
+void cleanup_server()
+{
+	for (size_t i = 0; i < cli_cnt; i++)
+	{
+		if (cli[i].fd < 0 || cli[i].pid <= 0)
+			continue;
+
+		id_t p = cli[i].pid;
+		cli[i].pid = 0;
+
+		/* _log("sending SIGUSR1 to %d\n", p); */
+		if (kill(p, SIGUSR1) < 0)
+			_perror("kill");
+		else
+			waitpid(p, NULL, 0);
+	}
+
+	exit(EXIT_SUCCESS);
 }

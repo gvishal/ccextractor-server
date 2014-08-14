@@ -10,6 +10,7 @@
 
 #include <my_global.h>
 #include <mysql.h>
+#include <errmsg.h>
 
 MYSQL *con;
 
@@ -378,12 +379,28 @@ int unlock_db()
 
 int query(const char *q)
 {
+    sigset_t newmask, oldmask;
+    sigemptyset(&newmask);
+    sigaddset(&newmask, SIGUSR1);
+    sigaddset(&newmask, SIGUSR2);
+
+    if (sigprocmask(SIG_BLOCK, &newmask, &oldmask) < 0) {
+        _perror("sigprocmask");
+        return -1;
+    }
+
+	int rc = 1;
 	if (mysql_real_query(con, q, strlen(q)))
 	{
 		_log("MySQL query: %s\n", q);
 		mysql_perror("mysql_real_query", con);
-		return -1;
+		rc = -1;
 	}
 
-	return 1;
+    if (sigprocmask(SIG_SETMASK, &oldmask, 0) < 0) {
+        _perror("sigprocmask");
+		return -1;
+    }
+
+	return rc;
 }

@@ -59,7 +59,7 @@ pid_t fork_client(int fd, int listenfd, char *h, char *s)
 	close(listenfd);
 
 	_signal(SIGCHLD, sigchld_client);
-	/* _signal(SIGINT, cleanup); */
+	_signal(SIGUSR1, kill_children);
 
 	connfd = fd;
 	host = h;
@@ -296,7 +296,7 @@ int bin_loop()
 			goto out;
 		}
 
-		else if (fds[0].revents != 0)
+		if (fds[0].revents != 0)
 		{
 			if (fds[0].revents & POLLHUP)
 			{
@@ -537,28 +537,27 @@ int init_cce_output()
 
 void cleanup()
 {
-	/* c_log(cli_id, "inside cleanup()\n"); */
-
 	if (parser_pid > 0)
 	{
-		/* c_log(cli_id, "Killing parser (pid = %d)\n", parser_pid); */
-
-		if (kill(parser_pid, SIGINT) < 0)
+		/* c_log(cli_id, "inside cleanup() - SIGUSR2 parser (pid = %d)\n", parser_pid); */
+		if (kill(parser_pid, SIGUSR2) < 0)
 			_perror("kill");
-		parser_pid = -1;
-
-		waitpid(parser_pid, NULL, 0);
-		/* then sigchld_client() will be reached */
-		/* unless cleanup() is already called from sigchld_client() */
-		/* e.g. ccextractor terminated */
-		/* and following SIGCHLD of parser will be disarded */
+		else
+			waitpid(parser_pid, NULL, 0);
+		/* then sigchld_client() will be reached, which will set
+		 * parser_pid to -1, */
 	}
 
 	if (cce_pid > 0)
 	{
-		if (kill(cce_pid, SIGINT) < 0)
-			_perror("kill");
+		/* c_log(cli_id, "inside cleanup() - SIGINT cce (pid = %d)\n", cce_pid); */
+		pid_t p = cce_pid;
+
 		cce_pid = -1;
+		if (kill(p, SIGINT) < 0)
+			_perror("kill");
+		else
+			waitpid(p, NULL, 0);
 	}
 
 	if (cce_in.fp != NULL)
@@ -592,7 +591,7 @@ void cleanup()
 
 void sigchld_client()
 {
-	/* c_log(cli_id, "inside sigchld_client() handler\n"); */
+	/* c_log(cli_id, "inside sigchld_client()\n"); */
 	pid_t pid;
 	int stat;
 	int failed = FALSE;
@@ -628,6 +627,35 @@ void sigchld_client()
 	{
 		write_byte(connfd, ERROR);
 		exit(EXIT_FAILURE);
+	}
+
+	exit(EXIT_SUCCESS);
+}
+
+void kill_children()
+{
+	/* _log("inside kill_children()\n"); */
+
+	if (parser_pid > 0)
+	{
+		/* _log("inside kill_children() - killing parser (pid = %d)\n", parser_pid); */
+		id_t p = parser_pid; /* so it won't be killed again in sigchld_client */
+		parser_pid = -1;
+		if (kill(p, SIGUSR1) < 0)
+			_perror("kill");
+		else
+			waitpid(p, NULL, 0);
+	}
+
+	if (cce_pid > 0)
+	{
+		/* _log("inside kill_children() - killing ccextractor (pid = %d)\n", cce_pid); */
+		pid_t p = cce_pid;
+		cce_pid = -1;
+		if (kill(p, SIGINT) < 0)
+			_perror("kill");
+		else
+			waitpid(p, NULL, 0);
 	}
 
 	exit(EXIT_SUCCESS);

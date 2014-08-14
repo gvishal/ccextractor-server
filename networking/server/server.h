@@ -12,6 +12,7 @@ void close_conn(int id);
 
 void open_log_file();
 
-void sig_chld();
+void sigchld_server();
+void cleanup_server();
 
 #endif /* end of include guard: SERVER_H */

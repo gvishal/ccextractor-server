@@ -48,13 +48,13 @@ ssize_t read_byte(int fd, char *status);
 const char *m_strerror(int rc);
 void c_log(int cli_id, const char *fmt, ...);
 // FIXME: these names may be reserved
-#define _log(...) c_log(0, __VA_ARGS__);
+#define _log(...) c_log(0, __VA_ARGS__)
 
-#define _perror(str) _log("%s:%d %s() error: %s\n", __FILE__, __LINE__, str, strerror(errno));
-#define m_perror(str, rc) _log("%s:%d %s() error: %s\n", __FILE__, __LINE__, str, m_strerror(rc));
+#define _perror(str) _log("%s:%d %s() error: %s\n", __FILE__, __LINE__, str, strerror(errno))
+#define m_perror(str, rc) _log("%s:%d %s() error: %s\n", __FILE__, __LINE__, str, m_strerror(rc))
 // TODO change cli_id
-#define c_perror(cli, str, rc) c_log(cli, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, m_strerror(rc));
-#define mysql_perror(str, rc) _log("%s:%d %s() error: %s\n", __FILE__, __LINE__, str, mysql_error(rc));
+#define c_perror(cli, str, rc) c_log(cli, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, m_strerror(rc))
+#define mysql_perror(str, rc) _log("%s:%d %s() error: %s\n", __FILE__, __LINE__, str, mysql_error(rc))
 
 /* Sets signal handler */
 void _signal(int sig, void (*func)(int));
