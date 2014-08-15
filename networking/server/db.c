@@ -109,7 +109,10 @@ int db_conn()
 		return -1;
 	}
 
-	if (query("SET time_zone='+00:00'; ") < 0)
+	char q[QUERY_LEN];
+	sprintf(q, "SET time_zone='%s'; ", cfg.mysql_tz);
+
+	if (query(q) < 0)
 		return -1;
 
 	return 1;

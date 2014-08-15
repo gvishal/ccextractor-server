@@ -19,6 +19,12 @@ if (!array_key_exists("archive_files_dir", $cfg))
 if (!array_key_exists("buffer_files_dir", $cfg))
 	$cfg["buffer_files_dir"] = "./tmp";
 
+if (!array_key_exists("mysql_timezone", $cfg))
+	$cfg["mysql_timezone"] = "+00:00";
+
+if (!array_key_exists("env_timezone", $cfg))
+	$cfg["env_timezone"] = "UTC";
+
 define('INT_LEN',          10);
 
 define('CONN_CLOSED',      101);
@@ -34,7 +40,9 @@ define('LINKS_QUIET',      205);
 define('CC_DESC',          206);
 
 define('OFFSET',           800);
-define('RESULTS_PER_PAGE', 10);
+define('RESULTS_PER_PAGE', 20);
+
+putenv("TZ=$cfg[env_timezone]");
 
 function db_connect()
 {
@@ -46,7 +54,7 @@ function db_connect()
 		exit();
 	}
 
-	mysqli_query($link, "SET time_zone='+00:00';");
+	mysqli_query($link, "SET time_zone='$cfg[mysql_timezone]';");
 
 	return $link;
 }

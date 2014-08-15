@@ -6,6 +6,7 @@
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
+#include <time.h>
 
 int init_cfg()
 {
@@ -28,6 +29,8 @@ int init_cfg()
 	cfg.db_dbname = DFT_DB_DBNAME;
 	cfg.pr_timeout = DFT_PR_TIMEOUT;
 	cfg.pr_report_time = DFT_PR_REPORT_TIME;
+	cfg.mysql_tz = DFT_MYSQL_TZ;
+	cfg.env_tz = DFT_ENV_TZ;
 
 	if ((cfg.pwd = (char *) malloc(DFT_PASSW_LEN + 1)) == NULL) /* +1 for '\0' */
 		return ERRNO;
@@ -349,6 +352,24 @@ int parse_config_file()
 			}
 			cfg.pr_report_time = val_num;
 		}
+		else if (strncmp(line, "mysql_timezone", key_len) == 0)
+		{
+			if (string != val_type)
+			{
+				rc = CFG_STR;
+				goto out;
+			}
+			cfg.mysql_tz = val_str;
+		}
+		else if (strncmp(line, "env_timezone", key_len) == 0)
+		{
+			if (string != val_type)
+			{
+				rc = CFG_STR;
+				goto out;
+			}
+			cfg.env_tz = val_str;
+		}
 		else
 		{
 			rc = CFG_UNKNOWN;
@@ -365,31 +386,42 @@ out:
 
 int creat_dirs()
 {
-	struct stat st = {0};
-
-	if (stat(cfg.buf_dir, &st) == -1 && _mkdir(cfg.buf_dir, MODE755) < 0)
+	if (_mkdir(cfg.buf_dir, MODE755) < 0)
 	{
 		_perror("_mkdir");
 		return -1;
 	}
 
-	if (stat(cfg.log_dir, &st) == -1 && _mkdir(cfg.log_dir, MODE755) < 0)
+	if (_mkdir(cfg.log_dir, MODE755) < 0)
 	{
 		_perror("_mkdir");
 		return -1;
 	}
 
-	if (stat(cfg.arch_dir, &st) == -1 && _mkdir(cfg.arch_dir, MODE755) < 0)
+	if (_mkdir(cfg.arch_dir, MODE755) < 0)
 	{
 		_perror("_mkdir");
 		return -1;
 	}
 
-	if (stat(cfg.cce_output_dir, &st) == -1 && _mkdir(cfg.cce_output_dir, MODE755) < 0)
+	if (_mkdir(cfg.cce_output_dir, MODE755) < 0)
 	{
 		_perror("_mkdir");
 		return -1;
 	}
+
+	return 1;
+}
+
+int set_tz()
+{
+	if (setenv("TZ", cfg.env_tz, 1) < 0)
+	{
+		_perror("setenv");
+		return -1;
+	}
+
+	tzset();
 
 	return 1;
 }

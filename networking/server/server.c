@@ -56,6 +56,9 @@ int main()
 		exit(EXIT_FAILURE);
 	}
 
+	if (set_tz() < 0)
+		return -1;
+
 	if (creat_dirs() < 0)
 		return -1;
 

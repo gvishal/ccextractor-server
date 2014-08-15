@@ -26,6 +26,8 @@
 #define DFT_DB_DBNAME "cce"
 #define DFT_PR_TIMEOUT 2 * 40 * 60 /* sec */
 #define DFT_PR_REPORT_TIME 1 * 60 /* sec */
+#define DFT_MYSQL_TZ "+00:00"
+#define DFT_ENV_TZ "UTC"
 
 #define INF_READ_DELAY 300000000 /* Nano sec less than 10^9 */
 #define BUFFER_SIZE 20480
@@ -55,6 +57,8 @@ struct cfg_t
 	char *db_dbname;
 	unsigned pr_timeout;
 	unsigned pr_report_time;
+	char *mysql_tz;
+	char *env_tz;
 
 	unsigned is_inited : 1;
 } cfg;
@@ -64,5 +68,7 @@ int init_cfg();
 int parse_config_file();
 
 int creat_dirs();
+
+int set_tz();
 
 #endif /* end of include guard: PARAMS_H */
