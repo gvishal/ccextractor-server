@@ -74,7 +74,8 @@ int parse_config_file()
 
 		while (strchr(" \t", *line)) line++;
 
-		for (int i = 0; i < read; i++) {
+		for (int i = 0; i < read; i++)
+		{
 			if ('=' == line[i])
 			{
 				/* skip spaces before '=' */

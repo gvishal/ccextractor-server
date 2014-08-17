@@ -65,7 +65,7 @@ int creat_tables()
 		" CREATE TABLE IF NOT EXISTS `programs` ("
 		"   `id` int(11) NOT NULL AUTO_INCREMENT,"
 		"   `client_id` int(11) NOT NULL,"
-		"   `start_date` timestamp NOT NULL,"
+		"   `start_date` timestamp NULL DEFAULT NULL,"
 		"   `end_date` timestamp NULL DEFAULT NULL,"
 		"   `name` varchar(300) COLLATE utf8_bin DEFAULT NULL,"
 		"   `cc` mediumtext COLLATE utf8_bin,"
