@@ -12,6 +12,7 @@
 #include <mysql.h>
 #include <errmsg.h>
 
+int is_db_created;
 MYSQL *con;
 
 int init_db() {
@@ -45,7 +46,6 @@ int creat_tables()
 	sprintf(q, "USE %s ;", cfg.db_dbname);
 	if (query(q) < 0)
 		return -1;
-
 
 	if (query(
 		"CREATE TABLE IF NOT EXISTS `clients` ("
@@ -89,6 +89,8 @@ int creat_tables()
 		return -1;
 	}
 
+	is_db_created = TRUE;
+
 	return 1;
 }
 
@@ -101,8 +103,12 @@ int db_conn()
 		return -1;
 	}
 
-	if (mysql_real_connect(con, cfg.db_host, cfg.db_user, cfg.db_passwd,
-				cfg.db_dbname, 0, NULL, 0) == NULL)
+	char *db = cfg.db_dbname;
+	if (!is_db_created)
+		db = NULL;
+
+	if (mysql_real_connect(con, cfg.db_host, cfg.db_user, cfg.db_passwd, db,
+				0, NULL, 0) == NULL)
 	{
 		mysql_perror("mysql_real_connect", con);
 		mysql_close(con);
