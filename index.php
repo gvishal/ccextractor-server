@@ -15,6 +15,7 @@ function pr_link($time, $id, $ext, $name)
 
 $link = db_connect();
 
+// TODO: joins in index page - not good
 $q_actv_cli = 
 	"SELECT active_clients.id, clients.address, clients.port, clients.cc_desc, programs.start_date, programs.name " .
 	"FROM active_clients " .
@@ -151,6 +152,8 @@ if ($result = mysqli_query($link, $q_all_pr)) {
 ?>
 
 <a href="search.php">Search database</a>
+<br>
+<a href="grid.html">Grid</a>
 
 </body>
 </html>
