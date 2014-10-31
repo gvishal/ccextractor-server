@@ -398,12 +398,25 @@ int query(const char *q)
         return -1;
     }
 
-	int rc = 1;
+	int rc = -1;
+
+restart:
+
 	if (mysql_real_query(con, q, strlen(q)))
 	{
+		unsigned int err = mysql_errno(con);
+		if (err == CR_SERVER_GONE_ERROR || err == CR_SERVER_LOST)
+		{
+			_log("___ MySQL conn has gone away");
+			if (db_conn() > 0)
+				goto restart;
+		}
+
+		rc = -1;
+
 		_log("MySQL query: %s\n", q);
 		mysql_perror("mysql_real_query", con);
-		rc = -1;
+		/* XXX would it print an error from mysql_errno()?? */
 	}
 
     if (sigprocmask(SIG_SETMASK, &oldmask, 0) < 0) {
