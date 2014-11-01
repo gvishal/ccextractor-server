@@ -663,11 +663,8 @@ int creat_pr_dir(char **path, time_t *start)
 
 	snprintf(*path, PATH_MAX, "%s/%s", cfg.arch_dir, time_buf);
 
-	if (_mkdir(*path, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH ) < 0)
-	{
-		_perror("_mkdir");
+	if (mkpath(*path, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH ) < 0)
 		return -1;
-	}
 
 	c_log(cli_id, "Program dir: %s\n", *path);
 

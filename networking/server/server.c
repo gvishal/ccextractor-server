@@ -39,28 +39,26 @@ int main()
 	int rc;
 
 	if ((rc = init_cfg()) < 0)
-	{
-		m_perror("init_cfg", rc);
 		exit(EXIT_FAILURE);
-	}
 
+	/* XXX why?? */
 	if (setvbuf(stdout, NULL, _IOLBF, 0) < 0) 
 	{
-		_perror("setvbuf");
+		logfatal("setvbuf");
 		exit(EXIT_FAILURE);
 	}
 
 	if ((rc = parse_config_file()) < 0)
-	{
-		m_perror("parse_config_file", rc); /* TODO Nope */
 		exit(EXIT_FAILURE);
-	}
 
-	if (set_tz() < 0)
-		return -1;
+	set_tz();
 
 	if (creat_dirs() < 0)
-		return -1;
+		exit(EXIT_FAILURE);
+
+	/* XXX to this point log files are not created, but we use debug() */
+	if (cfg.create_logs)
+		open_log_file();
 
 	if (init_db() < 0)
 		exit(EXIT_FAILURE);
@@ -68,17 +66,11 @@ int main()
 	int fam;
 	int listen_sd = bind_server(cfg.port, &fam);
 	if (listen_sd < 0) 
-	{
-		m_perror("bind_server", rc);
 		exit(EXIT_FAILURE);
-	}
 
 	printf("Server is binded to %d\n", cfg.port);
 	if (cfg.use_pwd)
 		printf("Password: %s\n", cfg.pwd);
-
-	if (cfg.create_logs)
-		open_log_file();
 
 	_signal(SIGCHLD, sigchld_server);
 	_signal(SIGINT, cleanup_server);
@@ -295,4 +287,21 @@ void cleanup_server()
 	}
 
 	exit(EXIT_SUCCESS);
+}
+
+int creat_dirs()
+{
+	if (mkpath(cfg.buf_dir, MODE755) < 0)
+		return -1;
+
+	if (mkpath(cfg.log_dir, MODE755) < 0)
+		return -1;
+
+	if (mkpath(cfg.arch_dir, MODE755) < 0)
+		return -1;
+
+	if (mkpath(cfg.cce_output_dir, MODE755) < 0)
+		return -1;
+
+	return 1;
 }

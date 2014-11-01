@@ -12,19 +12,21 @@
 /* read_block(): */
 #define BLK_SIZE -2 /* Wrong block size */
 #define END_MARKER -3 /* No end marker present */
-/* parse_config_file(): */
-#define CFG_ERR -4 /* Can't parse config file */
-#define CFG_NUM -5 /* Number expected */
-#define CFG_STR -6 /* String expected */
-#define CFG_BOOL -7 /* true/false expected */
-#define CFG_UNKNOWN -8 /* Unknown key-value pair */
 /* bind_server(): */
 #define B_SRV_GAI -9 /* getaddrinfo() error val in errno */
 #define B_SRV_ERR -10 /* Could bind */
 
+/* debug verbose levels: */
+#define FATAL 1
+#define ERR 2
+#define WARNING 3
+#define INFO 4
+
 #ifndef INT_LEN
 #define INT_LEN 10
 #endif
+
+#define MODE755 S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH
 
 typedef struct 
 {
@@ -44,6 +46,18 @@ ssize_t writen(int fd, const void *vptr, size_t n);
 ssize_t write_byte(int fd, char status);
 ssize_t read_byte(int fd, char *status);
 
+
+void debug(int vlevel, int cli_id, const char *fmt, ...);
+
+#define logfatalmsg(str) debug(FATAL, 0, "%s:%d %s\n", __FILE__, __LINE__, str)
+#define logerrmsg(str) debug(FATAL, 0, "%s:%d %s\n", __FILE__, __LINE__, str)
+#define loginfomsg(str) debug(FATAL, 0, "%s:%d %s\n", __FILE__, __LINE__, str)
+
+#define logfatal(str)    debug(FATAL, 0, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, strerror(errno))
+#define logerr(str)      debug(ERR,   0, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, strerror(errno))
+#define logmysqlfatal(str, conn) debug(FATAL, 0, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, mysql_error(conn))
+#define logmysqlerr(str, conn)   debug(ERR,   0, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, mysql_error(conn))
+
 /* Writes message to stderr */
 const char *m_strerror(int rc);
 void c_log(int cli_id, const char *fmt, ...);
@@ -60,7 +74,7 @@ void c_log(int cli_id, const char *fmt, ...);
 void _signal(int sig, void (*func)(int));
 
 /* Recursive mkdir */
-int _mkdir(const char *dir, mode_t mode);
+int mkpath(const char *path, mode_t mode);
 
 /* Generates string of random chars */
 void rand_str(char *s, size_t len);
@@ -76,5 +90,7 @@ int set_nonblocking(int fd);
 
 /* Copies src sting to dest, including \0, return number of copied bytes */
 size_t strmov(char *dest, const char *src);
+
+int set_tz();
 
 #endif /* end of include guard: UTILS_H */

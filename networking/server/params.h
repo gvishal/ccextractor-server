@@ -33,8 +33,6 @@
 #define BUFFER_SIZE 20480
 #define BIN_HEADER_LEN 11
 
-#define MODE755 S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH
-
 struct cfg_t
 {
 	int port;
@@ -65,10 +63,12 @@ struct cfg_t
 
 int init_cfg();
 
+/* errors values: */
+#define CFG_ERR -4 /* Can't parse config file */
+#define CFG_NUM -5 /* Number expected */
+#define CFG_STR -6 /* String expected */
+#define CFG_BOOL -7 /* true/false expected */
+#define CFG_UNKNOWN -8 /* Unknown key-value pair */
 int parse_config_file();
-
-int creat_dirs();
-
-int set_tz();
 
 #endif /* end of include guard: PARAMS_H */

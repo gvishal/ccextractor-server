@@ -116,16 +116,6 @@ const char *m_strerror(int rc)
 			return "Wrong block size";
 		case END_MARKER:
 			return "No end marker present";
-		case CFG_ERR:
-			return "Can't parse config file";
-		case CFG_NUM:
-			return "Number expected";
-		case CFG_STR:
-			return "String expected";
-		case CFG_BOOL:
-			return "Boolean expected";
-		case CFG_UNKNOWN:
-			return "Unknown key-value pair";
 		case B_SRV_GAI:
 			return gai_strerror(errno);
 		case B_SRV_ERR:
@@ -134,6 +124,44 @@ const char *m_strerror(int rc)
 			return strerror(errno);
 		default:
 			return "Unknown";
+	}
+}
+
+void debug(int vlevel, int cli_id, const char *fmt, ...)
+{
+	assert(vlevel > 0);
+	assert(fmt != NULL);
+
+	if (0 != flock(STDERR_FILENO, LOCK_EX))
+	{
+		_perror("flock");
+		return;
+	}
+
+	va_list args;
+	va_start(args, fmt);
+
+	time_t t = time(NULL);
+	struct tm *t_tm = localtime(&t);
+	char buf[30] = {0};
+	strftime(buf, 30, "[%H:%M:%S]", t_tm);
+	fprintf(stderr, "%s ", buf);
+
+	fprintf(stderr, "[%d]", vlevel);
+
+	if (cli_id == 0)
+		fprintf(stderr, "[S] ");
+	else
+		fprintf(stderr, "[%d] ", cli_id);
+
+	vfprintf(stderr, fmt, args);
+
+	va_end(args);
+
+	if (0 != flock(STDERR_FILENO, LOCK_UN))
+	{
+		_perror("flock");
+		return;
 	}
 }
 
@@ -190,12 +218,12 @@ void _signal(int sig, void (*func)(int))
 	return;
 }
 
-int _mkdir(const char *dir, mode_t mode) 
+int mkpath(const char *path, mode_t mode)
 {
 	char tmp[256];
 	size_t len;
 
-	snprintf(tmp, sizeof(tmp), "%s", dir);
+	snprintf(tmp, sizeof(tmp), "%s", path);
 	len = strlen(tmp);
 	if ('/' == tmp[len - 1])
 		tmp[len - 1] = 0;
@@ -206,10 +234,10 @@ int _mkdir(const char *dir, mode_t mode)
 			continue;
 
 		*p = 0;
-		if (mkdir(tmp, mode) < 0 ) 
+		if (mkdir(tmp, mode) < 0)
 		{
 			if (errno != EEXIST)
-				return ERRNO;
+				logfatal("mkdir");
 		}
 		*p = '/';
 	}
@@ -217,7 +245,7 @@ int _mkdir(const char *dir, mode_t mode)
 	if (mkdir(tmp, mode) < 0) 
 	{
 		if (errno != EEXIST)
-			return ERRNO;
+			logfatal("mkdir");
 	}
 
 	return 0;
@@ -357,4 +385,17 @@ size_t strmov(char *dest, const char *src)
 	while ((*dest++ = *end++));
 
 	return end - src - 1;
+}
+
+int set_tz()
+{
+	if (setenv("TZ", cfg.env_tz, 1) < 0)
+	{
+		logerr("setenv");
+		return -1;
+	}
+
+	tzset();
+
+	return 1;
 }

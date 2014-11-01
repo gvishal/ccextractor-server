@@ -15,4 +15,5 @@ void open_log_file();
 void sigchld_server();
 void cleanup_server();
 
+int creat_dirs();
 #endif /* end of include guard: SERVER_H */

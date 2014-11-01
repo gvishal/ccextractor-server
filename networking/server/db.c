@@ -18,7 +18,7 @@ MYSQL *con;
 int init_db() {
 	if (mysql_library_init(0, NULL, NULL))
 	{
-		_log("could not initialize MySQL library\n");
+		logfatalmsg("Could not initialize MySQL library");
 		return -1;
 	}
 
@@ -26,10 +26,16 @@ int init_db() {
 		return -1;
 
 	if (creat_tables() < 0)
+	{
+		logfatalmsg("Couldn't create tables");
 		return -1;
+	}
 
 	if (query("TRUNCATE active_clients ;") < 0)
+	{
+		logfatalmsg("Couldn't truncate active_clients table");
 		return -1;
+	}
 
 	db_close_conn();
 
@@ -99,7 +105,7 @@ int db_conn()
 	con = mysql_init(NULL);
 	if (NULL == con)
 	{
-		mysql_perror("mysql_init", con);
+		logmysqlfatal("mysql_init", con);
 		return -1;
 	}
 
@@ -110,7 +116,7 @@ int db_conn()
 	if (mysql_real_connect(con, cfg.db_host, cfg.db_user, cfg.db_passwd, db,
 				0, NULL, 0) == NULL)
 	{
-		mysql_perror("mysql_real_connect", con);
+		logmysqlfatal("mysql_real_connect", con);
 		mysql_close(con);
 		return -1;
 	}
@@ -184,7 +190,7 @@ int db_get_last_id(id_t *new_id)
 	MYSQL_ROW row = mysql_fetch_row(result);
 	if (NULL == row[0])
 	{
-		_log("%s:%d error: row[0] == NULL", __FILE__, __LINE__);
+		logfatalmsg("empty response");
 		mysql_free_result(result);
 		return -1;
 	}
@@ -290,14 +296,14 @@ int db_get_last_pr_id(id_t *pr_id)
 	MYSQL_RES *result = mysql_store_result(con);
 	if (NULL == result)
 	{
-		mysql_perror("mysql_store_result", con);
+		logmysqlerr("mysql_store_result", con);
 		return -1;
 	}
 
 	MYSQL_ROW row = mysql_fetch_row(result);
 	if (NULL == row[0])
 	{
-		_log("%s:%d error: row[0] == NULL", __FILE__, __LINE__);
+		logerrmsg("empty response");
 		mysql_free_result(result);
 		return -1;
 	}
@@ -363,7 +369,7 @@ int lock_cli_tbl()
 {
 	if (mysql_query(con, "LOCK TABLES clients WRITE ;"))
 	{
-		mysql_perror("mysql_real_query", con);
+		logmysqlerr("mysql_real_query", con);
 		return -1;
 	}
 
@@ -374,7 +380,7 @@ int lock_pr_tbl()
 {
 	if (mysql_query(con, "LOCK TABLES programs WRITE;"))
 	{
-		mysql_perror("mysql_real_query", con);
+		logmysqlerr("mysql_real_query", con);
 		return -1;
 	}
 
@@ -393,36 +399,31 @@ int query(const char *q)
     sigaddset(&newmask, SIGUSR1);
     sigaddset(&newmask, SIGUSR2);
 
-    if (sigprocmask(SIG_BLOCK, &newmask, &oldmask) < 0) {
-        _perror("sigprocmask");
-        return -1;
-    }
+	if (sigprocmask(SIG_BLOCK, &newmask, &oldmask) < 0)
+		logerr("sigprocmask");
 
 	int rc = -1;
 
-restart:
-
+again:
 	if (mysql_real_query(con, q, strlen(q)))
 	{
 		unsigned int err = mysql_errno(con);
 		if (err == CR_SERVER_GONE_ERROR || err == CR_SERVER_LOST)
 		{
-			_log("___ MySQL conn has gone away");
+			loginfomsg("MySQL server has gone away, reconnecting");
 			if (db_conn() > 0)
-				goto restart;
+				goto again;
 		}
 
 		rc = -1;
 
-		_log("MySQL query: %s\n", q);
-		mysql_perror("mysql_real_query", con);
+		debug(ERR, 0, "MySQL query failed: %s", q);
+		logmysqlerr("mysql_real_query", con);
 		/* XXX would it print an error from mysql_errno()?? */
 	}
 
-    if (sigprocmask(SIG_SETMASK, &oldmask, 0) < 0) {
-        _perror("sigprocmask");
-		return -1;
-    }
+	if (sigprocmask(SIG_SETMASK, &oldmask, 0) < 0)
+		logerr("sigprocmask");
 
 	return rc;
 }

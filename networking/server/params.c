@@ -33,14 +33,17 @@ int init_cfg()
 	cfg.env_tz = DFT_ENV_TZ;
 
 	if ((cfg.pwd = (char *) malloc(DFT_PASSW_LEN + 1)) == NULL) /* +1 for '\0' */
-		return ERRNO;
+	{
+		logfatal("malloc");
+		return -1;
+	}
 
 	memset(cfg.pwd, 0, DFT_PASSW_LEN + 1);
 	rand_str(cfg.pwd, DFT_PASSW_LEN);
 
 	cfg.is_inited = TRUE;
 
-	return 0;
+	return 1;
 }
 
 int parse_config_file()
@@ -50,7 +53,7 @@ int parse_config_file()
 	FILE *fp = fopen(DFT_CONFIG_FILE, "r");
 	if (fp == NULL)
 	{
-		_log("fopen() error (%s): %s\n", DFT_CONFIG_FILE, strerror(errno));
+		logfatal("fopen");
 		return -1;
 	}
 
@@ -379,50 +382,31 @@ int parse_config_file()
 	}
 
 out:
+	switch(rc)
+	{
+	case CFG_ERR:
+		debug(FATAL, 0, "Can't parse config file");
+		break;
+	/* line shouldn't be NULL below */
+	case CFG_NUM:
+		debug(FATAL, 0, "%s: Number expected", line);
+		break;
+	case CFG_STR:
+		debug(FATAL, 0, "%s: String expected", line);
+		break;
+	case CFG_BOOL:
+		debug(FATAL, 0, "%s: Boolean expected", line);
+		break;
+	case CFG_UNKNOWN:
+		debug(FATAL, 0, "%s: Unknown parameter", line);
+		break;
+	default:
+		break;
+	}
+
 	if (line != NULL)
 		free(line);
 	fclose(fp);
+
 	return rc;
-}
-
-int creat_dirs()
-{
-	if (_mkdir(cfg.buf_dir, MODE755) < 0)
-	{
-		_perror("_mkdir");
-		return -1;
-	}
-
-	if (_mkdir(cfg.log_dir, MODE755) < 0)
-	{
-		_perror("_mkdir");
-		return -1;
-	}
-
-	if (_mkdir(cfg.arch_dir, MODE755) < 0)
-	{
-		_perror("_mkdir");
-		return -1;
-	}
-
-	if (_mkdir(cfg.cce_output_dir, MODE755) < 0)
-	{
-		_perror("_mkdir");
-		return -1;
-	}
-
-	return 1;
-}
-
-int set_tz()
-{
-	if (setenv("TZ", cfg.env_tz, 1) < 0)
-	{
-		_perror("setenv");
-		return -1;
-	}
-
-	tzset();
-
-	return 1;
 }

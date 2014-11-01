@@ -136,8 +136,9 @@ int bind_server(int port, int *fam)
 	int rc = getaddrinfo(NULL, port_str, &hints, &ai);
 	if (0 != rc) 
 	{
-		errno = rc;
-		return B_SRV_GAI;
+		logfatalmsg("getaddrinfo() error:");
+		logfatalmsg(gai_strerror(rc));
+		return -1;
 	}
 
 	struct addrinfo *p;
@@ -149,10 +150,10 @@ int bind_server(int port, int *fam)
 
 		if (-1 == sockfd) 
 		{
-			_log("socket() error: %s\n", strerror(errno));
+			logerr("socket");
 
 			if (p->ai_next != NULL)
-				printf("trying next addres ...\n");
+				logerrmsg("trying next addres ...\n");
 
 			continue;
 		}
@@ -162,10 +163,10 @@ int bind_server(int port, int *fam)
 			int no = 0;
 			if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&no, sizeof(no)) < 0)
 			{
-				_perror("setsockopt");
+				logerr("setsockopt");
 
 				if (p->ai_next != NULL)
-					printf("trying next addres ...\n");
+					logerrmsg("trying next addres ...\n");
 
 				continue;
 			}
@@ -173,10 +174,9 @@ int bind_server(int port, int *fam)
 
 		if (bind(sockfd, p->ai_addr, p->ai_addrlen) < 0)
 		{
-
-			_log("bind() error: %s\n", strerror(errno));
+			logerr("bind");
 			if (p->ai_next != NULL)
-				printf("trying next addres ...\n");
+				logerrmsg("trying next addres ...\n");
 
 			close(sockfd);
 
@@ -191,12 +191,16 @@ int bind_server(int port, int *fam)
 	freeaddrinfo(ai);
 
 	if (NULL == p)
-		return B_SRV_ERR;
+	{
+		logfatalmsg("Coudn't bind to the port");
+		return -1;
+	}
 
 	if (0 != listen(sockfd, SOMAXCONN))
 	{
+		logfatal("listen");
 		close(sockfd);
-		return ERRNO;
+		return -1;
 	}
 
 	return sockfd;
