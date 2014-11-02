@@ -105,7 +105,7 @@ int db_conn()
 	con = mysql_init(NULL);
 	if (NULL == con)
 	{
-		logmysqlfatal("mysql_init", con);
+		logmysqlerr("mysql_init", con);
 		return -1;
 	}
 
@@ -116,7 +116,7 @@ int db_conn()
 	if (mysql_real_connect(con, cfg.db_host, cfg.db_user, cfg.db_passwd, db,
 				0, NULL, 0) == NULL)
 	{
-		logmysqlfatal("mysql_real_connect", con);
+		logmysqlerr("mysql_real_connect", con);
 		mysql_close(con);
 		return -1;
 	}
@@ -183,7 +183,7 @@ int db_get_last_id(id_t *new_id)
 	MYSQL_RES *result = mysql_store_result(con);
 	if (NULL == result)
 	{
-		mysql_perror("mysql_store_result", con);
+		logmysqlerr("mysql_store_result", con);
 		return -1;
 	}
 
@@ -417,7 +417,7 @@ again:
 
 		rc = -1;
 
-		debug(ERR, 0, "MySQL query failed: %s", q);
+		logerrmsg_va("MySQL query failed: %s", q);
 		logmysqlerr("mysql_real_query", con);
 		/* XXX would it print an error from mysql_errno()?? */
 	}

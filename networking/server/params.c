@@ -385,20 +385,20 @@ out:
 	switch(rc)
 	{
 	case CFG_ERR:
-		debug(FATAL, 0, "Can't parse config file");
+		logfatalmsg("Can't parse config file");
 		break;
 	/* line shouldn't be NULL below */
 	case CFG_NUM:
-		debug(FATAL, 0, "%s: Number expected", line);
+		logfatalmsg_va("%s: Number expected", line);
 		break;
 	case CFG_STR:
-		debug(FATAL, 0, "%s: String expected", line);
+		logfatalmsg_va("%s: String expected", line);
 		break;
 	case CFG_BOOL:
-		debug(FATAL, 0, "%s: Boolean expected", line);
+		logfatalmsg_va("%s: Boolean expected", line);
 		break;
 	case CFG_UNKNOWN:
-		debug(FATAL, 0, "%s: Unknown parameter", line);
+		logfatalmsg_va("%s: Unknown parameter", line);
 		break;
 	default:
 		break;

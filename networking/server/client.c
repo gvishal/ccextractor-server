@@ -22,7 +22,7 @@
 #include <limits.h>
 
 int connfd;
-id_t cli_id;
+id_t cli_id = -1;
 char *host;
 char *serv;
 
@@ -47,19 +47,21 @@ pid_t fork_client(int fd, int listenfd, char *h, char *s)
 
 	if (pid < 0)
 	{
-		_perror("fork");
+		logerr("fork");
 		return -1;
 	}
 	else if (pid > 0)
 	{
-		c_log(0, "Client forked, pid = %d\n", pid); //TODO change id
+		loginfomsg_va("Client forked, pid = %d", pid);
 		return pid;
 	}
 
 	close(listenfd);
 
-	_signal(SIGCHLD, sigchld_client);
-	_signal(SIGUSR1, kill_children);
+	if (m_signal(SIGCHLD, sigchld_client))
+		return -1;
+	if (m_signal(SIGUSR1, kill_children))
+		return -1;
 
 	connfd = fd;
 	host = h;
@@ -99,8 +101,7 @@ int greeting()
 
 	if ((rc = write_byte(connfd, OK)) <= 0)
 	{
-		if (rc < 0)
-			_perror("write_byte");
+		logerr("write");
 		return rc;
 	}
 
@@ -110,7 +111,7 @@ int greeting()
 	if (db_add_active_cli(cli_id) < 0)
 		return -1;
 
-	_log("[%u] Logged in\n", cli_id);
+	loginfomsg_va("[%u] Logged in\n", cli_id);
 
 	return 1;
 }
@@ -127,39 +128,39 @@ int check_password()
 		if ((rc = write_byte(connfd, PASSWORD)) <= 0)
 		{
 			if (rc < 0)
-				_perror("write_byte");
+				logcli(cli_id, "write_byte");
 			return rc;
 		}
 
 		if ((rc = read_block(connfd, &c, buf, &len)) <= 0)
 		{
 			if (rc < 0)
-				c_perror(cli_id, "read_block", rc);
+				logcli_no(cli_id, "read_block", rc);
 			return rc;
 		}
 
 		if (c != PASSWORD)
 			return 0;
 
-		c_log(cli_id, "Password: %s\n", buf);
+		/* c_log(cli_id, "Password: %s\n", buf); */
 
 		if (0 != strcmp(cfg.pwd, buf))
 		{
 			sleep(cfg.wrong_pwd_delay);
 
-			c_log(cli_id, "Wrong password\n");
+			/* c_log(cli_id, "Wrong password\n"); */
 
 			if ((rc = write_byte(connfd, WRONG_PASSWORD)) <= 0)
 			{
 				if (rc < 0)
-					_perror("write_byte");
+					logcli(cli_id, "write_byte");
 				return rc;
 			}
 
 			continue;
 		}
 
-		c_log(cli_id, "Correct password\n");
+		/* c_log(cli_id, "Correct password\n"); */
 
 		return 1;
 	}
@@ -179,7 +180,7 @@ int ctrl_switch()
 		if ((rc = read_block(connfd, &c, buf, &len)) <= 0)
 		{
 			if (rc < 0)
-				c_perror(cli_id, "read_block", rc);
+				logcli_no(cli_id, "read_block", rc);
 			return rc;
 		}
 
@@ -208,7 +209,7 @@ int ctrl_switch()
 
 int handle_bin_mode()
 {
-	c_log(cli_id, "Bin mode\n");
+	/* c_log(cli_id, "Bin mode\n"); */
 
 	bin_mode = TRUE;
 
@@ -216,7 +217,7 @@ int handle_bin_mode()
 	if ((rc = write_byte(connfd, OK)) != 1)
 	{
 		if (rc < 0)
-			_perror("write_byte");
+			logcli(cli_id, "write_byte");
 		return rc;
 	}
 
@@ -225,7 +226,7 @@ int handle_bin_mode()
 
 	if (set_nonblocking(connfd) < 0)
 	{
-		_perror("set_nonblocking");
+		logerr("set_nonblocking");
 		return -1;
 	}
 
@@ -248,22 +249,23 @@ int read_bin_header()
 	if ((rc = readn(connfd, bin_header, BIN_HEADER_LEN)) <= 0)
 	{
 		if (rc < 0)
-			c_perror(cli_id, "readn", rc);
+			logcli(cli_id, "readn");
 		return rc;
 	}
 
 	if (memcmp(bin_header, "\xCC\xCC\xED", 3))
 	{
-		c_log(cli_id, "Wrong bin header\n");
+		logclimsg_va(cli_id, "Wrong bin header: %02X%02X%02X",
+				bin_header[0], bin_header[1], bin_header[2]);
 		return 0;
 	}
 
-	c_log(cli_id, "Bin header recieved:\n");
-	c_log(cli_id,
-			"File created by %02X version: %02X%02X, format version: %02X%02X\n",
-			bin_header[3],
-			bin_header[4], bin_header[5],
-			bin_header[6], bin_header[7]);
+	/* c_log(cli_id, "Bin header recieved:\n"); */
+	/* c_log(cli_id, */
+	/* 		"File created by %02X version: %02X%02X, format version: %02X%02X\n", */
+	/* 		bin_header[3], */
+	/* 		bin_header[4], bin_header[5], */
+	/* 		bin_header[6], bin_header[7]); */
 
 	return 1;
 }
@@ -292,7 +294,7 @@ int bin_loop()
 			if (EINTR == errno)
 				continue;
 
-			_perror("poll");
+			logcli(cli_id, "poll");
 			goto out;
 		}
 
@@ -306,7 +308,7 @@ int bin_loop()
 
 			if (fds[0].revents & POLLERR) 
 			{
-				_log("poll() error: Revents %d\n", fds[0].revents);
+				logclimsg_va(cli_id, "poll() error: Revents %d", fds[0].revents);
 				ret = -1;
 				goto out;
 			}
@@ -326,8 +328,8 @@ int bin_loop()
 	}
 
 out:
-	if (0 == ret)
-		_log("[%d] Closed connection\n", cli_id);
+	/* if (0 == ret) */
+		/* _log("[%d] Closed connection\n", cli_id); */
 
 	cleanup();
 
@@ -350,7 +352,7 @@ int read_bin_data()
 	if ((rc = readn(connfd, buf, len)) <= 0)
 	{
 		if (rc < 0)
-			c_perror(cli_id, "readn", rc);
+			logcli(cli_id, "readn");
 		return rc;
 	}
 
@@ -372,13 +374,13 @@ int read_parser_data()
 	if ((rc = read_block(parser_pipe_r, &c, buf, &len)) <= 0)
 	{
 		if (rc < 0)
-			m_perror("read_block", rc);
+			logcli_no(cli_id, "read_block", rc);
 		return -1;
 	}
 
 	if (c != PR_BIN_PATH)
 	{
-		_log("%s:%d Unexpected data in parser pipe\n", __FILE__, __LINE__);
+		logclimsg(cli_id, "Unexpected data in parser pipe");
 		return -1;
 	}
 
@@ -402,7 +404,7 @@ pid_t fork_cce()
 	pid_t pid = fork();
 	if (pid < 0)
 	{
-		_perror("fork");
+		logerr("fork");
 		return -1;
 	}
 	else if (pid == 0)
@@ -424,12 +426,12 @@ pid_t fork_cce()
 
 		if (execv(cfg.cce_path , v) < 0) 
 		{
-			_perror("execv");
+			logerr("execv");
 			exit(EXIT_FAILURE);
 		}
 	}
 
-	c_log(cli_id, "CCExtractor forked, pid = %d\n", pid);
+	/* c_log(cli_id, "CCExtractor forked, pid = %d\n", pid); */
 
 	return pid;
 }
@@ -439,7 +441,7 @@ int open_parser_pipe()
 	int fds[2];
 	if (pipe(fds) < 0)
 	{
-		_perror("pipe");
+		logerr("pipe");
 		return -1;
 	}
 
@@ -457,17 +459,17 @@ int open_bin_file()
 
 	if ((bin.fp = fopen(bin.path, "w+")) == NULL)
 	{
-		_perror("fopen");
+		logerr("fopen");
 		return -1;
 	}
 
 	if (setvbuf(bin.fp, NULL, _IONBF, 0) < 0)
 	{
-		_perror("setvbuf");
+		logerr("setvbuf");
 		return -1;
 	}
 
-	c_log(cli_id, "BIN file: %s\n", bin.path);
+	/* c_log(cli_id, "BIN file: %s\n", bin.path); */
 
 	fwrite(bin_header, sizeof(char), BIN_HEADER_LEN, bin.fp);
 
@@ -480,7 +482,7 @@ int open_cce_input()
 
 	if ((cce_in.path = (char *) malloc(PATH_MAX)) == NULL)
 	{
-		_perror("malloc");
+		logerr("malloc");
 		return -1;
 	}
 
@@ -493,25 +495,25 @@ int open_cce_input()
 
 	if (mkfifo(cce_in.path, S_IRWXU) < 0)
 	{
-		_perror("mkfifo");
+		logerr("mkfifo");
 		return -1;
 	}
 
 	if ((cce_in.fp = fopen(cce_in.path, "w+")) == NULL)
 	{
-		_perror("fopen");
+		logerr("fopen");
 		return -1;
 	}
 
 	if (setvbuf(cce_in.fp, NULL, _IONBF, 0) < 0)
 	{
-		_perror("setvbuf");
+		logerr("setvbuf");
 		return -1;
 	}
 
 	fwrite(bin_header, sizeof(char), BIN_HEADER_LEN, cce_in.fp);
 
-	c_log(cli_id, "CCExtractor input fifo file: %s\n", cce_in.path);
+	/* c_log(cli_id, "CCExtractor input fifo file: %s\n", cce_in.path); */
 
 	return 1;
 }
@@ -520,7 +522,7 @@ int init_cce_output()
 {
 	if ((cce_out.path = (char *) malloc(PATH_MAX)) == NULL)
 	{
-		_perror("malloc");
+		logerr("malloc");
 		return -1;
 	}
 
@@ -531,7 +533,7 @@ int init_cce_output()
 	snprintf(cce_out.path, PATH_MAX,
 			"%s/%s-%u.cce.txt", cfg.cce_output_dir, time_buf, cli_id);
 
-	c_log(cli_id, "CCExtractor output file: %s\n", cce_out.path);
+	/* c_log(cli_id, "CCExtractor output file: %s\n", cce_out.path); */
 
 	return 1;
 }
@@ -554,7 +556,7 @@ void cleanup()
 
 		cce_pid = -1;
 		if (kill(p, SIGINT) < 0)
-			_perror("kill");
+			logerr("kill");
 		else
 			waitpid(p, NULL, 0);
 	}
@@ -568,7 +570,7 @@ void cleanup()
 	if (cce_in.path != NULL)
 	{
 		if (unlink(cce_in.path) < 0)
-			_perror("unlink");
+			logerr("unlink");
 		free(cce_in.path);
 		cce_in.path = NULL;
 	}
@@ -576,7 +578,7 @@ void cleanup()
 	if (cce_out.path != NULL)
 	{
 		if (unlink(cce_out.path) < 0)
-			_perror("unlink");
+			logerr("unlink");
 		free(cce_out.path);
 		cce_out.path = NULL;
 	}
@@ -586,7 +588,7 @@ void cleanup()
 		db_remove_active_cli(cli_id);
 		db_close_conn();
 
-		_log("[%d] Disconnected\n", cli_id);
+		/* _log("[%d] Disconnected\n", cli_id); */
 		cli_id = 0;
 	}
 }
@@ -602,17 +604,17 @@ void sigchld_client()
 	{
 		if (cce_pid == pid)
 		{
-			c_log(cli_id, "CCExtractor (pid = %d) terminated\n", pid);
+			/* c_log(cli_id, "CCExtractor (pid = %d) terminated\n", pid); */
 			cce_pid = -1;
 		}
 		else if (parser_pid == pid)
 		{
-			c_log(cli_id, "Parser (pid = %d) terminated\n", pid);
+			/* c_log(cli_id, "Parser (pid = %d) terminated\n", pid); */
 			parser_pid = -1;
 		}
 		else
 		{
-			c_log(cli_id, "pid %d terminated\n", pid);
+			/* c_log(cli_id, "pid %d terminated\n", pid); */
 		}
 
 		if (!WIFEXITED(stat) || WEXITSTATUS(stat) != EXIT_SUCCESS)
@@ -650,7 +652,7 @@ void kill_children()
 		pid_t p = cce_pid;
 		cce_pid = -1;
 		if (kill(p, SIGINT) < 0)
-			_perror("kill");
+			logerr("kill");
 		else
 			waitpid(p, NULL, 0);
 	}

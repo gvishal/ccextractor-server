@@ -49,20 +49,22 @@ pid_t fork_parser(id_t id, const char *cce_output, int pipe)
 
 	if (pid < 0)
 	{
-		_perror("fork");
+		logerr("fork");
 		return -1;
 	}
 	else if (pid != 0)
 	{
-		c_log(id, "Parser forked, pid = %d\n", pid);
+		/* c_log(id, "Parser forked, pid = %d\n", pid); */
 		return pid;
 	}
 
 	cli_id = id;
 	pipe_w = pipe;
 
-	_signal(SIGUSR1, sigusr1_parser);
-	_signal(SIGUSR2, sigusr2_parser);
+	if (m_signal(SIGUSR1, sigusr1_parser))
+		return -1;
+	if (m_signal(SIGUSR2, sigusr2_parser))
+		return -1;
 
 	if (open_buf_file() < 0)
 		goto out;
@@ -84,7 +86,7 @@ int parser_loop(const char *cce_output)
 	FILE *fp = fopen(cce_output, "w+");
 	if (NULL == fp)
 	{
-		_perror("fopen");
+		logerr("fopen");
 		return -1;
 	}
 
@@ -98,7 +100,7 @@ int parser_loop(const char *cce_output)
 	{
 		if ((rc = fgetpos(fp, &pos)) < 0)
 		{
-			_perror("fgetpos");
+			logerr("fgetpos");
 			goto out;
 		}
 
@@ -114,7 +116,7 @@ int parser_loop(const char *cce_output)
 			clearerr(fp);
 			if ((rc = fsetpos(fp, &pos)) < 0)
 			{
-				_perror("fgetpos");
+				logerr("fgetpos");
 				goto out;
 			}
 
@@ -124,7 +126,7 @@ int parser_loop(const char *cce_output)
 				if (EINTR == errno)
 					continue;
 
-				_perror("nanosleep");
+				logerr("nanosleep");
 				goto out;
 			}
 
@@ -225,7 +227,7 @@ char *is_xds(char *line)
 
 int set_pr(char *new_name)
 {
-	c_log(cli_id, "Program changed: %s\n", new_name);
+	/* c_log(cli_id, "Program changed: %s\n", new_name); */
 
 	int was_null = TRUE;
 
@@ -345,7 +347,7 @@ int send_pr_to_parent()
 	int rc;
 	if ((rc = write_block(pipe_w, PR_BIN_PATH, path, strlen(path))) < 0)
 	{
-		m_perror("write_block", rc);
+		logcli_no(cli_id, "write_block", rc);
 		free(path);
 		return -1;
 	}
@@ -479,7 +481,7 @@ int append_to_buf(const char *line, size_t len, char mode)
 
 	if (0 != flock(fileno(buf.fp), LOCK_EX)) 
 	{
-		_perror("flock");
+		logerr("flock");
 		free(tmp);
 		return -1;
 	}
@@ -499,7 +501,7 @@ int append_to_buf(const char *line, size_t len, char mode)
 
 	if (0 != flock(fileno(buf.fp), LOCK_UN))
 	{
-		_perror("flock");
+		logerr("flock");
 		free(tmp);
 		return -1;
 	}
@@ -525,17 +527,17 @@ int open_txt_file()
 
 	if ((txt.fp = fopen(txt.path, "w+")) == NULL)
 	{
-		_perror("fopen");
+		logerr("fopen");
 		return -1;
 	}
 
 	if (setvbuf(txt.fp, NULL, _IOLBF, 0) < 0)
 	{
-		_perror("setvbuf");
+		logerr("setvbuf");
 		return -1;
 	}
 
-	c_log(cli_id, "TXT file: %s\n", txt.path);
+	/* c_log(cli_id, "TXT file: %s\n", txt.path); */
 
 	return 1;
 }
@@ -556,17 +558,17 @@ int open_xds_file()
 
 	if ((xds.fp = fopen(xds.path, "w+")) == NULL)
 	{
-		_perror("fopen");
+		logerr("fopen");
 		return -1;
 	}
 
 	if (setvbuf(xds.fp, NULL, _IOLBF, 0) < 0)
 	{
-		_perror("setvbuf");
+		logerr("setvbuf");
 		return -1;
 	}
 
-	c_log(cli_id, "XDS file: %s\n", xds.path);
+	/* c_log(cli_id, "XDS file: %s\n", xds.path); */
 
 	return 1;
 }
@@ -587,17 +589,17 @@ int open_srt_file()
 
 	if ((srt.fp = fopen(srt.path, "w+")) == NULL)
 	{
-		_perror("fopen");
+		logerr("fopen");
 		return -1;
 	}
 
 	if (setvbuf(srt.fp, NULL, _IOLBF, 0) < 0)
 	{
-		_perror("setvbuf");
+		logerr("setvbuf");
 		return -1;
 	}
 
-	c_log(cli_id, "SRT file: %s\n", srt.path);
+	/* c_log(cli_id, "SRT file: %s\n", srt.path); */
 
 	return 1;
 }
@@ -609,7 +611,7 @@ int open_buf_file()
 
 	if ((buf.path = (char *) malloc (PATH_MAX)) == NULL)
 	{
-		_perror("malloc");
+		logerr("malloc");
 		return -1;
 	}
 
@@ -617,17 +619,17 @@ int open_buf_file()
 
 	if ((buf.fp = fopen(buf.path, "w+")) == NULL)
 	{
-		_perror("fopen");
+		logerr("fopen");
 		return -1;
 	}
 
 	if (setvbuf(buf.fp, NULL, _IOLBF, 0) < 0)
 	{
-		_perror("setvbuf");
+		logerr("setvbuf");
 		return -1;
 	}
 
-	c_log(cli_id, "Buffer file opened: %s\n", buf.path);
+	/* c_log(cli_id, "Buffer file opened: %s\n", buf.path); */
 
 	return 1;
 }
@@ -640,7 +642,7 @@ char *file_path(id_t pr_id, const char *dir, const char *ext)
 	char *ret = (char *) malloc(PATH_MAX);
 	if (NULL == ret)
 	{
-		_perror("malloc");
+		logerr("malloc");
 		return NULL;
 	}
 
@@ -653,7 +655,7 @@ int creat_pr_dir(char **path, time_t *start)
 {
 	if (NULL == *path && (*path = (char *) malloc(PATH_MAX)) == NULL) 
 	{
-		_perror("malloc");
+		logerr("malloc");
 		return -1;
 	}
 
@@ -666,7 +668,7 @@ int creat_pr_dir(char **path, time_t *start)
 	if (mkpath(*path, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH ) < 0)
 		return -1;
 
-	c_log(cli_id, "Program dir: %s\n", *path);
+	/* c_log(cli_id, "Program dir: %s\n", *path); */
 
 	return 1;
 }
@@ -688,7 +690,7 @@ void cleanup_parser()
 	if (buf.path != NULL)
 	{
 		if (unlink(buf.path) < 0)
-			_perror("unlink");
+			logerr("unlink");
 		free(buf.path);
 		buf.path = NULL;
 	}

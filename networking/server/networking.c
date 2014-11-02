@@ -48,8 +48,9 @@ ssize_t read_block(int fd, char *command, char *buf, size_t *buf_len)
 		if (len > *buf_len)
 		{
 			ign_bytes = len - *buf_len;
+
 			/* XXX: Don't ignore */
-			_log("read_block() warning: Buffer overflow, ignoring %d bytes\n",
+			logwarningmsg_va("read_block(): Buffer overflow, ignoring %d bytes\n",
 					ign_bytes);
 			len = *buf_len;
 		}
@@ -136,8 +137,7 @@ int bind_server(int port, int *fam)
 	int rc = getaddrinfo(NULL, port_str, &hints, &ai);
 	if (0 != rc) 
 	{
-		logfatalmsg("getaddrinfo() error:");
-		logfatalmsg(gai_strerror(rc));
+		logfatalmsg_va("getaddrinfo() error: %s", gai_strerror(rc));
 		return -1;
 	}
 

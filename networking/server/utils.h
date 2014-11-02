@@ -21,6 +21,8 @@
 #define ERR 2
 #define WARNING 3
 #define INFO 4
+#define CLI 5
+#define DEBUG 6
 
 #ifndef INT_LEN
 #define INT_LEN 10
@@ -46,32 +48,34 @@ ssize_t writen(int fd, const void *vptr, size_t n);
 ssize_t write_byte(int fd, char status);
 ssize_t read_byte(int fd, char *status);
 
+void printlog(int vlevel, int cli_id, const char *fmt, ...);
 
-void debug(int vlevel, int cli_id, const char *fmt, ...);
+#define logfatalmsg(str) printlog(FATAL, 0, "%s:%d %s\n", __FILE__, __LINE__, str)
+#define logerrmsg(str) printlog(ERR, 0, "%s:%d %s\n", __FILE__, __LINE__, str)
+#define loginfomsg(str) printlog(INFO, 0, "%s:%d %s\n", __FILE__, __LINE__, str)
+#define logclimsg(id, str) printlog(CLI, id, "%s:%d %s\n", __FILE__, __LINE__, str)
+#define logwarningmsg(str) printlog(WARNING, 0, "%s:%d %s\n", __FILE__, __LINE__, str)
+#define logdebugmsg(str) printlog(DEBUG, 0, "%s:%d %s\n", __FILE__, __LINE__, str)
 
-#define logfatalmsg(str) debug(FATAL, 0, "%s:%d %s\n", __FILE__, __LINE__, str)
-#define logerrmsg(str) debug(FATAL, 0, "%s:%d %s\n", __FILE__, __LINE__, str)
-#define loginfomsg(str) debug(FATAL, 0, "%s:%d %s\n", __FILE__, __LINE__, str)
+#define logfatalmsg_va(str, ...) printlog(FATAL, 0, "%s:%d " str "\n", __FILE__, __LINE__, ##__VA_ARGS__)
+#define logerrmsg_va(str, ...) printlog(ERR, 0, "%s:%d " str "\n", __FILE__, __LINE__, ##__VA_ARGS__)
+#define loginfomsg_va(str, ...) printlog(INFO, 0, "%s:%d " str "\n", __FILE__, __LINE__, ##__VA_ARGS__)
+#define logclimsg_va(id, str, ...) printlog(CLI, id, "%s:%d " str "\n", __FILE__, __LINE__, ##__VA_ARGS__)
+#define logwarningmsg_va(str, ...) printlog(WARNING, 0, "%s:%d " str "\n", __FILE__, __LINE__, ##__VA_ARGS__)
+#define logwdebugmsg_va(str, ...) printlog(DEBUG, 0, "%s:%d " str "\n", __FILE__, __LINE__, ##__VA_ARGS__)
 
-#define logfatal(str)    debug(FATAL, 0, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, strerror(errno))
-#define logerr(str)      debug(ERR,   0, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, strerror(errno))
-#define logmysqlfatal(str, conn) debug(FATAL, 0, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, mysql_error(conn))
-#define logmysqlerr(str, conn)   debug(ERR,   0, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, mysql_error(conn))
+#define logfatal(str) printlog(FATAL, 0, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, strerror(errno))
+#define logerr(str) printlog(ERR, 0, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, strerror(errno))
+#define logcli(id, str) printlog(ERR, id, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, strerror(errno))
+#define logcli_no(id, str, rc) printlog(ERR, id, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, m_strerror(rc))
+#define logmysqlfatal(str, conn) printlog(FATAL, 0, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, mysql_error(conn))
+#define logmysqlerr(str, conn)   printlog(ERR,   0, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, mysql_error(conn))
 
 /* Writes message to stderr */
 const char *m_strerror(int rc);
-void c_log(int cli_id, const char *fmt, ...);
-// FIXME: these names may be reserved
-#define _log(...) c_log(0, __VA_ARGS__)
-
-#define _perror(str) _log("%s:%d %s() error: %s\n", __FILE__, __LINE__, str, strerror(errno))
-#define m_perror(str, rc) _log("%s:%d %s() error: %s\n", __FILE__, __LINE__, str, m_strerror(rc))
-// TODO change cli_id
-#define c_perror(cli, str, rc) c_log(cli, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, m_strerror(rc))
-#define mysql_perror(str, rc) _log("%s:%d %s() error: %s\n", __FILE__, __LINE__, str, mysql_error(rc))
 
 /* Sets signal handler */
-void _signal(int sig, void (*func)(int));
+int m_signal(int sig, void (*func)(int));
 
 /* Recursive mkdir */
 int mkpath(const char *path, mode_t mode);

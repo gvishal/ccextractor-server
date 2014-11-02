@@ -45,7 +45,7 @@ ssize_t readn(int fd, void *vptr, size_t n)
 			else if (EAGAIN == errno)
 				break;
 			else 
-				return ERRNO;
+				return -1;
 		}
 		else if (0 == nread) 
 		{
@@ -75,14 +75,9 @@ ssize_t writen(int fd, const void *vptr, size_t n)
 		if ((nwritten = write(fd, ptr, nleft)) < 0) 
 		{
 			if (errno == EINTR)
-			{
 				nwritten = 0;
-			}
 			else 
-			{
-				perror("write() error");
 				return -1;
-			}
 		}
 		else if (0 == nwritten) 
 		{
@@ -116,10 +111,6 @@ const char *m_strerror(int rc)
 			return "Wrong block size";
 		case END_MARKER:
 			return "No end marker present";
-		case B_SRV_GAI:
-			return gai_strerror(errno);
-		case B_SRV_ERR:
-			return "Coudn't bind to the port";
 		case ERRNO:
 			return strerror(errno);
 		default:
@@ -127,19 +118,16 @@ const char *m_strerror(int rc)
 	}
 }
 
-void debug(int vlevel, int cli_id, const char *fmt, ...)
+void printlog(int vlevel, int cli_id, const char *fmt, ...)
 {
 	assert(vlevel > 0);
 	assert(fmt != NULL);
 
-	if (0 != flock(STDERR_FILENO, LOCK_EX))
-	{
-		_perror("flock");
-		return;
-	}
-
 	va_list args;
 	va_start(args, fmt);
+
+	if (0 != flock(STDERR_FILENO, LOCK_EX))
+		perror("flock() error");
 
 	time_t t = time(NULL);
 	struct tm *t_tm = localtime(&t);
@@ -156,54 +144,13 @@ void debug(int vlevel, int cli_id, const char *fmt, ...)
 
 	vfprintf(stderr, fmt, args);
 
-	va_end(args);
-
 	if (0 != flock(STDERR_FILENO, LOCK_UN))
-	{
-		_perror("flock");
-		return;
-	}
-}
-
-void c_log(int cli_id, const char *fmt, ...)
-{
-	if (!cfg.log_clients && cli_id != 0)
-		return;
-
-	if (0 != flock(STDERR_FILENO, LOCK_EX)) 
-	{
-		_perror("flock");
-		return;
-	}
-
-	va_list args;
-	va_start(args, fmt);	
-
-	time_t t = time(NULL);
-	struct tm *t_tm = localtime(&t);
-	char buf[30] = {0};
-	strftime(buf, 30, "%H:%M:%S", t_tm);
-	fprintf(stderr, "%s ", buf);
-
-	if (cli_id == 0)
-		fprintf(stderr, "[S] ");
-	else 
-		fprintf(stderr, "[%d] ", cli_id);
-
-	vfprintf(stderr, fmt, args);
-
-	fflush(stderr);
+		perror("flock() error");
 
 	va_end(args);
-
-	if (0 != flock(STDERR_FILENO, LOCK_UN)) 
-	{
-		_perror("flock");
-		return;
-	}
 }
 
-void _signal(int sig, void (*func)(int)) 
+int m_signal(int sig, void (*func)(int))
 {
 	struct sigaction act;
 	act.sa_handler = func;
@@ -211,11 +158,11 @@ void _signal(int sig, void (*func)(int))
 	act.sa_flags = 0;
 
 	if (sigaction(sig, &act, NULL)) {
-		_log(0, "sigaction() error: %s\n", strerror(errno));
-		exit(EXIT_FAILURE);
+		logerr("sigaction");
+		return -1;
 	}
 
-	return;
+	return 1;
 }
 
 int mkpath(const char *path, mode_t mode)
@@ -274,7 +221,7 @@ int delete_n_lines(FILE **fp, char *filepath, size_t n)
 		if ((rc = getline(&line, &len, *fp)) < 0)
 
 		{
-			_perror("getline");
+			logerr("getline");
 			goto out;
 		}
 	}
@@ -286,14 +233,14 @@ int delete_n_lines(FILE **fp, char *filepath, size_t n)
 	FILE *tmp = fopen(tmp_path, "w+");
 	if (NULL == tmp)
 	{
-		_perror("fopen");
+		logerr("fopen");
 		rc = -1;
 		goto out;
 	}
 
 	if ((rc = setvbuf(tmp, NULL, _IOLBF, 0)) < 0)
 	{
-		_perror("setvbuf");
+		logerr("setvbuf");
 		fclose(tmp);
 		goto out;
 	}
@@ -306,10 +253,8 @@ int delete_n_lines(FILE **fp, char *filepath, size_t n)
 	*fp = tmp;
 
 	if ((rc = rename(tmp_path, filepath)) < 0)
-	{
-		_perror("rename");
-		_log(0, "%s --> %s\n", tmp_path, filepath);
-	}
+		logerrmsg_va("rename() %s --> %s error: %s",
+				tmp_path, filepath, strerror(errno));
 
 out:
 	if (line != NULL)
@@ -329,7 +274,7 @@ char *nice_str(const char *s, size_t *len)
 
 	if ((ret = (char *) malloc(sizeof(char) * (*len + 1))) == NULL)
 	{
-		_perror("malloc"); /* TODO: sometimes it fails here */
+		logerr("malloc"); /* TODO: sometimes it fails here */
 		return NULL;
 	}
 

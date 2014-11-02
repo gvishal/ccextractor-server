@@ -72,13 +72,15 @@ int main()
 	if (cfg.use_pwd)
 		printf("Password: %s\n", cfg.pwd);
 
-	_signal(SIGCHLD, sigchld_server);
-	_signal(SIGINT, cleanup_server);
+	if (m_signal(SIGCHLD, sigchld_server))
+		exit(EXIT_FAILURE);
+	if (m_signal(SIGINT, cleanup_server))
+		exit(EXIT_FAILURE);
 
 	cli = (struct cli_t *) malloc((sizeof(struct cli_t)) * (cfg.max_conn));
 	if (NULL == cli)
 	{
-		_perror("malloc");
+		logfatal("malloc");
 		exit(EXIT_FAILURE);
 	}
 	memset(cli, 0, (sizeof(struct cli_t)) * (cfg.max_conn));
@@ -93,7 +95,7 @@ int main()
 		struct sockaddr *cliaddr = (struct sockaddr *) malloc(clilen);
 		if (NULL == cliaddr)
 		{
-			_perror("malloc");
+			logfatal("malloc");
 			goto end_server;
 		}
 
@@ -101,15 +103,10 @@ int main()
 		if ((connfd = accept(listen_sd, cliaddr, &clilen)) < 0)
 		{
 			free(cliaddr);
-			if (EINTR == errno)
-			{
-				continue;
-			}
-			else
-			{
-				_perror("accept");
-				goto end_server;
-			}
+			if (EINTR != errno)
+				logerr("accept");
+
+			continue;
 		}
 
 		if (cli_cnt >= cfg.max_conn)
@@ -134,7 +131,7 @@ int main()
 		free(cliaddr);
 
 		if (cli_cnt == cfg.max_conn)
-			_log("Connection limit reached, ignoring new connections\n");
+			loginfomsg("Connection limit reached, ignoring new connections");
 
 		if ((cli[id].pid = fork_client(connfd, listen_sd, cli[id].host, cli[id].serv)) < 0)
 		{
@@ -175,26 +172,27 @@ int add_new_cli(int fd, struct sockaddr *cliaddr, socklen_t clilen)
 	if ((rc = getnameinfo(cliaddr, clilen, 
 					host, sizeof(host), serv, sizeof(serv), 0)) != 0)
 	{
-		_log("getnameinfo() error: %s\n", gai_strerror(rc));
+		logerrmsg_va("getaddrinfo() error: %s", gai_strerror(rc));
 		return -1;
 	}
 
 	int host_len = strlen(host) + 1; /* +1 for'\0' */
 	if ((cli[id].host = (char *) malloc(host_len)) == NULL)
 	{
-		_perror("malloc");
+		logfatal("malloc");
 		return -1;
 	}
+
 	memcpy(cli[id].host, host, host_len);
 	int serv_len = strlen(serv) + 1;
 	if ((cli[id].serv = (char *) malloc(serv_len)) == NULL)
 	{
-		_perror("malloc");
+		logfatal("malloc");
 		return -1;
 	}
 	memcpy(cli[id].serv, serv, serv_len);
 
-	_log("Connected %s:%s\n", cli[id].host, cli[id].serv);
+	loginfomsg_va("Connected %s:%s", cli[id].host, cli[id].serv);
 
 	return id;
 }
@@ -224,7 +222,7 @@ void close_conn(int id)
 {
 	close(cli[id].fd);
 
-	_log("%s:%s Disconnected\n", cli[id].host, cli[id].serv);
+	/* _log("%s:%s Disconnected\n", cli[id].host, cli[id].serv); */
 
 	free_cli(id);
 }
@@ -241,7 +239,7 @@ void open_log_file()
 
 	if (freopen(log_filepath, "w", stderr) == NULL) { 
 		/* output to stderr won't work */
-		_perror("freopen");
+		perror("freopen() error");
 		exit(EXIT_FAILURE);
 	}
 
@@ -256,7 +254,7 @@ void sigchld_server()
 
 	while ((pid = waitpid(-1, &stat, WNOHANG)) > 0)
 	{ 
-		c_log(-1, "pid %d terminated\n", pid);
+		/* c_log(-1, "pid %d terminated\n", pid); */
 		for (unsigned i = 0; i < cli_cnt; i++) {
 			if (cli[i].pid != pid)
 				continue;
@@ -281,7 +279,7 @@ void cleanup_server()
 
 		/* _log("sending SIGUSR1 to %d\n", p); */
 		if (kill(p, SIGUSR1) < 0)
-			_perror("kill");
+			logfatal("kill");
 		else
 			waitpid(p, NULL, 0);
 	}
