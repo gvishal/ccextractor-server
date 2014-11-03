@@ -42,7 +42,7 @@ int main()
 		exit(EXIT_FAILURE);
 
 	/* XXX why?? */
-	if (setvbuf(stdout, NULL, _IOLBF, 0) < 0) 
+	if (setvbuf(stdout, NULL, _IOLBF, 0) < 0)
 	{
 		logfatal("setvbuf");
 		exit(EXIT_FAILURE);
@@ -57,8 +57,8 @@ int main()
 		exit(EXIT_FAILURE);
 
 	/* XXX to this point log files are not created, but we use debug() */
-	if (cfg.create_logs)
-		open_log_file();
+	if (cfg.create_logs && open_log_file() < 0)
+		exit(EXIT_FAILURE);
 
 	if (init_db() < 0)
 		exit(EXIT_FAILURE);
@@ -225,31 +225,6 @@ void close_conn(int id)
 	/* _log("%s:%s Disconnected\n", cli[id].host, cli[id].serv); */
 
 	free_cli(id);
-}
-
-void open_log_file()
-{
-	time_t t = time(NULL);
-	struct tm *t_tm = localtime(&t);
-	char time_buf[30] = {0};
-	strftime(time_buf, 30, "%F=%H-%M-%S", t_tm);
-
-	char log_filepath[PATH_MAX] = {0};
-	snprintf(log_filepath, PATH_MAX, "%s/%s.log", cfg.log_dir, time_buf);
-
-	if (freopen(log_filepath, "w", stderr) == NULL) { 
-		/* output to stderr won't work */
-		perror("freopen() error");
-		exit(EXIT_FAILURE);
-	}
-
-	if (setvbuf(stderr, NULL, _IONBF, 0) < 0)
-	{
-		logfatal("setvbuf");
-		exit(EXIT_FAILURE);
-	}
-
-	printf("log file: %s\n", log_filepath);
 }
 
 void sigchld_server()

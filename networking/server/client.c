@@ -52,7 +52,7 @@ pid_t fork_client(int fd, int listenfd, char *h, char *s)
 	}
 	else if (pid > 0)
 	{
-		loginfomsg("Client forked, pid = %d", pid);
+		logdebugmsg("Client forked, pid = %d", pid);
 		return pid;
 	}
 

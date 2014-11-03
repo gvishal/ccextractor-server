@@ -30,6 +30,8 @@
 
 #define MODE755 S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH
 
+#define LOG_MSG_SIZE 300
+
 typedef struct 
 {
 	char *path;
@@ -37,6 +39,8 @@ typedef struct
 } file_t;
 
 typedef unsigned id_t;
+
+file_t logfile;
 
 /* Reads n bytes from descriptor */
 ssize_t readn(int fd, void *vptr, size_t n);
@@ -48,15 +52,17 @@ ssize_t writen(int fd, const void *vptr, size_t n);
 ssize_t write_byte(int fd, char status);
 ssize_t read_byte(int fd, char *status);
 
+int open_log_file();
+
 void printlog(int vlevel, int cli_id, const char *file, int line,
 		const char *fmt, ...);
 
-#define logfatalmsg(...)   printlog(FATAL,   0, __FILE__, __LINE__, ##__VA_ARGS__)
-#define logerrmsg(...)     printlog(ERR,     0, __FILE__, __LINE__, ##__VA_ARGS__)
-#define loginfomsg(...)    printlog(INFO,    0, __FILE__, __LINE__, ##__VA_ARGS__)
-#define logclimsg(id, ...) printlog(CLI,    id, __FILE__, __LINE__, ##__VA_ARGS__)
-#define logwarningmsg(...) printlog(WARNING, 0, __FILE__, __LINE__, ##__VA_ARGS__)
-#define logdebugmsg(...)   printlog(DEBUG,   0, __FILE__, __LINE__, ##__VA_ARGS__)
+#define logfatalmsg(...)   printlog(FATAL,   0, __FILE__, __LINE__, __VA_ARGS__)
+#define logerrmsg(...)     printlog(ERR,     0, __FILE__, __LINE__, __VA_ARGS__)
+#define loginfomsg(...)    printlog(INFO,    0, __FILE__, __LINE__, __VA_ARGS__)
+#define logclimsg(id, ...) printlog(CLI,    id, __FILE__, __LINE__, __VA_ARGS__)
+#define logwarningmsg(...) printlog(WARNING, 0, __FILE__, __LINE__, __VA_ARGS__)
+#define logdebugmsg(...)   printlog(DEBUG,   0, __FILE__, __LINE__, __VA_ARGS__)
 
 #define logfatal(str)            printlog(FATAL, 0, __FILE__, __LINE__, "%s() error: %s", str, strerror(errno))
 #define logerr(str)              printlog(ERR,   0, __FILE__, __LINE__, "%s() error: %s", str, strerror(errno))

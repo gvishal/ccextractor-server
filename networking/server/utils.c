@@ -118,6 +118,39 @@ const char *m_strerror(int rc)
 	}
 }
 
+int open_log_file()
+{
+	if ((logfile.path = malloc(PATH_MAX)) == NULL)
+	{
+		logfatal("malloc");
+		return -1;
+	}
+	memset(logfile.path, 0, PATH_MAX);
+	logfile.fp = NULL;
+
+	time_t t = time(NULL);
+	struct tm *t_tm = localtime(&t);
+	char time_buf[30] = {0};
+	strftime(time_buf, 30, "%F=%H-%M-%S", t_tm);
+	snprintf(logfile.path, PATH_MAX, "%s/%s.log", cfg.log_dir, time_buf);
+
+	if ((logfile.fp = fopen(logfile.path, "w")) == NULL)
+	{
+		logfatal("fopen");
+		return -1;
+	}
+
+	if (setvbuf(logfile.fp, NULL, _IONBF, 0) < 0)
+	{
+		logfatal("setvbuf");
+		return -1;
+	}
+
+	printf("log file: %s\n", logfile.path);
+
+	return 1;
+}
+
 void printlog(int vlevel, int cli_id,
 		const char *file, int line, const char *fmt, ...)
 {
@@ -127,57 +160,65 @@ void printlog(int vlevel, int cli_id,
 	va_list args;
 	va_start(args, fmt);
 
-	if (0 != flock(STDERR_FILENO, LOCK_EX))
-		perror("flock() error");
+	static char logbuf[LOG_MSG_SIZE];
+	char *end = logbuf;
 
 	time_t t = time(NULL);
 	struct tm *t_tm = localtime(&t);
-	char buf[30] = {0};
-	strftime(buf, 30, "[%H:%M:%S]", t_tm);
-	fprintf(stderr, "%s", buf);
+	end += strftime(end, 30, "[%H:%M:%S]", t_tm);
 
 	if (cli_id == 0)
-		fprintf(stderr, "[S]");
+		end += sprintf(end, "[S]");
 	else
-		fprintf(stderr, "[%d]", cli_id);
+		end += sprintf(end, "[%d]", cli_id);
 
 	switch (vlevel)
 	{
 	case FATAL:
-		fprintf(stderr, "[FATAL]");
-		fprintf(stderr, "[%s:%d]", file, line);
+		end += sprintf(end, "[FATAL]");
+		end += sprintf(end, "[%s:%d]", file, line);
 		break;
 	case ERR:
-		fprintf(stderr, "[ERROR]");
-		fprintf(stderr, "[%s:%d]", file, line);
+		end += sprintf(end, "[ERROR]");
+		end += sprintf(end, "[%s:%d]", file, line);
 		break;
 	case WARNING:
-		fprintf(stderr, "[WARNIG]");
-		fprintf(stderr, "[%s:%d]", file, line);
+		end += sprintf(end, "[WARNIG]");
+		end += sprintf(end, "[%s:%d]", file, line);
 		break;
 	case INFO:
-		fprintf(stderr, "[INFO]");
-		fprintf(stderr, "[%s:%d]", file, line);
+		end += sprintf(end, "[INFO]");
 		break;
 	case CLI:
-		fprintf(stderr, "[CLIENT]");
+		end += sprintf(end, "[CLIENT]");
 		break;
 	case DEBUG:
-		fprintf(stderr, "[DEBUG]");
-		fprintf(stderr, "[%s:%d]", file, line);
+		end += sprintf(end, "[DEBUG]");
+		end += sprintf(end, "[%s:%d]", file, line);
 		break;
 	default:
 		break;
 	}
 
-	fprintf(stderr, " ");
+	end += sprintf(end, " ");
 
-	vfprintf(stderr, fmt, args);
+	end += vsprintf(end, fmt, args);
 
-	fprintf(stderr, "\n");
+	end += sprintf(end, "\n");
 
-	if (0 != flock(STDERR_FILENO, LOCK_UN))
-		perror("flock() error");
+	if (logfile.fp == NULL)
+		logfile.fp = stderr;
+
+	if (0 != lockf(fileno(logfile.fp), F_LOCK, 0))
+		logerr("lockf");
+
+	fprintf(logfile.fp, "%s", logbuf);
+
+	if (logfile.fp != stderr && vlevel == FATAL)
+		fprintf(stderr, "%s", logbuf);
+
+	if (0 != lockf(fileno(logfile.fp), F_ULOCK, 0))
+		logerr("lockf");
 
 	va_end(args);
 }

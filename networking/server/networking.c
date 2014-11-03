@@ -153,7 +153,7 @@ int bind_server(int port, int *fam)
 			logerr("socket");
 
 			if (p->ai_next != NULL)
-				logerrmsg("trying next addres ...\n");
+				logerrmsg("trying next addres ...");
 
 			continue;
 		}
@@ -166,7 +166,7 @@ int bind_server(int port, int *fam)
 				logerr("setsockopt");
 
 				if (p->ai_next != NULL)
-					logerrmsg("trying next addres ...\n");
+					logerrmsg("trying next addres ...");
 
 				continue;
 			}
@@ -176,7 +176,7 @@ int bind_server(int port, int *fam)
 		{
 			logerr("bind");
 			if (p->ai_next != NULL)
-				logerrmsg("trying next addres ...\n");
+				logerrmsg("trying next addres ...");
 
 			close(sockfd);
 
