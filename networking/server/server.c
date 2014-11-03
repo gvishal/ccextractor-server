@@ -72,9 +72,9 @@ int main()
 	if (cfg.use_pwd)
 		printf("Password: %s\n", cfg.pwd);
 
-	if (m_signal(SIGCHLD, sigchld_server))
+	if (m_signal(SIGCHLD, sigchld_server) < 0)
 		exit(EXIT_FAILURE);
-	if (m_signal(SIGINT, cleanup_server))
+	if (m_signal(SIGINT, cleanup_server) < 0)
 		exit(EXIT_FAILURE);
 
 	cli = (struct cli_t *) malloc((sizeof(struct cli_t)) * (cfg.max_conn));

@@ -61,9 +61,9 @@ pid_t fork_parser(id_t id, const char *cce_output, int pipe)
 	cli_id = id;
 	pipe_w = pipe;
 
-	if (m_signal(SIGUSR1, sigusr1_parser))
+	if (m_signal(SIGUSR1, sigusr1_parser) < 0)
 		return -1;
-	if (m_signal(SIGUSR2, sigusr2_parser))
+	if (m_signal(SIGUSR2, sigusr2_parser) < 0)
 		return -1;
 
 	if (open_buf_file() < 0)

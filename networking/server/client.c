@@ -58,9 +58,9 @@ pid_t fork_client(int fd, int listenfd, char *h, char *s)
 
 	close(listenfd);
 
-	if (m_signal(SIGCHLD, sigchld_client))
+	if (m_signal(SIGCHLD, sigchld_client) < 0)
 		return -1;
-	if (m_signal(SIGUSR1, kill_children))
+	if (m_signal(SIGUSR1, kill_children) < 0)
 		return -1;
 
 	connfd = fd;
