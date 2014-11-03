@@ -402,7 +402,7 @@ int query(const char *q)
 	if (sigprocmask(SIG_BLOCK, &newmask, &oldmask) < 0)
 		logerr("sigprocmask");
 
-	int rc = -1;
+	int rc = 1;
 
 again:
 	if (mysql_real_query(con, q, strlen(q)))
