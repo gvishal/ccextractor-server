@@ -417,7 +417,7 @@ again:
 
 		rc = -1;
 
-		logerrmsg_va("MySQL query failed: %s", q);
+		logerrmsg("MySQL query failed: %s", q);
 		logmysqlerr("mysql_real_query", con);
 		/* XXX would it print an error from mysql_errno()?? */
 	}

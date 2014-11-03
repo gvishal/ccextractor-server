@@ -389,16 +389,16 @@ out:
 		break;
 	/* line shouldn't be NULL below */
 	case CFG_NUM:
-		logfatalmsg_va("%s: Number expected", line);
+		logfatalmsg("%s: Number expected", line);
 		break;
 	case CFG_STR:
-		logfatalmsg_va("%s: String expected", line);
+		logfatalmsg("%s: String expected", line);
 		break;
 	case CFG_BOOL:
-		logfatalmsg_va("%s: Boolean expected", line);
+		logfatalmsg("%s: Boolean expected", line);
 		break;
 	case CFG_UNKNOWN:
-		logfatalmsg_va("%s: Unknown parameter", line);
+		logfatalmsg("%s: Unknown parameter", line);
 		break;
 	default:
 		break;

@@ -172,7 +172,7 @@ int add_new_cli(int fd, struct sockaddr *cliaddr, socklen_t clilen)
 	if ((rc = getnameinfo(cliaddr, clilen, 
 					host, sizeof(host), serv, sizeof(serv), 0)) != 0)
 	{
-		logerrmsg_va("getaddrinfo() error: %s", gai_strerror(rc));
+		logerrmsg("getaddrinfo() error: %s", gai_strerror(rc));
 		return -1;
 	}
 
@@ -192,7 +192,7 @@ int add_new_cli(int fd, struct sockaddr *cliaddr, socklen_t clilen)
 	}
 	memcpy(cli[id].serv, serv, serv_len);
 
-	loginfomsg_va("Connected %s:%s", cli[id].host, cli[id].serv);
+	loginfomsg("Connected %s:%s", cli[id].host, cli[id].serv);
 
 	return id;
 }
@@ -243,7 +243,13 @@ void open_log_file()
 		exit(EXIT_FAILURE);
 	}
 
-	printf("strerr is redirected to log file: %s\n", log_filepath);
+	if (setvbuf(stderr, NULL, _IONBF, 0) < 0)
+	{
+		logfatal("setvbuf");
+		exit(EXIT_FAILURE);
+	}
+
+	printf("log file: %s\n", log_filepath);
 }
 
 void sigchld_server()

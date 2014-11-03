@@ -118,7 +118,8 @@ const char *m_strerror(int rc)
 	}
 }
 
-void printlog(int vlevel, int cli_id, const char *fmt, ...)
+void printlog(int vlevel, int cli_id,
+		const char *file, int line, const char *fmt, ...)
 {
 	assert(vlevel > 0);
 	assert(fmt != NULL);
@@ -133,16 +134,47 @@ void printlog(int vlevel, int cli_id, const char *fmt, ...)
 	struct tm *t_tm = localtime(&t);
 	char buf[30] = {0};
 	strftime(buf, 30, "[%H:%M:%S]", t_tm);
-	fprintf(stderr, "%s ", buf);
-
-	fprintf(stderr, "[%d]", vlevel);
+	fprintf(stderr, "%s", buf);
 
 	if (cli_id == 0)
-		fprintf(stderr, "[S] ");
+		fprintf(stderr, "[S]");
 	else
-		fprintf(stderr, "[%d] ", cli_id);
+		fprintf(stderr, "[%d]", cli_id);
+
+	switch (vlevel)
+	{
+	case FATAL:
+		fprintf(stderr, "[FATAL]");
+		fprintf(stderr, "[%s:%d]", file, line);
+		break;
+	case ERR:
+		fprintf(stderr, "[ERROR]");
+		fprintf(stderr, "[%s:%d]", file, line);
+		break;
+	case WARNING:
+		fprintf(stderr, "[WARNIG]");
+		fprintf(stderr, "[%s:%d]", file, line);
+		break;
+	case INFO:
+		fprintf(stderr, "[INFO]");
+		fprintf(stderr, "[%s:%d]", file, line);
+		break;
+	case CLI:
+		fprintf(stderr, "[CLIENT]");
+		break;
+	case DEBUG:
+		fprintf(stderr, "[DEBUG]");
+		fprintf(stderr, "[%s:%d]", file, line);
+		break;
+	default:
+		break;
+	}
+
+	fprintf(stderr, " ");
 
 	vfprintf(stderr, fmt, args);
+
+	fprintf(stderr, "\n");
 
 	if (0 != flock(STDERR_FILENO, LOCK_UN))
 		perror("flock() error");
@@ -253,7 +285,7 @@ int delete_n_lines(FILE **fp, char *filepath, size_t n)
 	*fp = tmp;
 
 	if ((rc = rename(tmp_path, filepath)) < 0)
-		logerrmsg_va("rename() %s --> %s error: %s",
+		logerrmsg("rename() %s --> %s error: %s",
 				tmp_path, filepath, strerror(errno));
 
 out:

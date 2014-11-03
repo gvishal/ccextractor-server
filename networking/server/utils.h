@@ -48,28 +48,22 @@ ssize_t writen(int fd, const void *vptr, size_t n);
 ssize_t write_byte(int fd, char status);
 ssize_t read_byte(int fd, char *status);
 
-void printlog(int vlevel, int cli_id, const char *fmt, ...);
+void printlog(int vlevel, int cli_id, const char *file, int line,
+		const char *fmt, ...);
 
-#define logfatalmsg(str) printlog(FATAL, 0, "%s:%d %s\n", __FILE__, __LINE__, str)
-#define logerrmsg(str) printlog(ERR, 0, "%s:%d %s\n", __FILE__, __LINE__, str)
-#define loginfomsg(str) printlog(INFO, 0, "%s:%d %s\n", __FILE__, __LINE__, str)
-#define logclimsg(id, str) printlog(CLI, id, "%s:%d %s\n", __FILE__, __LINE__, str)
-#define logwarningmsg(str) printlog(WARNING, 0, "%s:%d %s\n", __FILE__, __LINE__, str)
-#define logdebugmsg(str) printlog(DEBUG, 0, "%s:%d %s\n", __FILE__, __LINE__, str)
+#define logfatalmsg(...)   printlog(FATAL,   0, __FILE__, __LINE__, ##__VA_ARGS__)
+#define logerrmsg(...)     printlog(ERR,     0, __FILE__, __LINE__, ##__VA_ARGS__)
+#define loginfomsg(...)    printlog(INFO,    0, __FILE__, __LINE__, ##__VA_ARGS__)
+#define logclimsg(id, ...) printlog(CLI,    id, __FILE__, __LINE__, ##__VA_ARGS__)
+#define logwarningmsg(...) printlog(WARNING, 0, __FILE__, __LINE__, ##__VA_ARGS__)
+#define logdebugmsg(...)   printlog(DEBUG,   0, __FILE__, __LINE__, ##__VA_ARGS__)
 
-#define logfatalmsg_va(str, ...) printlog(FATAL, 0, "%s:%d " str "\n", __FILE__, __LINE__, ##__VA_ARGS__)
-#define logerrmsg_va(str, ...) printlog(ERR, 0, "%s:%d " str "\n", __FILE__, __LINE__, ##__VA_ARGS__)
-#define loginfomsg_va(str, ...) printlog(INFO, 0, "%s:%d " str "\n", __FILE__, __LINE__, ##__VA_ARGS__)
-#define logclimsg_va(id, str, ...) printlog(CLI, id, "%s:%d " str "\n", __FILE__, __LINE__, ##__VA_ARGS__)
-#define logwarningmsg_va(str, ...) printlog(WARNING, 0, "%s:%d " str "\n", __FILE__, __LINE__, ##__VA_ARGS__)
-#define logwdebugmsg_va(str, ...) printlog(DEBUG, 0, "%s:%d " str "\n", __FILE__, __LINE__, ##__VA_ARGS__)
-
-#define logfatal(str) printlog(FATAL, 0, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, strerror(errno))
-#define logerr(str) printlog(ERR, 0, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, strerror(errno))
-#define logcli(id, str) printlog(ERR, id, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, strerror(errno))
-#define logcli_no(id, str, rc) printlog(ERR, id, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, m_strerror(rc))
-#define logmysqlfatal(str, conn) printlog(FATAL, 0, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, mysql_error(conn))
-#define logmysqlerr(str, conn)   printlog(ERR,   0, "%s:%d %s() error: %s\n", __FILE__, __LINE__, str, mysql_error(conn))
+#define logfatal(str)            printlog(FATAL, 0, __FILE__, __LINE__, "%s() error: %s", str, strerror(errno))
+#define logerr(str)              printlog(ERR,   0, __FILE__, __LINE__, "%s() error: %s", str, strerror(errno))
+#define logcli(id, str)          printlog(ERR,  id, __FILE__, __LINE__, "%s() error: %s", str, strerror(errno))
+#define logcli_no(id, str, rc)   printlog(ERR,  id, __FILE__, __LINE__, "%s() error: %s", str, m_strerror(rc))
+#define logmysqlfatal(str, conn) printlog(FATAL, 0, __FILE__, __LINE__, "%s() error: %s", str, mysql_error(conn))
+#define logmysqlerr(str, conn)   printlog(ERR,   0, __FILE__, __LINE__, "%s() error: %s", str, mysql_error(conn))
 
 /* Writes message to stderr */
 const char *m_strerror(int rc);

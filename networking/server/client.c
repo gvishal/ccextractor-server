@@ -52,7 +52,7 @@ pid_t fork_client(int fd, int listenfd, char *h, char *s)
 	}
 	else if (pid > 0)
 	{
-		loginfomsg_va("Client forked, pid = %d", pid);
+		loginfomsg("Client forked, pid = %d", pid);
 		return pid;
 	}
 
@@ -111,7 +111,7 @@ int greeting()
 	if (db_add_active_cli(cli_id) < 0)
 		return -1;
 
-	loginfomsg_va("[%u] Logged in\n", cli_id);
+	loginfomsg("[%u] Logged in\n", cli_id);
 
 	return 1;
 }
@@ -255,7 +255,7 @@ int read_bin_header()
 
 	if (memcmp(bin_header, "\xCC\xCC\xED", 3))
 	{
-		logclimsg_va(cli_id, "Wrong bin header: %02X%02X%02X",
+		logclimsg(cli_id, "Wrong bin header: %02X%02X%02X",
 				bin_header[0], bin_header[1], bin_header[2]);
 		return 0;
 	}
@@ -308,7 +308,7 @@ int bin_loop()
 
 			if (fds[0].revents & POLLERR) 
 			{
-				logclimsg_va(cli_id, "poll() error: Revents %d", fds[0].revents);
+				logclimsg(cli_id, "poll() error: Revents %d", fds[0].revents);
 				ret = -1;
 				goto out;
 			}
