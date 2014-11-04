@@ -105,7 +105,7 @@ int db_conn()
 	con = mysql_init(NULL);
 	if (NULL == con)
 	{
-		logmysqlerr("mysql_init", con);
+		logmysqlfatal("mysql_init", con);
 		return -1;
 	}
 
@@ -116,7 +116,7 @@ int db_conn()
 	if (mysql_real_connect(con, cfg.db_host, cfg.db_user, cfg.db_passwd, db,
 				0, NULL, 0) == NULL)
 	{
-		logmysqlerr("mysql_real_connect", con);
+		logmysqlfatal("mysql_real_connect", con);
 		mysql_close(con);
 		return -1;
 	}

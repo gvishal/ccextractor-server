@@ -39,49 +39,48 @@ int main()
 	int rc;
 
 	if ((rc = init_cfg()) < 0)
-		exit(EXIT_FAILURE);
+		goto end_server;
 
 	/* XXX why?? */
 	if (setvbuf(stdout, NULL, _IOLBF, 0) < 0)
 	{
 		logfatal("setvbuf");
-		exit(EXIT_FAILURE);
+		goto end_server;
 	}
 
 	if ((rc = parse_config_file()) < 0)
-		exit(EXIT_FAILURE);
+		goto end_server;
 
 	set_tz();
 
-	if (creat_dirs() < 0)
-		exit(EXIT_FAILURE);
-
-	/* XXX to this point log files are not created, but we use debug() */
-	if (cfg.create_logs && open_log_file() < 0)
-		exit(EXIT_FAILURE);
-
-	if (init_db() < 0)
-		exit(EXIT_FAILURE);
-
 	int fam;
 	int listen_sd = bind_server(cfg.port, &fam);
+	if (creat_dirs() < 0)
+		goto end_server;
+
+	if (cfg.create_logs && open_log_file() < 0)
+		goto end_server;
+
+	if (init_db() < 0)
+		goto end_server;
+
 	if (listen_sd < 0) 
-		exit(EXIT_FAILURE);
+		goto end_server;
 
 	printf("Server is binded to %d\n", cfg.port);
 	if (cfg.use_pwd)
 		printf("Password: %s\n", cfg.pwd);
 
 	if (m_signal(SIGCHLD, sigchld_server) < 0)
-		exit(EXIT_FAILURE);
+		goto end_server;
 	if (m_signal(SIGINT, cleanup_server) < 0)
-		exit(EXIT_FAILURE);
+		goto end_server;
 
 	cli = (struct cli_t *) malloc((sizeof(struct cli_t)) * (cfg.max_conn));
 	if (NULL == cli)
 	{
 		logfatal("malloc");
-		exit(EXIT_FAILURE);
+		goto end_server;
 	}
 	memset(cli, 0, (sizeof(struct cli_t)) * (cfg.max_conn));
 
@@ -150,7 +149,8 @@ end_server:
 			close_conn(i);
 	}
 
-	return 0;
+	logdebugmsg("Terminating server from main() with error");
+	exit(EXIT_FAILURE);
 }
 
 int add_new_cli(int fd, struct sockaddr *cliaddr, socklen_t clilen)
@@ -222,20 +222,32 @@ void close_conn(int id)
 {
 	close(cli[id].fd);
 
-	/* _log("%s:%s Disconnected\n", cli[id].host, cli[id].serv); */
+	loginfomsg("%s:%s Disconnected", cli[id].host, cli[id].serv);
+
+	pid_t p = cli[id].pid;
+	cli[id].pid = 0;
+
+	if (kill(p, 0) >= 0)
+	{
+		logdebugmsg("Killing (SIGUSR1) Client (pid = %zd)", p);
+		if (kill(p, SIGUSR1) < 0)
+			logfatal("kill");
+		else
+			waitpid(p, NULL, 0);
+	}
 
 	free_cli(id);
 }
 
 void sigchld_server()
 {
-	/* c_log(-1, "sigchld_server() handler\n"); */
+	logdebugmsg("SIGCHLD recieved");
 	pid_t pid;
 	int stat;
 
 	while ((pid = waitpid(-1, &stat, WNOHANG)) > 0)
 	{ 
-		/* c_log(-1, "pid %d terminated\n", pid); */
+		logdebugmsg("pid %d terminated", pid);
 		for (unsigned i = 0; i < cli_cnt; i++) {
 			if (cli[i].pid != pid)
 				continue;
@@ -247,6 +259,7 @@ void sigchld_server()
 
 void cleanup_server()
 {
+	logdebugmsg("SIGINT recieved");
 	for (size_t i = 0; i < cli_cnt; i++)
 	{
 		if (cli[i].fd < 0 || cli[i].pid <= 0)
@@ -258,13 +271,14 @@ void cleanup_server()
 		if (kill(p, 0) < 0)
 			continue;
 
-		/* _log("sending SIGUSR1 to %d\n", p); */
+		logdebugmsg("Killing (SIGUSR1) Client (pid = %zd)", p);
 		if (kill(p, SIGUSR1) < 0)
 			logfatal("kill");
 		else
 			waitpid(p, NULL, 0);
 	}
 
+	logdebugmsg("Terminating server from SIGINT handler");
 	exit(EXIT_SUCCESS);
 }
 

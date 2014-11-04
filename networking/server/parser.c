@@ -54,7 +54,7 @@ pid_t fork_parser(id_t id, const char *cce_output, int pipe)
 	}
 	else if (pid != 0)
 	{
-		/* c_log(id, "Parser forked, pid = %d\n", pid); */
+		logclidebugmsg(id, "Parser forked, pid = %d", pid);
 		return pid;
 	}
 
@@ -78,6 +78,7 @@ pid_t fork_parser(id_t id, const char *cce_output, int pipe)
 out:
 	cleanup_parser();
 
+	logclidebugmsg(cli_id, "Terminating parser on error");
 	exit(EXIT_FAILURE);
 }
 
@@ -108,8 +109,8 @@ int parser_loop(const char *cce_output)
 		{
 			if (sigusr2_received)
 			{
-				/* _log("exiting from parser_loop()\n"); */
 				cleanup_parser();
+				logclidebugmsg(cli_id, "Terminating parser from parser_loop()");
 				exit(EXIT_SUCCESS);
 			}
 
@@ -227,7 +228,8 @@ char *is_xds(char *line)
 
 int set_pr(char *new_name)
 {
-	/* c_log(cli_id, "Program changed: %s\n", new_name); */
+	logclimsg(cli_id, "Program changed: %s", new_name);
+	/* TODO print reason (timeout or xds) */
 
 	int was_null = TRUE;
 
@@ -414,7 +416,7 @@ int append_to_srt(const char *line)
 	if (srt.fp == NULL && open_srt_file() < 0)
 		return -1;
 
-#define T_LEN 30
+#define T_LEN 30 /* lol */
 	static char start[T_LEN] = {0};
 	static char end[T_LEN] = {0};
 	static char cc_buf[BUFFER_SIZE] = {0};
@@ -537,7 +539,7 @@ int open_txt_file()
 		return -1;
 	}
 
-	/* c_log(cli_id, "TXT file: %s\n", txt.path); */
+	logclidebugmsg(cli_id, "Opened TXT output file: %s", txt.path);
 
 	return 1;
 }
@@ -568,7 +570,7 @@ int open_xds_file()
 		return -1;
 	}
 
-	/* c_log(cli_id, "XDS file: %s\n", xds.path); */
+	logclidebugmsg(cli_id, "Opened XDS output file: %s", xds.path);
 
 	return 1;
 }
@@ -599,7 +601,7 @@ int open_srt_file()
 		return -1;
 	}
 
-	/* c_log(cli_id, "SRT file: %s\n", srt.path); */
+	logclidebugmsg(cli_id, "Opened SRT output file: %s", srt.path);
 
 	return 1;
 }
@@ -629,7 +631,7 @@ int open_buf_file()
 		return -1;
 	}
 
-	/* c_log(cli_id, "Buffer file opened: %s\n", buf.path); */
+	logclidebugmsg(cli_id, "Opened buffer file: %s", buf.path);
 
 	return 1;
 }
@@ -668,7 +670,7 @@ int creat_pr_dir(char **path, time_t *start)
 	if (mkpath(*path, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH ) < 0)
 		return -1;
 
-	/* c_log(cli_id, "Program dir: %s\n", *path); */
+	logclidebugmsg(cli_id, "Program output dir: %s", *path);
 
 	return 1;
 }
@@ -698,7 +700,7 @@ void cleanup_parser()
 
 void sigusr2_parser()
 {
-	/* _log("inside sigusr2_parser()\n"); */
+	logclidebugmsg(cli_id, "SIGUSR2 recieved");
 	sigusr2_received = TRUE;
 
 	/* XXX: seed up parsing and db queries */
@@ -707,9 +709,11 @@ void sigusr2_parser()
 
 void sigusr1_parser()
 {
-	/* _log("inside sigusr1_parser()\n"); */
+	logclidebugmsg(cli_id, "SIGUSR1 recieved");
 
 	cleanup_parser();
+
+	logclidebugmsg(cli_id, "Terminating parser from SIGUSR1 handler");
 	exit(EXIT_SUCCESS);
 }
 

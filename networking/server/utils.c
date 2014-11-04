@@ -189,9 +189,6 @@ void printlog(int vlevel, int cli_id,
 	case INFO:
 		end += sprintf(end, "[INFO]");
 		break;
-	case CLI:
-		end += sprintf(end, "[CLIENT]");
-		break;
 	case DEBUG:
 		end += sprintf(end, "[DEBUG]");
 		end += sprintf(end, "[%s:%d]", file, line);
@@ -257,7 +254,10 @@ int mkpath(const char *path, mode_t mode)
 		if (mkdir(tmp, mode) < 0)
 		{
 			if (errno != EEXIST)
+			{
 				logfatal("mkdir");
+				return -1;
+			}
 		}
 		*p = '/';
 	}
@@ -265,7 +265,10 @@ int mkpath(const char *path, mode_t mode)
 	if (mkdir(tmp, mode) < 0) 
 	{
 		if (errno != EEXIST)
+		{
 			logfatal("mkdir");
+			return -1;
+		}
 	}
 
 	return 0;

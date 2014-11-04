@@ -20,8 +20,7 @@
 #define FATAL 1
 #define ERR 2
 #define WARNING 3
-#define INFO 4
-#define CLI 5
+#define INFO 5
 #define DEBUG 6
 
 #ifndef INT_LEN
@@ -60,9 +59,10 @@ void printlog(int vlevel, int cli_id, const char *file, int line,
 #define logfatalmsg(...)   printlog(FATAL,   0, __FILE__, __LINE__, __VA_ARGS__)
 #define logerrmsg(...)     printlog(ERR,     0, __FILE__, __LINE__, __VA_ARGS__)
 #define loginfomsg(...)    printlog(INFO,    0, __FILE__, __LINE__, __VA_ARGS__)
-#define logclimsg(id, ...) printlog(CLI,    id, __FILE__, __LINE__, __VA_ARGS__)
+#define logclimsg(id, ...) printlog(INFO,   id, __FILE__, __LINE__, __VA_ARGS__)
 #define logwarningmsg(...) printlog(WARNING, 0, __FILE__, __LINE__, __VA_ARGS__)
 #define logdebugmsg(...)   printlog(DEBUG,   0, __FILE__, __LINE__, __VA_ARGS__)
+#define logclidebugmsg(id, ...) printlog(DEBUG,   id, __FILE__, __LINE__, __VA_ARGS__)
 
 #define logfatal(str)            printlog(FATAL, 0, __FILE__, __LINE__, "%s() error: %s", str, strerror(errno))
 #define logerr(str)              printlog(ERR,   0, __FILE__, __LINE__, "%s() error: %s", str, strerror(errno))

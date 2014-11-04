@@ -52,7 +52,7 @@ pid_t fork_client(int fd, int listenfd, char *h, char *s)
 	}
 	else if (pid > 0)
 	{
-		logdebugmsg("Client forked, pid = %d", pid);
+		logdebugmsg("Client forked, pid = %d (client: %s:%s)", pid, h, s);
 		return pid;
 	}
 
@@ -83,6 +83,7 @@ pid_t fork_client(int fd, int listenfd, char *h, char *s)
 out:
 	cleanup();
 
+	logclidebugmsg(cli_id, "Terminating client from fork_client()");
 	if (rc < 0)
 	{
 		write_byte(connfd, ERROR);
@@ -111,7 +112,7 @@ int greeting()
 	if (db_add_active_cli(cli_id) < 0)
 		return -1;
 
-	loginfomsg("[%u] Logged in\n", cli_id);
+	loginfomsg("%s:%s Logged in, id = %d", host, serv, cli_id);
 
 	return 1;
 }
@@ -142,13 +143,13 @@ int check_password()
 		if (c != PASSWORD)
 			return 0;
 
-		/* c_log(cli_id, "Password: %s\n", buf); */
+		logclimsg(cli_id, "Entered password: %s", buf);
 
 		if (0 != strcmp(cfg.pwd, buf))
 		{
 			sleep(cfg.wrong_pwd_delay);
 
-			/* c_log(cli_id, "Wrong password\n"); */
+			logclimsg(cli_id, "Wrong password");
 
 			if ((rc = write_byte(connfd, WRONG_PASSWORD)) <= 0)
 			{
@@ -160,7 +161,7 @@ int check_password()
 			continue;
 		}
 
-		/* c_log(cli_id, "Correct password\n"); */
+		logclimsg(cli_id, "Correct password");
 
 		return 1;
 	}
@@ -209,7 +210,7 @@ int ctrl_switch()
 
 int handle_bin_mode()
 {
-	/* c_log(cli_id, "Bin mode\n"); */
+	logclimsg(cli_id, "Entered BIN mode");
 
 	bin_mode = TRUE;
 
@@ -260,12 +261,12 @@ int read_bin_header()
 		return 0;
 	}
 
-	/* c_log(cli_id, "Bin header recieved:\n"); */
-	/* c_log(cli_id, */
-	/* 		"File created by %02X version: %02X%02X, format version: %02X%02X\n", */
-	/* 		bin_header[3], */
-	/* 		bin_header[4], bin_header[5], */
-	/* 		bin_header[6], bin_header[7]); */
+	logclimsg(cli_id, "Bin header recieved:");
+	logclimsg(cli_id,
+			"File created by %02X version: %02X%02X, format version: %02X%02X",
+			bin_header[3],
+			bin_header[4], bin_header[5],
+			bin_header[6], bin_header[7]);
 
 	return 1;
 }
@@ -328,8 +329,8 @@ int bin_loop()
 	}
 
 out:
-	/* if (0 == ret) */
-		/* _log("[%d] Closed connection\n", cli_id); */
+	if (0 == ret)
+		logclimsg(cli_id, "Closed connection");
 
 	cleanup();
 
@@ -356,7 +357,7 @@ int read_bin_data()
 		return rc;
 	}
 
-	/* c_log(cli_id, "Bin data received: %zd bytes\n", rc); */
+	/* logclidebugmsg(cli_id, "Bin data received: %zd bytes", rc); */
 
 	fwrite(buf, sizeof(char), rc, cce_in.fp);
 
@@ -418,7 +419,7 @@ pid_t fork_cce()
 			"-quiet",
 			"-out=ttxt",
 			"-xds",
-			"-autoprogram", /* TODO */
+			"-autoprogram", /* XXX */
 			"-latin1",
 			"-o", cce_out.path,
 			NULL
@@ -431,7 +432,7 @@ pid_t fork_cce()
 		}
 	}
 
-	/* c_log(cli_id, "CCExtractor forked, pid = %d\n", pid); */
+	logclidebugmsg(cli_id, "CCExtractor forked, pid = %d", pid);
 
 	return pid;
 }
@@ -469,7 +470,7 @@ int open_bin_file()
 		return -1;
 	}
 
-	/* c_log(cli_id, "BIN file: %s\n", bin.path); */
+	logclidebugmsg(cli_id, "BIN file opened: %s", bin.path);
 
 	fwrite(bin_header, sizeof(char), BIN_HEADER_LEN, bin.fp);
 
@@ -513,7 +514,7 @@ int open_cce_input()
 
 	fwrite(bin_header, sizeof(char), BIN_HEADER_LEN, cce_in.fp);
 
-	/* c_log(cli_id, "CCExtractor input fifo file: %s\n", cce_in.path); */
+	logclidebugmsg(cli_id, "CCExtractor input fifo file: %s", cce_in.path);
 
 	return 1;
 }
@@ -533,16 +534,18 @@ int init_cce_output()
 	snprintf(cce_out.path, PATH_MAX,
 			"%s/%s-%u.cce.txt", cfg.cce_output_dir, time_buf, cli_id);
 
-	/* c_log(cli_id, "CCExtractor output file: %s\n", cce_out.path); */
+	logclidebugmsg(cli_id, "CCExtractor output file: %s", cce_out.path);
 
 	return 1;
 }
 
 void cleanup()
 {
+	logclidebugmsg(cli_id, "cleanup() called");
+
 	if (parser_pid > 0)
 	{
-		/* c_log(cli_id, "inside cleanup() - SIGUSR2 parser (pid = %d)\n", parser_pid); */
+		logclidebugmsg(cli_id, "Killing (SIGUSR2) parser (pid = %d)", parser_pid);
 		if (kill(parser_pid, SIGUSR2) == 0)
 			waitpid(parser_pid, NULL, 0);
 		/* then sigchld_client() will be reached, which will set
@@ -551,7 +554,7 @@ void cleanup()
 
 	if (cce_pid > 0)
 	{
-		/* c_log(cli_id, "inside cleanup() - SIGINT cce (pid = %d)\n", cce_pid); */
+		logclidebugmsg(cli_id, "Killing (SIGINT) CCExtractor (pid = %d)", cce_pid);
 		pid_t p = cce_pid;
 
 		cce_pid = -1;
@@ -569,6 +572,8 @@ void cleanup()
 
 	if (cce_in.path != NULL)
 	{
+		logclidebugmsg(cli_id, "Deleting CCExtractor input %s", cce_in.path);
+
 		if (unlink(cce_in.path) < 0)
 			logerr("unlink");
 		free(cce_in.path);
@@ -577,6 +582,8 @@ void cleanup()
 
 	if (cce_out.path != NULL)
 	{
+		logclidebugmsg(cli_id, "Deleting CCExtractor output %s", cce_out.path);
+
 		if (unlink(cce_out.path) < 0)
 			logerr("unlink");
 		free(cce_out.path);
@@ -588,14 +595,15 @@ void cleanup()
 		db_remove_active_cli(cli_id);
 		db_close_conn();
 
-		/* _log("[%d] Disconnected\n", cli_id); */
+		logclimsg(cli_id, "Disconnected");
 		cli_id = 0;
 	}
 }
 
 void sigchld_client()
 {
-	/* c_log(cli_id, "inside sigchld_client()\n"); */
+	logclidebugmsg(cli_id, "SIGCHLD recieved");
+
 	pid_t pid;
 	int stat;
 	int failed = FALSE;
@@ -604,17 +612,17 @@ void sigchld_client()
 	{
 		if (cce_pid == pid)
 		{
-			/* c_log(cli_id, "CCExtractor (pid = %d) terminated\n", pid); */
+			logclidebugmsg(cli_id, "CCExtractor (pid = %d) terminated", pid);
 			cce_pid = -1;
 		}
 		else if (parser_pid == pid)
 		{
-			/* c_log(cli_id, "Parser (pid = %d) terminated\n", pid); */
+			logclidebugmsg(cli_id, "Parser (pid = %d) terminated", pid);
 			parser_pid = -1;
 		}
 		else
 		{
-			/* c_log(cli_id, "pid %d terminated\n", pid); */
+			logclidebugmsg(cli_id, "pid %d terminated", pid);
 		}
 
 		if (!WIFEXITED(stat) || WEXITSTATUS(stat) != EXIT_SUCCESS)
@@ -622,6 +630,8 @@ void sigchld_client()
 	}
 
 	cleanup();
+
+	logclidebugmsg(cli_id, "Terminating client from SIGCHLD handler");
 
 	if (failed)
 	{
@@ -634,11 +644,11 @@ void sigchld_client()
 
 void kill_children()
 {
-	/* _log("inside kill_children()\n"); */
+	logclidebugmsg(cli_id, "SIGUSR1 recieved");
 
 	if (parser_pid > 0)
 	{
-		/* _log("inside kill_children() - killing parser (pid = %d)\n", parser_pid); */
+		logclidebugmsg(cli_id, "Killing (SIGUSR1) parser (pid = %d)", parser_pid);
 		id_t p = parser_pid; /* so it won't be killed again in sigchld_client */
 		parser_pid = -1;
 
@@ -648,7 +658,7 @@ void kill_children()
 
 	if (cce_pid > 0)
 	{
-		/* _log("inside kill_children() - killing ccextractor (pid = %d)\n", cce_pid); */
+		logclidebugmsg(cli_id, "Killing (SIGINT) CCExtractor (pid = %d)", cce_pid);
 		pid_t p = cce_pid;
 		cce_pid = -1;
 		if (kill(p, SIGINT) < 0)
@@ -657,5 +667,6 @@ void kill_children()
 			waitpid(p, NULL, 0);
 	}
 
+	logclidebugmsg(cli_id, "Terminating client from SIGUSR1 handler");
 	exit(EXIT_SUCCESS);
 }
