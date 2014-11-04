@@ -261,9 +261,8 @@ int read_bin_header()
 		return 0;
 	}
 
-	logclimsg(cli_id, "Bin header recieved:");
 	logclimsg(cli_id,
-			"File created by %02X version: %02X%02X, format version: %02X%02X",
+			"BIN header recieved: created by %02X ver: %02X%02X, format ver: %02X%02X",
 			bin_header[3],
 			bin_header[4], bin_header[5],
 			bin_header[6], bin_header[7]);

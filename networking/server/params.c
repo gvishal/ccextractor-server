@@ -17,7 +17,6 @@ int init_cfg()
 	cfg.arch_dir = DFT_ARCHIVE_DIR;
 	cfg.create_logs = DFT_CREATE_LOGS;
 	cfg.log_dir = DFT_LOG_DIR;
-	cfg.log_clients = DFT_CLIENT_LOGS;
 	cfg.use_pwd = DFT_USE_PWD;
 	cfg.buf_max_lines = DFT_BUF_MAX_LINES;
 	cfg.buf_min_lines = DFT_BUF_MIN_LINES;
@@ -31,6 +30,7 @@ int init_cfg()
 	cfg.pr_report_time = DFT_PR_REPORT_TIME;
 	cfg.mysql_tz = DFT_MYSQL_TZ;
 	cfg.env_tz = DFT_ENV_TZ;
+	cfg.log_vlvl = DFT_LOG_VERBOSE_LVL;
 
 	if ((cfg.pwd = (char *) malloc(DFT_PASSW_LEN + 1)) == NULL) /* +1 for '\0' */
 	{
@@ -257,15 +257,6 @@ int parse_config_file()
 			}
 			cfg.use_pwd = val_bool;
 		}
-		else if (strncmp(line, "log_cliets_msg", key_len) == 0)
-		{
-			if (boolean != val_type)
-			{
-				rc = CFG_BOOL;
-				goto out;
-			}
-			cfg.log_clients = val_bool;
-		}
 		else if (strncmp(line, "buffer_file_max_lines", key_len) == 0)
 		{
 			if (number != val_type)
@@ -373,6 +364,15 @@ int parse_config_file()
 				goto out;
 			}
 			cfg.env_tz = val_str;
+		}
+		else if (strncmp(line, "log_verbose_level", key_len) == 0)
+		{
+			if (number != val_type)
+			{
+				rc = CFG_NUM;
+				goto out;
+			}
+			cfg.log_vlvl = val_num;
 		}
 		else
 		{

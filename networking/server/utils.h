@@ -17,11 +17,11 @@
 #define B_SRV_ERR -10 /* Could bind */
 
 /* debug verbose levels: */
-#define FATAL 1
-#define ERR 2
+#define FATAL   1
+#define ERR     2
 #define WARNING 3
-#define INFO 5
-#define DEBUG 6
+#define INFO    4
+#define DEBUG   5
 
 #ifndef INT_LEN
 #define INT_LEN 10
@@ -53,7 +53,7 @@ ssize_t read_byte(int fd, char *status);
 
 int open_log_file();
 
-void printlog(int vlevel, int cli_id, const char *file, int line,
+void printlog(unsigned dlevel, int cli_id, const char *file, int line,
 		const char *fmt, ...);
 
 #define logfatalmsg(...)   printlog(FATAL,   0, __FILE__, __LINE__, __VA_ARGS__)

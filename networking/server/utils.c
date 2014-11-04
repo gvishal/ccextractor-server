@@ -151,11 +151,13 @@ int open_log_file()
 	return 1;
 }
 
-void printlog(int vlevel, int cli_id,
+void printlog(unsigned dlevel, int cli_id,
 		const char *file, int line, const char *fmt, ...)
 {
-	assert(vlevel > 0);
 	assert(fmt != NULL);
+
+	if ((dlevel > cfg.log_vlvl) && dlevel != FATAL)
+		return;
 
 	va_list args;
 	va_start(args, fmt);
@@ -172,7 +174,7 @@ void printlog(int vlevel, int cli_id,
 	else
 		end += sprintf(end, "[%d]", cli_id);
 
-	switch (vlevel)
+	switch (dlevel)
 	{
 	case FATAL:
 		end += sprintf(end, "[FATAL]");
@@ -211,7 +213,7 @@ void printlog(int vlevel, int cli_id,
 
 	fprintf(logfile.fp, "%s", logbuf);
 
-	if (logfile.fp != stderr && vlevel == FATAL)
+	if (logfile.fp != stderr && dlevel == FATAL)
 		fprintf(stderr, "%s", logbuf);
 
 	if (0 != lockf(fileno(logfile.fp), F_ULOCK, 0))

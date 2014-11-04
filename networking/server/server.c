@@ -58,7 +58,7 @@ int main()
 	if (creat_dirs() < 0)
 		goto end_server;
 
-	if (cfg.create_logs && open_log_file() < 0)
+	if (cfg.log_vlvl != 0 && open_log_file() < 0)
 		goto end_server;
 
 	if (init_db() < 0)
