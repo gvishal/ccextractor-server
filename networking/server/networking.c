@@ -68,6 +68,10 @@ ssize_t read_block(int fd, char *command, char *buf, size_t *buf_len)
 			return 0;
 		nread += rc;
 	}
+	else
+	{
+		*buf_len = 0;
+	}
 
 	char end[2] = {0}; 
 	if ((rc = readn(fd, end, sizeof(end))) < 0)

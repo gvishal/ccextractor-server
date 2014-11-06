@@ -87,6 +87,7 @@ out:
 	if (rc < 0)
 	{
 		write_byte(connfd, ERROR);
+		lognetblock(cli_id, ERROR, NULL, 1, "S-C");
 		exit(EXIT_FAILURE);
 	}
 	exit(EXIT_SUCCESS);
@@ -105,6 +106,7 @@ int greeting()
 		logerr("write");
 		return rc;
 	}
+	lognetblock(cli_id, OK, NULL, 1, "S-C");
 
 	if (db_add_cli(host, serv, &cli_id) < 0)
 		return -1;
@@ -132,6 +134,7 @@ int check_password()
 				logcli(cli_id, "write_byte");
 			return rc;
 		}
+		lognetblock(cli_id, PASSWORD, NULL, 1, "S-C");
 
 		if ((rc = read_block(connfd, &c, buf, &len)) <= 0)
 		{
@@ -139,6 +142,7 @@ int check_password()
 				logcli_no(cli_id, "read_block", rc);
 			return rc;
 		}
+		lognetblock(cli_id, c, buf, len, "C-S");
 
 		if (c != PASSWORD)
 			return 0;
@@ -157,6 +161,7 @@ int check_password()
 					logcli(cli_id, "write_byte");
 				return rc;
 			}
+			lognetblock(cli_id, WRONG_PASSWORD, NULL, 1, "S-C");
 
 			continue;
 		}
@@ -175,6 +180,8 @@ int ctrl_switch()
 	int rc = 1;
 	char *desc;
 
+	logclidebugmsg(cli_id, "Waiting for client to send BIN_MODE");
+
 	while (1)
 	{
 		len = BUFFER_SIZE;
@@ -184,6 +191,8 @@ int ctrl_switch()
 				logcli_no(cli_id, "read_block", rc);
 			return rc;
 		}
+
+		lognetblock(cli_id, c, buf, len, "C-S");
 
 		switch (c)
 		{
@@ -221,6 +230,7 @@ int handle_bin_mode()
 			logcli(cli_id, "write_byte");
 		return rc;
 	}
+	lognetblock(cli_id, OK, NULL, 1, "S-C");
 
 	if ((rc = read_bin_header()) <= 0)
 		return rc;
@@ -254,6 +264,8 @@ int read_bin_header()
 		return rc;
 	}
 
+	lognetmsg(cli_id, "[C-S] Bin header read: %zd bytes", rc);
+
 	if (memcmp(bin_header, "\xCC\xCC\xED", 3))
 	{
 		logclimsg(cli_id, "Wrong bin header: %02X%02X%02X",
@@ -274,7 +286,14 @@ int bin_loop()
 {
 	int ret = 0;
 
-	if ((ret = read_parser_data()) < 0)
+	/* TODO */
+	/* So, are we reading bin file path? */
+	/* rename or something then */
+	/* if ((ret = read_parser_data()) < 0) */
+	/* 	goto out; */
+	ret = read_parser_data();
+	logclidebugmsg(cli_id, "read_parser_data returned %d", ret);
+	if (ret < 0)
 		goto out;
 
 	if ((ret = open_bin_file()) < 0)
@@ -286,6 +305,9 @@ int bin_loop()
 	fds[1].fd = parser_pipe_r;
 	fds[1].events = POLLIN;
 	nfds_t ndfs = 2;
+
+	/* TODO it is not reached sometimes */
+	logclidebugmsg(cli_id, "Starting poll loop for parser and client bin data");
 
 	while(1)
 	{
@@ -356,7 +378,7 @@ int read_bin_data()
 		return rc;
 	}
 
-	/* logclidebugmsg(cli_id, "Bin data received: %zd bytes", rc); */
+	lognetmsg(cli_id, "[C-S] Bin data received: %zd bytes", rc);
 
 	fwrite(buf, sizeof(char), rc, cce_in.fp);
 
@@ -371,13 +393,16 @@ int read_parser_data()
 	char buf[BUFFER_SIZE];
 	size_t len = BUFFER_SIZE;
 	int rc;
+
 	if ((rc = read_block(parser_pipe_r, &c, buf, &len)) <= 0)
 	{
 		if (rc < 0)
 			logcli_no(cli_id, "read_block", rc);
 		return -1;
 	}
+	lognetblock(cli_id, c, buf, len, "S<-P");
 
+	/* TODO rename PR_BIN_PATH to BIN_FILEPATH or something */
 	if (c != PR_BIN_PATH)
 	{
 		logclimsg(cli_id, "Unexpected data in parser pipe");
@@ -511,6 +536,7 @@ int open_cce_input()
 		return -1;
 	}
 
+	/* TODO move it to different function or change its name */
 	fwrite(bin_header, sizeof(char), BIN_HEADER_LEN, cce_in.fp);
 
 	logclidebugmsg(cli_id, "CCExtractor input fifo file: %s", cce_in.path);
@@ -635,6 +661,7 @@ void sigchld_client()
 	if (failed)
 	{
 		write_byte(connfd, ERROR);
+		lognetblock(cli_id, ERROR, NULL, 1, "S-C");
 		exit(EXIT_FAILURE);
 	}
 

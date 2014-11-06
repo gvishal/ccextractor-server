@@ -111,6 +111,7 @@ int main()
 		if (cli_cnt >= cfg.max_conn)
 		{
 			write_byte(connfd, CONN_LIMIT);
+			lognetblock(0, CONN_LIMIT, NULL, 1, "S-C");
 			close(connfd);
 			free(cliaddr);
 
@@ -121,6 +122,7 @@ int main()
 		if ((id = add_new_cli(connfd, cliaddr, clilen)) < 0)
 		{
 			write_byte(connfd, ERROR);
+			lognetblock(0, ERROR, NULL, 1, "S-C");
 			close_conn(cli_cnt - 1);
 			free(cliaddr);
 
@@ -135,6 +137,7 @@ int main()
 		if ((cli[id].pid = fork_client(connfd, listen_sd, cli[id].host, cli[id].serv)) < 0)
 		{
 			write_byte(connfd, ERROR);
+			lognetblock(0, ERROR, NULL, 1, "S-C");
 			close_conn(id);
 			continue;
 		}
@@ -231,7 +234,7 @@ void close_conn(int id)
 	{
 		logdebugmsg("Killing (SIGUSR1) Client (pid = %zd)", p);
 		if (kill(p, SIGUSR1) < 0)
-			logfatal("kill");
+			logerr("kill");
 		else
 			waitpid(p, NULL, 0);
 	}
@@ -273,7 +276,7 @@ void cleanup_server()
 
 		logdebugmsg("Killing (SIGUSR1) Client (pid = %zd)", p);
 		if (kill(p, SIGUSR1) < 0)
-			logfatal("kill");
+			logerr("kill"); /* TODO No such process */
 		else
 			waitpid(p, NULL, 0);
 	}

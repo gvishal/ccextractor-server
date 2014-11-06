@@ -18,6 +18,8 @@
 #include <sys/ioctl.h>
 #include <sys/file.h>
 
+#include "networking.h"
+
 ssize_t readn(int fd, void *vptr, size_t n) 
 {
 	size_t nleft;
@@ -118,6 +120,58 @@ const char *m_strerror(int rc)
 	}
 }
 
+void lognetblock(unsigned cli_id, char c, char *buf, size_t len, 
+		const char *direction)
+{
+	static char str[BUFFER_SIZE];
+	char *end = str;
+
+	switch (c)
+	{
+		case OK:
+			end += strmov(end, "OK");
+			break;
+		case PASSWORD:
+			end += strmov(end, "PASSWORD");
+			break;
+		case BIN_MODE:
+			end += strmov(end, "BIN_MODE");
+			break;
+		case CC_DESC:
+			end += strmov(end, "CC_DESC");
+			break;
+		case ERROR:
+			end += strmov(end, "ERROR");
+			break;
+		case UNKNOWN_COMMAND:
+			end += strmov(end, "UNKNOWN_COMMAND");
+			break;
+		case WRONG_PASSWORD:
+			end += strmov(end, "WRONG_PASSWORD");
+			break;
+		case CONN_LIMIT:
+			end += strmov(end, "CONN_LIMIT");
+			break;
+		case PR_BIN_PATH:
+			end += strmov(end, "PR_BIN_PATH");
+			break;
+		default:
+			end += strmov(end, "UNDEF");
+			break;
+	}
+
+	*end++ = ' ';
+
+	if (NULL != buf && 0 != len)
+	{
+		memcpy(end, buf, len);
+		end += len;
+	}
+	*end++ = '\0';
+
+	lognetmsg(cli_id, "[%s] %zd %s", direction, len, str);
+}
+
 int open_log_file()
 {
 	if ((logfile.path = malloc(PATH_MAX)) == NULL)
@@ -151,12 +205,12 @@ int open_log_file()
 	return 1;
 }
 
-void printlog(unsigned dlevel, int cli_id,
+void printlog(unsigned vlevel, int cli_id,
 		const char *file, int line, const char *fmt, ...)
 {
 	assert(fmt != NULL);
 
-	if ((dlevel > cfg.log_vlvl) && dlevel != FATAL)
+	if ((vlevel > cfg.log_vlvl) && vlevel != FATAL)
 		return;
 
 	va_list args;
@@ -174,7 +228,7 @@ void printlog(unsigned dlevel, int cli_id,
 	else
 		end += sprintf(end, "[%d]", cli_id);
 
-	switch (dlevel)
+	switch (vlevel)
 	{
 	case FATAL:
 		end += sprintf(end, "[FATAL]");
@@ -195,11 +249,15 @@ void printlog(unsigned dlevel, int cli_id,
 		end += sprintf(end, "[DEBUG]");
 		end += sprintf(end, "[%s:%d]", file, line);
 		break;
+	case NETWORK:
+		end += sprintf(end, "[NET]");
+		break;
 	default:
 		break;
 	}
 
-	end += sprintf(end, " ");
+	if (NETWORK != vlevel)
+		end += sprintf(end, " ");
 
 	end += vsprintf(end, fmt, args);
 
@@ -209,11 +267,11 @@ void printlog(unsigned dlevel, int cli_id,
 		logfile.fp = stderr;
 
 	if (0 != lockf(fileno(logfile.fp), F_LOCK, 0))
-		logerr("lockf");
+		logerr("lockf"); /* TODO interrupted sys call error */
 
 	fprintf(logfile.fp, "%s", logbuf);
 
-	if (logfile.fp != stderr && dlevel == FATAL)
+	if (logfile.fp != stderr && vlevel == FATAL)
 		fprintf(stderr, "%s", logbuf);
 
 	if (0 != lockf(fileno(logfile.fp), F_ULOCK, 0))

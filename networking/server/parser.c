@@ -236,6 +236,7 @@ int set_pr(char *new_name)
 	if (cur_pr.name != NULL)
 	{
 		free(cur_pr.name);
+		/* TODO cur_pr.name = NULL; */
 		was_null = FALSE;
 	}
 
@@ -347,12 +348,14 @@ int send_pr_to_parent()
 		return -1;
 
 	int rc;
-	if ((rc = write_block(pipe_w, PR_BIN_PATH, path, strlen(path))) < 0)
+	size_t len = strlen(path);
+	if ((rc = write_block(pipe_w, PR_BIN_PATH, path, len)) < 0)
 	{
 		logcli_no(cli_id, "write_block", rc);
 		free(path);
 		return -1;
 	}
+	lognetblock(cli_id, PR_BIN_PATH, path, len, "P->S");
 
 	free(path);
 

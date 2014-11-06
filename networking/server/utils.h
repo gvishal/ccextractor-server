@@ -22,6 +22,7 @@
 #define WARNING 3
 #define INFO    4
 #define DEBUG   5
+#define NETWORK 6
 
 #ifndef INT_LEN
 #define INT_LEN 10
@@ -53,8 +54,11 @@ ssize_t read_byte(int fd, char *status);
 
 int open_log_file();
 
-void printlog(unsigned dlevel, int cli_id, const char *file, int line,
+void printlog(unsigned vlevel, int cli_id, const char *file, int line,
 		const char *fmt, ...);
+
+void lognetblock(unsigned cli_id, char c, char *buf, size_t len, 
+		const char *direction);
 
 #define logfatalmsg(...)   printlog(FATAL,   0, __FILE__, __LINE__, __VA_ARGS__)
 #define logerrmsg(...)     printlog(ERR,     0, __FILE__, __LINE__, __VA_ARGS__)
@@ -62,6 +66,7 @@ void printlog(unsigned dlevel, int cli_id, const char *file, int line,
 #define logclimsg(id, ...) printlog(INFO,   id, __FILE__, __LINE__, __VA_ARGS__)
 #define logwarningmsg(...) printlog(WARNING, 0, __FILE__, __LINE__, __VA_ARGS__)
 #define logdebugmsg(...)   printlog(DEBUG,   0, __FILE__, __LINE__, __VA_ARGS__)
+#define lognetmsg(id, ...) printlog(NETWORK,id, __FILE__, __LINE__, __VA_ARGS__)
 #define logclidebugmsg(id, ...) printlog(DEBUG,   id, __FILE__, __LINE__, __VA_ARGS__)
 
 #define logfatal(str)            printlog(FATAL, 0, __FILE__, __LINE__, "%s() error: %s", str, strerror(errno))
