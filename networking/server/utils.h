@@ -57,7 +57,7 @@ int open_log_file();
 void printlog(unsigned vlevel, int cli_id, const char *file, int line,
 		const char *fmt, ...);
 
-void lognetblock(unsigned cli_id, char c, char *buf, size_t len, 
+void lognetblock(unsigned cli_id, char c, char *buf, size_t len,
 		const char *direction);
 
 #define logfatalmsg(...)   printlog(FATAL,   0, __FILE__, __LINE__, __VA_ARGS__)
@@ -81,6 +81,8 @@ const char *m_strerror(int rc);
 
 /* Sets signal handler */
 int m_signal(int sig, void (*func)(int));
+
+void m_lock(FILE *fp, int l);
 
 /* Recursive mkdir */
 int mkpath(const char *path, mode_t mode);

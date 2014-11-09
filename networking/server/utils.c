@@ -120,7 +120,7 @@ const char *m_strerror(int rc)
 	}
 }
 
-void lognetblock(unsigned cli_id, char c, char *buf, size_t len, 
+void lognetblock(unsigned cli_id, char c, char *buf, size_t len,
 		const char *direction)
 {
 	static char str[BUFFER_SIZE];
@@ -266,16 +266,14 @@ void printlog(unsigned vlevel, int cli_id,
 	if (logfile.fp == NULL)
 		logfile.fp = stderr;
 
-	if (0 != lockf(fileno(logfile.fp), F_LOCK, 0))
-		logerr("lockf"); /* TODO interrupted sys call error */
+	m_lock(logfile.fp, LOCK_EX);
 
 	fprintf(logfile.fp, "%s", logbuf);
 
 	if (logfile.fp != stderr && vlevel == FATAL)
 		fprintf(stderr, "%s", logbuf);
 
-	if (0 != lockf(fileno(logfile.fp), F_ULOCK, 0))
-		logerr("lockf");
+	m_lock(logfile.fp, LOCK_UN);
 
 	va_end(args);
 }
@@ -293,6 +291,18 @@ int m_signal(int sig, void (*func)(int))
 	}
 
 	return 1;
+}
+
+void m_lock(FILE *fp, int l)
+{
+again:
+	if (flock(fileno(fp), l) < 0)
+	{
+		if (EINTR == errno)
+			goto again;
+
+		logerr("lock");
+	}
 }
 
 int mkpath(const char *path, mode_t mode)
@@ -452,6 +462,7 @@ int set_nonblocking(int fd)
 	if ((f = fcntl(fd, F_GETFL, 0)) < 0)
 		f = 0;
 
+	/* TODO log output */
 	return fcntl(fd, F_SETFL, f | O_NONBLOCK); 
 #else
 	f = 1;

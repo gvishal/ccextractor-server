@@ -39,6 +39,7 @@ struct pr_t
 } cur_pr;
 
 int pipe_w; /* pipe write end */
+extern int parser_pipe_r;
 
 pid_t fork_parser(id_t id, const char *cce_output, int pipe)
 {
@@ -60,6 +61,10 @@ pid_t fork_parser(id_t id, const char *cce_output, int pipe)
 
 	cli_id = id;
 	pipe_w = pipe;
+
+	if ((parser_pipe_r > 0) && close(parser_pipe_r) < 0) {
+		logcli(cli_id, "close");
+	}
 
 	if (m_signal(SIGUSR1, sigusr1_parser) < 0)
 		return -1;

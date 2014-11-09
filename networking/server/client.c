@@ -251,6 +251,10 @@ int handle_bin_mode()
 	if ((parser_pid = fork_parser(cli_id, cce_out.path, pipe_w_end)) < 0)
 		return -1;
 
+	if (close(pipe_w_end) < 0) {
+		logcli(cli_id, "close");
+	}
+
 	return 1;
 }
 
@@ -289,11 +293,7 @@ int bin_loop()
 	/* TODO */
 	/* So, are we reading bin file path? */
 	/* rename or something then */
-	/* if ((ret = read_parser_data()) < 0) */
-	/* 	goto out; */
-	ret = read_parser_data();
-	logclidebugmsg(cli_id, "read_parser_data returned %d", ret);
-	if (ret < 0)
+	if ((ret = read_parser_data()) < 0)
 		goto out;
 
 	if ((ret = open_bin_file()) < 0)
@@ -306,7 +306,6 @@ int bin_loop()
 	fds[1].events = POLLIN;
 	nfds_t ndfs = 2;
 
-	/* TODO it is not reached sometimes */
 	logclidebugmsg(cli_id, "Starting poll loop for parser and client bin data");
 
 	while(1)
