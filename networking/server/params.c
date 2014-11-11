@@ -15,7 +15,7 @@ int init_cfg()
 	cfg.wrong_pwd_delay = DFT_WRONG_PASSW_DELAY;
 	cfg.buf_dir = DFT_BUF_FILE_DIR;
 	cfg.arch_dir = DFT_ARCHIVE_DIR;
-	cfg.create_logs = DFT_CREATE_LOGS;
+	cfg.log_stderr = DFT_LOG_STDERR;
 	cfg.log_dir = DFT_LOG_DIR;
 	cfg.use_pwd = DFT_USE_PWD;
 	cfg.buf_max_lines = DFT_BUF_MAX_LINES;
@@ -230,14 +230,14 @@ int parse_config_file()
 			}
 			cfg.arch_dir = val_str;
 		}
-		else if (strncmp(line, "create_logs", key_len) == 0)
+		else if (strncmp(line, "logs_to_stderr", key_len) == 0)
 		{
 			if (boolean != val_type)
 			{
 				rc = CFG_BOOL;
 				goto out;
 			}
-			cfg.create_logs = val_bool;
+			cfg.log_stderr = val_bool;
 		}
 		else if (strncmp(line, "logs_dir", key_len) == 0)
 		{

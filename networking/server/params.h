@@ -13,7 +13,7 @@
 #define DFT_USE_PWD 1
 #define DFT_WRONG_PASSW_DELAY 2
 #define DFT_PASSW_LEN 10
-#define DFT_CREATE_LOGS 0
+#define DFT_LOG_STDERR 0
 #define DFT_ARCHIVE_DIR "./cc"
 #define DFT_BUF_MAX_LINES 40
 #define DFT_BUF_MIN_LINES 30
@@ -44,7 +44,7 @@ struct cfg_t
 	unsigned buf_max_lines;
 	unsigned buf_min_lines;
 	char *arch_dir;
-	unsigned create_logs : 1;
+	unsigned log_stderr : 1;
 	char *log_dir;
 	char *cce_path;
 	char *cce_output_dir;
