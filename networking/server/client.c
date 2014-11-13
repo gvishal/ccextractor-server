@@ -87,7 +87,7 @@ out:
 	if (rc < 0)
 	{
 		write_byte(connfd, ERROR);
-		lognetblock(cli_id, ERROR, NULL, 1, "S-C");
+		logblock(cli_id, ERROR, NULL, 1, "S->N");
 		exit(EXIT_FAILURE);
 	}
 	exit(EXIT_SUCCESS);
@@ -106,7 +106,7 @@ int greeting()
 		logerr("write");
 		return rc;
 	}
-	lognetblock(cli_id, OK, NULL, 1, "S-C");
+	logblock(cli_id, OK, NULL, 1, "S->N");
 
 	if (db_add_cli(host, serv, &cli_id) < 0)
 		return -1;
@@ -134,7 +134,7 @@ int check_password()
 				logcli(cli_id, "write_byte");
 			return rc;
 		}
-		lognetblock(cli_id, PASSWORD, NULL, 1, "S-C");
+		logblock(cli_id, PASSWORD, NULL, 1, "S->N");
 
 		if ((rc = read_block(connfd, &c, buf, &len)) <= 0)
 		{
@@ -142,7 +142,7 @@ int check_password()
 				logcli_no(cli_id, "read_block", rc);
 			return rc;
 		}
-		lognetblock(cli_id, c, buf, len, "C-S");
+		logblock(cli_id, c, buf, len, "S<-N");
 
 		if (c != PASSWORD)
 			return 0;
@@ -161,7 +161,7 @@ int check_password()
 					logcli(cli_id, "write_byte");
 				return rc;
 			}
-			lognetblock(cli_id, WRONG_PASSWORD, NULL, 1, "S-C");
+			logblock(cli_id, WRONG_PASSWORD, NULL, 1, "S->N");
 
 			continue;
 		}
@@ -192,7 +192,7 @@ int ctrl_switch()
 			return rc;
 		}
 
-		lognetblock(cli_id, c, buf, len, "C-S");
+		logblock(cli_id, c, buf, len, "S<-N");
 
 		switch (c)
 		{
@@ -230,7 +230,7 @@ int handle_bin_mode()
 			logcli(cli_id, "write_byte");
 		return rc;
 	}
-	lognetblock(cli_id, OK, NULL, 1, "S-C");
+	logblock(cli_id, OK, NULL, 1, "S->N");
 
 	if ((rc = read_bin_header()) <= 0)
 		return rc;
@@ -268,7 +268,7 @@ int read_bin_header()
 		return rc;
 	}
 
-	lognetmsg(cli_id, "[C-S] Bin header read: %zd bytes", rc);
+	logchatmsg(cli_id, "[S<-N] Bin header read: %zd bytes", rc);
 
 	if (memcmp(bin_header, "\xCC\xCC\xED", 3))
 	{
@@ -377,7 +377,7 @@ int read_bin_data()
 		return rc;
 	}
 
-	lognetmsg(cli_id, "[C-S] Bin data received: %zd bytes", rc);
+	logchatmsg(cli_id, "[S<-N] Bin data received: %zd bytes", rc);
 
 	fwrite(buf, sizeof(char), rc, cce_in.fp);
 
@@ -399,7 +399,7 @@ int read_parser_data()
 			logcli_no(cli_id, "read_block", rc);
 		return -1;
 	}
-	lognetblock(cli_id, c, buf, len, "S<-P");
+	logblock(cli_id, c, buf, len, "S<-P");
 
 	/* TODO rename PR_BIN_PATH to BIN_FILEPATH or something */
 	if (c != PR_BIN_PATH)
@@ -660,7 +660,7 @@ void sigchld_client()
 	if (failed)
 	{
 		write_byte(connfd, ERROR);
-		lognetblock(cli_id, ERROR, NULL, 1, "S-C");
+		logblock(cli_id, ERROR, NULL, 1, "S->N");
 		exit(EXIT_FAILURE);
 	}
 

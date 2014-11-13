@@ -111,7 +111,7 @@ int main()
 		if (cli_cnt >= cfg.max_conn)
 		{
 			write_byte(connfd, CONN_LIMIT);
-			lognetblock(0, CONN_LIMIT, NULL, 1, "S-C");
+			logblock(0, CONN_LIMIT, NULL, 1, "S->N");
 			close(connfd);
 			free(cliaddr);
 
@@ -122,7 +122,7 @@ int main()
 		if ((id = add_new_cli(connfd, cliaddr, clilen)) < 0)
 		{
 			write_byte(connfd, ERROR);
-			lognetblock(0, ERROR, NULL, 1, "S-C");
+			logblock(0, ERROR, NULL, 1, "S->N");
 			close_conn(cli_cnt - 1);
 			free(cliaddr);
 
@@ -137,7 +137,7 @@ int main()
 		if ((cli[id].pid = fork_client(connfd, listen_sd, cli[id].host, cli[id].serv)) < 0)
 		{
 			write_byte(connfd, ERROR);
-			lognetblock(0, ERROR, NULL, 1, "S-C");
+			logblock(0, ERROR, NULL, 1, "S->N");
 			close_conn(id);
 			continue;
 		}

@@ -360,7 +360,7 @@ int send_pr_to_parent()
 		free(path);
 		return -1;
 	}
-	lognetblock(cli_id, PR_BIN_PATH, path, len, "P->S");
+	logblock(cli_id, PR_BIN_PATH, path, len, "P->S");
 
 	free(path);
 
@@ -376,6 +376,7 @@ int send_pr_to_buf(int is_changed)
 	if ((rc = append_to_buf(id_str, INT_LEN, PROGRAM_ID)) < 0)
 		return -1;
 
+	/* XXX wtf is it? */
 	char time_str[INT_LEN] = {0};
 	sprintf(time_str, "%u", (unsigned)cur_pr.start);
 
@@ -489,12 +490,7 @@ int append_to_buf(const char *line, size_t len, char mode)
 		buf_line_cnt = cfg.buf_min_lines;
 	}
 
-	if (0 != flock(fileno(buf.fp), LOCK_EX)) 
-	{
-		logerr("flock");
-		free(tmp);
-		return -1;
-	}
+	m_lock(buf.fp, LOCK_EX);
 
 	fprintf(buf.fp, "%d %d ", cur_line, mode);
 
@@ -506,15 +502,12 @@ int append_to_buf(const char *line, size_t len, char mode)
 
 	fprintf(buf.fp, "\r\n");
 
+	logblock(cli_id, mode, tmp, len, "S->B");
+
 	cur_line++;
 	buf_line_cnt++;
 
-	if (0 != flock(fileno(buf.fp), LOCK_UN))
-	{
-		logerr("flock");
-		free(tmp);
-		return -1;
-	}
+	m_lock(buf.fp, LOCK_UN);
 
 	free(tmp);
 

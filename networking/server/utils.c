@@ -120,7 +120,7 @@ const char *m_strerror(int rc)
 	}
 }
 
-void lognetblock(unsigned cli_id, char c, char *buf, size_t len,
+void logblock(unsigned cli_id, char c, char *buf, size_t len,
 		const char *direction)
 {
 	static char str[BUFFER_SIZE];
@@ -155,6 +155,24 @@ void lognetblock(unsigned cli_id, char c, char *buf, size_t len,
 		case PR_BIN_PATH:
 			end += strmov(end, "PR_BIN_PATH");
 			break;
+		case PROGRAM_ID:
+			end += strmov(end, "PROGRAM_ID");
+			break;
+		case PROGRAM_CHANGED:
+			end += strmov(end, "PROGRAM_CHANGED");
+			break;
+		case PROGRAM_NEW:
+			end += strmov(end, "PROGRAM_NEW");
+			break;
+		case PROGRAM_DIR:
+			end += strmov(end, "PROGRAM_DIR");
+			break;
+		case CAPTIONS:
+			end += strmov(end, "CAPTIONS");
+			break;
+		case XDS:
+			end += strmov(end, "XDS");
+			break;
 		default:
 			end += strmov(end, "UNDEF");
 			break;
@@ -169,7 +187,7 @@ void lognetblock(unsigned cli_id, char c, char *buf, size_t len,
 	}
 	*end++ = '\0';
 
-	lognetmsg(cli_id, "[%s] %zd %s", direction, len, str);
+	logchatmsg(cli_id, "[%s] %zd %s", direction, len, str);
 }
 
 int open_log_file()
@@ -249,14 +267,14 @@ void printlog(unsigned vlevel, int cli_id,
 		end += sprintf(end, "[DEBUG]");
 		end += sprintf(end, "[%s:%d]", file, line);
 		break;
-	case NETWORK:
-		end += sprintf(end, "[NET]");
+	case CHAT:
+		end += sprintf(end, "[CHAT]");
 		break;
 	default:
 		break;
 	}
 
-	if (NETWORK != vlevel)
+	if (CHAT != vlevel)
 		end += sprintf(end, " ");
 
 	end += vsprintf(end, fmt, args);
