@@ -251,7 +251,10 @@ int set_pr(char *new_name)
 	{
 		cur_pr.name = new_name;
 
-		if (db_set_pr_name(cli_id, cur_pr.id, cur_pr.name) < 0)
+		if (cfg.store_cc && db_set_pr_name(cli_id, cur_pr.id, cur_pr.name) < 0)
+			return -1;
+
+		if (db_set_pr_arctive_cli(cli_id, cur_pr.id, cur_pr.start, cur_pr.name) < 0)
 			return -1;
 
 		if (send_pr_to_buf(FALSE) < 0)
@@ -263,28 +266,31 @@ int set_pr(char *new_name)
 		cur_pr.start = now;
 		cur_pr.report_time = now;
 
-		if (cur_pr.id > 0 && db_set_pr_endtime(cur_pr.id) < 0)
-			return -1;
+		if (cfg.store_cc)
+		{
+			if (cur_pr.id > 0 && db_set_pr_endtime(cur_pr.id) < 0)
+				return -1;
 
-		if (creat_pr_dir(&cur_pr.dir, &cur_pr.start) < 0)
-			return -1;
+			if (creat_pr_dir(&cur_pr.dir, &cur_pr.start) < 0)
+				return -1;
 
-		if (db_add_program(cli_id, &cur_pr.id, cur_pr.start, cur_pr.name) < 0)
-			return -1;
+			if (db_add_program(cli_id, &cur_pr.id, cur_pr.start, cur_pr.name) < 0)
+				return -1;
+
+			if (send_pr_to_parent() < 0)
+				return -1;
+
+			if (open_txt_file() < 0)
+				return -1;
+
+			if (open_xds_file() < 0)
+				return -1;
+
+			if (open_srt_file() < 0)
+				return -1;
+		}
 
 		if (db_set_pr_arctive_cli(cli_id, cur_pr.id, cur_pr.start, cur_pr.name) < 0)
-			return -1;
-
-		if (send_pr_to_parent() < 0)
-			return -1;
-
-		if (open_txt_file() < 0)
-			return -1;
-
-		if (open_xds_file() < 0)
-			return -1;
-
-		if (open_srt_file() < 0)
 			return -1;
 
 		if (send_pr_to_buf(TRUE) < 0)

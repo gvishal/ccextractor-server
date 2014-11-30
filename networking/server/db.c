@@ -240,18 +240,20 @@ int db_add_active_cli(id_t id)
 int db_set_pr_arctive_cli(id_t id, id_t pr_id, time_t start, char *name)
 {
 	assert(id > 0);
-	assert(pr_id > 0);
 
 	char q[QUERY_LEN] = {0};
 	char *end = q;
 
 	end += sprintf(end,
 			"UPDATE active_clients "
-			"SET pr_id = %u, pr_start_date = FROM_UNIXTIME(%lu)",
-			pr_id, (unsigned long) start);
+			"SET pr_start_date = FROM_UNIXTIME(%lu)",
+			(unsigned long) start);
+
+	if (pr_id > 0)
+		end += sprintf(end, ", pr_id = %u ", pr_id);
 
 	if (name != NULL)
-		end += sprintf(end, ", pr_name = %s ", name);
+		end += sprintf(end, ", pr_name = \'%s\' ", name);
 
 	end += sprintf(end, "WHERE cli_id = %u LIMIT 1 ;", id);
 

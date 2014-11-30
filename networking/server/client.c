@@ -293,11 +293,14 @@ int bin_loop()
 	/* TODO */
 	/* So, are we reading bin file path? */
 	/* rename or something then */
-	if ((ret = read_parser_data()) < 0)
-		goto out;
+	if (cfg.store_cc)
+	{
+		if ((ret = read_parser_data()) < 0)
+			goto out;
 
-	if ((ret = open_bin_file()) < 0)
-		goto out;
+		if ((ret = open_bin_file()) < 0)
+			goto out;
+	}
 
 	struct pollfd fds[2];
 	fds[0].fd = connfd;
@@ -338,7 +341,7 @@ int bin_loop()
 				goto out;
 		}
 
-		if (fds[1].revents != 0)
+		if (fds[1].revents != 0 && cfg.store_cc)
 		{
 			if ((ret = read_parser_data()) < 0)
 				goto out;
@@ -364,7 +367,7 @@ int read_bin_data()
 	assert(cce_in.fp != NULL);
 	assert(cce_pid > 0);
 	assert(parser_pid > 0);
-	assert(bin.fp != NULL);
+	assert(!cfg.store_cc || (cfg.store_cc && bin.fp != NULL));
 
 	int rc;
 	size_t len = BUFFER_SIZE;
@@ -381,7 +384,8 @@ int read_bin_data()
 
 	fwrite(buf, sizeof(char), rc, cce_in.fp);
 
-	fwrite(buf, sizeof(char), rc, bin.fp);
+	if (cfg.store_cc)
+		fwrite(buf, sizeof(char), rc, bin.fp);
 
 	return 1;
 }
