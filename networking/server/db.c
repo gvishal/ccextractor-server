@@ -55,11 +55,11 @@ int creat_tables()
 
 	if (query(
 		"CREATE TABLE IF NOT EXISTS `clients` ("
-		"  `id` int(11) NOT NULL AUTO_INCREMENT,"
-		"  `address` varchar(256) COLLATE utf8_bin NOT NULL,"
-		"  `cc_desc` varchar(300) COLLATE utf8_bin DEFAULT NULL,"
-		"  `port` varchar(6) COLLATE utf8_bin NOT NULL,"
-		"  `date` timestamp NOT NULL,"
+		"   `id` int(11) NOT NULL AUTO_INCREMENT,"
+		"   `ip` varchar(256) COLLATE utf8_bin NOT NULL,"
+		"   `port` varchar(6) COLLATE utf8_bin NOT NULL,"
+		"   `date` timestamp NOT NULL,"
+		"   `description` varchar(300) COLLATE utf8_bin DEFAULT NULL,"
 		"  PRIMARY KEY (`id`)"
 		") ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=1 ;"
 		) < 0)
@@ -70,13 +70,13 @@ int creat_tables()
 	if (query(
 		" CREATE TABLE IF NOT EXISTS `programs` ("
 		"   `id` int(11) NOT NULL AUTO_INCREMENT,"
-		"   `client_id` int(11) NOT NULL,"
+		"   `cli_id` int(11) NOT NULL,"
 		"   `start_date` timestamp NULL DEFAULT NULL,"
 		"   `end_date` timestamp NULL DEFAULT NULL,"
 		"   `name` varchar(300) COLLATE utf8_bin DEFAULT NULL,"
-		"   `cc` mediumtext COLLATE utf8_bin,"
+		"   `cc_data` mediumtext COLLATE utf8_bin,"
 		"   PRIMARY KEY (`id`),"
-		"   FOREIGN KEY (`client_id`) REFERENCES clients(id)"
+		"   FOREIGN KEY (`cli_id`) REFERENCES clients(id)"
 		" ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin AUTO_INCREMENT=1 ;"
 		) < 0)
 	{
@@ -85,10 +85,13 @@ int creat_tables()
 
 	if (query(
 		" CREATE TABLE IF NOT EXISTS `active_clients` ("
-		"   `id` int(11) NOT NULL,"
-		"   `program_id` int(11) DEFAULT NULL,"
-		"   FOREIGN KEY (`id`) REFERENCES clients(id),"
-		"   FOREIGN KEY (`program_id`) REFERENCES programs(id)"
+		"   `cli_id` int(11) NOT NULL,"
+		"   `pr_id` int(11) DEFAULT NULL,"
+		"   `pr_name` varchar(300) COLLATE utf8_bin DEFAULT NULL,"
+		"   `pr_start_date` timestamp NULL DEFAULT NULL,"
+		"   `cli_description` varchar(300) COLLATE utf8_bin DEFAULT NULL,"
+		"   FOREIGN KEY (`cli_id`) REFERENCES clients(id),"
+		"   FOREIGN KEY (`pr_id`) REFERENCES programs(id)"
 		" ) ENGINE=InnoDB DEFAULT CHARSET=latin1;"
 		) < 0)
 	{
@@ -147,7 +150,7 @@ int db_add_cli(const char *host, const char *serv, id_t *new_id)
 	char q[QUERY_LEN] = {0};
 	char *end = q;
 
-	end += strmov(end, "INSERT INTO clients (address, port, date) VALUES(\'");
+	end += strmov(end, "INSERT INTO clients (ip, port, date) VALUES(\'");
 
 	end += mysql_real_escape_string(con, end, host, strlen(host));
 
@@ -207,9 +210,21 @@ int db_set_cc_desc(id_t cli_id, const char *desc)
 	assert(desc != NULL);
 
 	char q[QUERY_LEN] = {0};
-	sprintf(q, "UPDATE clients SET cc_desc = \'%s\' WHERE id = %u ;", desc, cli_id);
+	sprintf(q, "UPDATE clients "
+			   "SET description = \'%s\' "
+			   "WHERE id = %u ;", desc, cli_id);
 
-	return query(q);
+	if (query(q) < 0)
+		return -1;
+
+	sprintf(q, "UPDATE active_clients "
+			   "SET cli_description = \'%s\' "
+			   "WHERE cli_id = %u ;", desc, cli_id);
+
+	if (query(q) < 0)
+		return -1;
+
+	return 1;
 }
 
 int db_add_active_cli(id_t id)
@@ -217,20 +232,28 @@ int db_add_active_cli(id_t id)
 	assert(id > 0);
 
 	char q[QUERY_LEN] = {0};
-	sprintf(q, "INSERT INTO active_clients(id) VALUES(\'%u\') ;", id);
+	sprintf(q, "INSERT INTO active_clients(cli_id) VALUES(\'%u\') ;", id);
 
 	return query(q);
 }
 
-int db_set_pr_arctive_cli(id_t id, id_t pr_id)
+int db_set_pr_arctive_cli(id_t id, id_t pr_id, time_t start, char *name)
 {
 	assert(id > 0);
 	assert(pr_id > 0);
 
 	char q[QUERY_LEN] = {0};
+	char *end = q;
 
-	sprintf(q, "UPDATE active_clients SET program_id = %u WHERE id = %u LIMIT 1 ;",
-			pr_id, id);
+	end += sprintf(end,
+			"UPDATE active_clients "
+			"SET pr_id = %u, pr_start_date = FROM_UNIXTIME(%lu)",
+			pr_id, (unsigned long) start);
+
+	if (name != NULL)
+		end += sprintf(end, ", pr_name = %s ", name);
+
+	end += sprintf(end, "WHERE cli_id = %u LIMIT 1 ;", id);
 
 	return query(q);
 }
@@ -240,7 +263,7 @@ int db_remove_active_cli(id_t id)
 	assert(id > 0);
 
 	char q[QUERY_LEN] = {0};
-	sprintf(q, "DELETE FROM active_clients WHERE id = \'%u\' LIMIT 1 ;", id);
+	sprintf(q, "DELETE FROM active_clients WHERE cli_id = \'%u\' LIMIT 1 ;", id);
 
 	return query(q);
 }
@@ -254,9 +277,9 @@ int db_add_program(id_t cli_id, id_t *pr_id, time_t start, char *name)
 	char *end = q;
 
 	if (NULL == name)
-		end += strmov(end, "INSERT INTO programs (client_id, start_date) VALUES(\'");
+		end += strmov(end, "INSERT INTO programs (cli_id, start_date) VALUES(\'");
 	else
-		end += strmov(end, "INSERT INTO programs (client_id, start_date, name) VALUES(\'");
+		end += strmov(end, "INSERT INTO programs (cli_id, start_date, name) VALUES(\'");
 
 	end += sprintf(end, "%u", cli_id);
 
@@ -314,7 +337,7 @@ int db_get_last_pr_id(id_t *pr_id)
 	return 1;
 }
 
-int db_set_pr_name(id_t pr_id, char *name)
+int db_set_pr_name(id_t cli_id, id_t pr_id, char *name)
 {
 	assert(pr_id > 0);
 	assert(name != NULL);
@@ -323,12 +346,22 @@ int db_set_pr_name(id_t pr_id, char *name)
 	char *end = q;
 
 	end += strmov(end, "UPDATE programs SET name = \'");
-
 	end += mysql_real_escape_string(con, end, name, strlen(name));
-
 	end += sprintf(end, "\' WHERE id = \'%u\' LIMIT 1 ;", pr_id);
 
-	return query(q);
+	if (query(q) < 0)
+		return -1;
+
+	end = q;
+
+	end += strmov(end, "UPDATE active_clients SET pr_name = \'");
+	end += mysql_real_escape_string(con, end, name, strlen(name));
+	end += sprintf(end, "\' WHERE cli_id = \'%u\' LIMIT 1 ;", cli_id);
+
+	if (query(q) < 0)
+		return -1;
+
+	return 1;
 }
 
 int db_set_pr_endtime(id_t pr_id)
@@ -352,7 +385,7 @@ int db_append_cc(id_t pr_id, char *cc, size_t len)
 	char q[QUERY_LEN] = {0};
 	char *e = q;
 
-	e += strmov(e, "UPDATE programs SET cc = IFNULL(CONCAT(cc, \'");
+	e += strmov(e, "UPDATE programs SET cc_data = IFNULL(CONCAT(cc_data, \'");
 
 	e += mysql_real_escape_string(con, e, cc, len);
 
@@ -410,7 +443,7 @@ again:
 		unsigned int err = mysql_errno(con);
 		if (err == CR_SERVER_GONE_ERROR || err == CR_SERVER_LOST)
 		{
-			loginfomsg("MySQL server has gone away, reconnecting");
+			logdebugmsg("MySQL server has gone away, reconnecting");
 			if (db_conn() > 0)
 				goto again;
 		}
@@ -419,7 +452,6 @@ again:
 
 		logerrmsg("MySQL query failed: %s", q);
 		logmysqlerr("mysql_real_query", con);
-		/* XXX would it print an error from mysql_errno()?? */
 	}
 
 	if (sigprocmask(SIG_SETMASK, &oldmask, 0) < 0)

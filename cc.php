@@ -108,7 +108,7 @@ if (!file_exists($buf_path)) {
 	$q =
 		"SELECT id, UNIX_TIMESTAMP(start_date), name " .
 		"FROM programs " .
-		"WHERE client_id = " . $client_id . " ;";
+		"WHERE cli_id = " . $client_id . " ;";
 
 	if ($result = mysqli_query($link, $q)) {
 		while ($row = mysqli_fetch_row($result)) {
@@ -143,10 +143,10 @@ if (0 == $start)
 	}
 
 	$q =
-		"SELECT programs.id, UNIX_TIMESTAMP(programs.start_date), programs.name, clients.cc_desc " .
+		"SELECT programs.id, UNIX_TIMESTAMP(programs.start_date), programs.name, clients.cc_description " .
 		"FROM programs " .
-		"LEFT JOIN (clients) ON (clients.id = programs.client_id) " .
-		"WHERE client_id = " . $client_id . " " .
+		"LEFT JOIN (clients) ON (clients.id = programs.cli_id) " .
+		"WHERE cli_id = " . $client_id . " " .
 		"ORDER BY id DESC " .
 		"LIMIT 1 ;";
 

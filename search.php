@@ -16,7 +16,7 @@ function pr_link($time, $id, $ext, $name)
 $link = db_connect();
 
 $where = "WHERE 1 ";
-$join = "LEFT JOIN (clients) ON (programs.client_id = clients.id) ";
+$join = "LEFT JOIN (clients) ON (programs.cli_id = clients.id) ";
 
 $from = "";
 if (array_key_exists("from", $_GET) && $_GET["from"] != "")
@@ -36,7 +36,7 @@ $addr = "";
 if (array_key_exists("addr", $_GET) && $_GET["addr"] != "")
 {
 	$addr = mysqli_real_escape_string($link, $_GET['addr']);
-	$where .= "AND clients.address LIKE '%" . $addr . "%' ";
+	$where .= "AND clients.ip LIKE '%" . $addr . "%' ";
 }
 
 $pr = "";
@@ -50,7 +50,7 @@ $text = "";
 if (array_key_exists("text", $_GET) && $_GET["text"] != "")
 {
 	$text = mysqli_real_escape_string($link, $_GET['text']);
-	$where .= "AND programs.cc LIKE '%" . $text . "%' ";
+	$where .= "AND programs.cc_data LIKE '%" . $text . "%' ";
 }
 
 $page = 1;
@@ -87,7 +87,7 @@ $next_page_url = $_SERVER["PHP_SELF"] . "?" . http_build_query($_GET);
 $start = ($page - 1) * RESULTS_PER_PAGE;
 
 $q =
-	"SELECT programs.id, UNIX_TIMESTAMP(programs.start_date), programs.start_date, programs.end_date, programs.name, clients.address " .
+	"SELECT programs.id, UNIX_TIMESTAMP(programs.start_date), programs.start_date, programs.end_date, programs.name, clients.ip " .
 	"FROM programs " .
 	$join . $where .
 	"LIMIT " . $start . ", " . RESULTS_PER_PAGE . " ;";
@@ -134,7 +134,7 @@ $q =
 	</div>
 	<div id="arrows">
 		<div id="prev">
-			<? if ($prev_page <= 0) { ?>
+            <?  if ($prev_page <= 0) { ?>
 			&lt; Prev
 			<? } else { ?>
 			<a href="<?=$prev_page_url?>">&lt; Prev</a>

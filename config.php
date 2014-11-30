@@ -8,10 +8,10 @@ if (!array_key_exists("mysql_user", $cfg))
 	$cfg["mysql_user"] = "root";
 
 if (!array_key_exists("mysql_password", $cfg))
-	$cfg["mysql_password"] = "root";
+	$cfg["mysql_password"] = "";
 
 if (!array_key_exists("mysql_db_name", $cfg))
-	$cfg["mysql_db_name"] = "cce";
+	$cfg["mysql_db_name"] = "ccrepository";
 
 if (!array_key_exists("archive_files_dir", $cfg))
 	$cfg["archive_files_dir"] = "./cc";

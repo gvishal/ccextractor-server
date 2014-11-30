@@ -31,6 +31,7 @@ int init_cfg()
 	cfg.mysql_tz = DFT_MYSQL_TZ;
 	cfg.env_tz = DFT_ENV_TZ;
 	cfg.log_vlvl = DFT_LOG_VERBOSE_LVL;
+	cfg.store_cc = DFT_STORE_CC_IN_DB;
 
 	if ((cfg.pwd = (char *) malloc(DFT_PASSW_LEN + 1)) == NULL) /* +1 for '\0' */
 	{
@@ -373,6 +374,15 @@ int parse_config_file()
 				goto out;
 			}
 			cfg.log_vlvl = val_num;
+		}
+		else if (strncmp(line, "store_cc_in_db", key_len) == 0)
+		{
+			if (boolean != val_type)
+			{
+				rc = CFG_BOOL;
+				goto out;
+			}
+			cfg.store_cc = val_bool;
 		}
 		else
 		{

@@ -161,7 +161,7 @@ int parse_line(char *line, size_t len)
 		if ((rc = is_program_changed(rc)) && set_pr(rc) < 0)
 			return -1;
 	}
-	else
+	else if (cfg.store_cc)
 	{
 		if (db_store_cc(line, len) < 0)
 			return -1;
@@ -173,7 +173,7 @@ int parse_line(char *line, size_t len)
 			return -1;
 	}
 
-	if (append_to_xds(line) < 0)
+	if (cfg.store_cc && append_to_xds(line) < 0)
 		return -1;
 
 	if (append_to_buf(line, len, mode) < 0)
@@ -251,7 +251,7 @@ int set_pr(char *new_name)
 	{
 		cur_pr.name = new_name;
 
-		if (db_set_pr_name(cur_pr.id, cur_pr.name) < 0)
+		if (db_set_pr_name(cli_id, cur_pr.id, cur_pr.name) < 0)
 			return -1;
 
 		if (send_pr_to_buf(FALSE) < 0)
@@ -272,7 +272,7 @@ int set_pr(char *new_name)
 		if (db_add_program(cli_id, &cur_pr.id, cur_pr.start, cur_pr.name) < 0)
 			return -1;
 
-		if (db_set_pr_arctive_cli(cli_id, cur_pr.id) < 0)
+		if (db_set_pr_arctive_cli(cli_id, cur_pr.id, cur_pr.start, cur_pr.name) < 0)
 			return -1;
 
 		if (send_pr_to_parent() < 0)

@@ -22,12 +22,13 @@
 #define DFT_DB_HOST "localhost"
 #define DFT_DB_USER "root"
 #define DFT_DB_PASSWORD NULL
-#define DFT_DB_DBNAME "cce"
+#define DFT_DB_DBNAME "ccrepository"
 #define DFT_PR_TIMEOUT 2 * 40 * 60 /* sec */
 #define DFT_PR_REPORT_TIME 1 * 60 /* sec */
 #define DFT_MYSQL_TZ "+00:00"
 #define DFT_ENV_TZ "UTC"
 #define DFT_LOG_VERBOSE_LVL 4
+#define DFT_STORE_CC_IN_DB 1
 
 #define INF_READ_DELAY 300000000 /* Nano sec less than 10^9 */
 #define BUFFER_SIZE 20480
@@ -57,6 +58,7 @@ struct cfg_t
 	char *mysql_tz;
 	char *env_tz;
 	unsigned log_vlvl;
+	unsigned store_cc : 1;
 
 	unsigned is_inited : 1;
 } cfg;
