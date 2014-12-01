@@ -14,10 +14,10 @@ if (!array_key_exists("mysql_db_name", $cfg))
 	$cfg["mysql_db_name"] = "ccrepository";
 
 if (!array_key_exists("archive_files_dir", $cfg))
-	$cfg["archive_files_dir"] = "./cc";
+	$cfg["archive_files_dir"] = "./ccfiles";
 
 if (!array_key_exists("buffer_files_dir", $cfg))
-	$cfg["buffer_files_dir"] = "./tmp";
+	$cfg["buffer_files_dir"] = "./webbuffer";
 
 if (!array_key_exists("mysql_timezone", $cfg))
 	$cfg["mysql_timezone"] = "+00:00";

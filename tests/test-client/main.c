@@ -28,6 +28,7 @@ void rand_str(char *s, size_t len)
 int main(int argc, char *argv[])
 {
 	(void) setlocale(LC_ALL, "");
+	srand(time(NULL));
 
 	if (5 != argc) {
 		fprintf(stderr, "Usage: %s host port file delay\n", argv[0]);
@@ -50,6 +51,8 @@ int main(int argc, char *argv[])
 
 	size_t rc = 0;
 
+restart:
+
 	if ((rc = fread(buf, sizeof(char), 11, fp)) != 11)
 	{
 		printf("%d, Premature end of file!\n", __LINE__);
@@ -68,7 +71,6 @@ int main(int argc, char *argv[])
 	size_t len;
 
 	int delay = atoi(argv[4]);
-
 	while (!feof(fp))
 	{
 		p = buf;
@@ -101,6 +103,10 @@ int main(int argc, char *argv[])
 
 		nanosleep((struct timespec[]){{0, delay}}, NULL);
 	}
+
+	rewind(fp);
+	p = buf;
+	goto restart;
 
 	fclose(fp);
 

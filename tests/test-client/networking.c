@@ -138,8 +138,6 @@ void net_send_cc(const char *data, size_t len)
 	ssize_t rc;
 	if ((rc = writen(srv_sd, data, len)) < 0)
 		perror("write() error");
-	if (rc != INT_LEN)
-		return;
 
 	return;
 }

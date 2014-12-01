@@ -2,12 +2,11 @@ SHELL = /bin/sh
 
 CC = gcc
 CFLAGS = -Wall -Wextra -pedantic -g
-# CFLAGS = -g
 ALL_FLAGS = -std=gnu99
 
-TARGET = ../../server
+TARGET = ../server
 
-OBJS_DIR = objs
+OBJS_DIR = build
 
 SRCS = $(wildcard *.c)
 OBJS = $(SRCS:%.c=$(OBJS_DIR)/%.o)
