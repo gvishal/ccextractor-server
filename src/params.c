@@ -8,6 +8,13 @@
 #include <errno.h>
 #include <time.h>
 
+/* parse_config_file errors values: */
+#define CFG_ERR -4 /* Can't parse config file */
+#define CFG_NUM -5 /* Number expected */
+#define CFG_STR -6 /* String expected */
+#define CFG_BOOL -7 /* true/false expected */
+#define CFG_UNKNOWN -8 /* Unknown key-value pair */
+
 int init_cfg()
 {
 	cfg.port = DFT_PORT;
@@ -73,6 +80,9 @@ int parse_config_file()
 
 	while ((read = getline(&line, &len, fp)) != -1) 
 	{
+        /* TODO move ugly parsing to different function,  */
+        /* leave here only keys comparison */
+
 		key_len = 0;
 		value_len = 0;
 

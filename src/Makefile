@@ -37,4 +37,8 @@ depend dep:
 	$(CXX) -E -MM $(SRCS) |\
 		sed 's/^[a-zA-Z_0-9]*.o/$(OBJS_DIR)\/&/' > .depend
 
+.PHONY: docs
+docs:
+	doxygen ../docs/config
+
 -include .depend
