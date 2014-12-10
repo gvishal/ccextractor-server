@@ -22,6 +22,8 @@
 
 ssize_t readn(int fd, void *vptr, size_t n) 
 {
+	assert(fd > 0);
+
 	size_t nleft;
 	ssize_t nread;
 	char *ptr;
