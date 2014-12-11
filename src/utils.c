@@ -366,6 +366,8 @@ int mkpath(const char *path, mode_t mode)
 
 void rand_str(char *s, size_t len)
 {
+    assert(s != NULL);
+
 	for (size_t i = 0; i < len; i++)
 		s[i] = rand() % (1 + 'z' - 'a') + 'a';
 
