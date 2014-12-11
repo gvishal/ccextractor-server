@@ -8,10 +8,12 @@
 #define TRUE 1
 
 /* Returned errors: */
-#define ERRNO -1 /* Use errno value */
-/* read_block(): */
-#define BLK_SIZE -2 /* Wrong block size */
-#define END_MARKER -3 /* No end marker present */
+/** m_strerror value -- use errno value */
+#define ERRNO -1
+/** m_strerror value -- Wrong block size */
+#define BLK_SIZE -2
+/** m_strerror value -- No end marker present */
+#define END_MARKER -3
 
 /* log verbose levels: */
 /** verbose level -- errors that cause server to terminate */
@@ -33,7 +35,7 @@
 #define LOG_MSG_SIZE 300
 
 /** file structure with FILE pointer and path */
-typedef struct 
+typedef struct
 {
 	char *path;
 	FILE *fp;
@@ -79,7 +81,7 @@ ssize_t write_byte(int fd, char ch);
  * @param ch buffer pointer where the byte will be stored
  * @return 1 when no errors occured, -1 otherwise
  */
-size_t read_byte(int fd, char *ch);
+ssize_t read_byte(int fd, char *ch);
 
 /** Creates and opens log file. Changes global logfile varibale.
  * @return 1 when no errors occured, -1 otherwise
