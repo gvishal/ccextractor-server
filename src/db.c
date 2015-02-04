@@ -227,19 +227,19 @@ int db_set_cc_desc(id_t cli_id, const char *desc)
 	return 1;
 }
 
-int db_add_active_cli(id_t id)
+int db_add_active_cli(id_t cli_id)
 {
-	assert(id > 0);
+	assert(cli_id > 0);
 
 	char q[QUERY_LEN] = {0};
-	sprintf(q, "INSERT INTO active_clients(cli_id) VALUES(\'%u\') ;", id);
+	sprintf(q, "INSERT INTO active_clients(cli_id) VALUES(\'%u\') ;", cli_id);
 
 	return query(q);
 }
 
-int db_set_pr_arctive_cli(id_t id, id_t pr_id, time_t start, char *name)
+int db_set_pr_arctive_cli(id_t cli_id, id_t pr_id, time_t start, char *name)
 {
-	assert(id > 0);
+	assert(cli_id > 0);
 
 	char q[QUERY_LEN] = {0};
 	char *end = q;
@@ -255,17 +255,17 @@ int db_set_pr_arctive_cli(id_t id, id_t pr_id, time_t start, char *name)
 	if (name != NULL)
 		end += sprintf(end, ", pr_name = \'%s\' ", name);
 
-	end += sprintf(end, "WHERE cli_id = %u LIMIT 1 ;", id);
+	end += sprintf(end, "WHERE cli_id = %u LIMIT 1 ;", cli_id);
 
 	return query(q);
 }
 
-int db_remove_active_cli(id_t id)
+int db_remove_active_cli(id_t cli_id)
 {
-	assert(id > 0);
+	assert(cli_id > 0);
 
 	char q[QUERY_LEN] = {0};
-	sprintf(q, "DELETE FROM active_clients WHERE cli_id = \'%u\' LIMIT 1 ;", id);
+	sprintf(q, "DELETE FROM active_clients WHERE cli_id = \'%u\' LIMIT 1 ;", cli_id);
 
 	return query(q);
 }
@@ -402,24 +402,12 @@ int db_append_cc(id_t pr_id, char *cc, size_t len)
 
 int lock_cli_tbl()
 {
-	if (mysql_query(con, "LOCK TABLES clients WRITE ;"))
-	{
-		logmysqlerr("mysql_real_query", con);
-		return -1;
-	}
-
-	return 1;
+	return query("LOCK TABLES clients WRITE ;");
 }
 
 int lock_pr_tbl()
 {
-	if (mysql_query(con, "LOCK TABLES programs WRITE;"))
-	{
-		logmysqlerr("mysql_real_query", con);
-		return -1;
-	}
-
-	return 1;
+	return query("LOCK TABLES programs WRITE;");
 }
 
 int unlock_db()
