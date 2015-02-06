@@ -28,6 +28,7 @@ struct cli_t
 	pid_t pid;
 
 	char *host;
+// TODO: rename serv to port or something
 	char *serv;
 } *cli;
 
