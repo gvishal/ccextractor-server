@@ -85,6 +85,7 @@ int main()
 	}
 	memset(cli, 0, (sizeof(struct cli_t)) * (cfg.max_conn));
 
+    /* XXX: move it to separate function */
 	while (1)
 	{
 		socklen_t clilen;

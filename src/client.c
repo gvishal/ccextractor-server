@@ -71,6 +71,11 @@ pid_t fork_client(int fd, int listenfd, char *h, char *s)
 	if ((rc = db_conn()) < 0)
 		goto out;
 
+	if (cfg.use_pwd == TRUE && (rc = check_password()) <= 0)
+		goto out;
+
+	is_logged = TRUE;
+
 	if ((rc = greeting()) <= 0)
 		goto out;
 
@@ -96,11 +101,6 @@ out:
 int greeting()
 {
 	int rc;
-	if (cfg.use_pwd == TRUE && (rc = check_password()) <= 0)
-		return rc;
-
-	is_logged = TRUE;
-
 	if ((rc = write_byte(connfd, OK)) <= 0)
 	{
 		logerr("write");

@@ -21,7 +21,7 @@ int add_new_cli(int fd, struct sockaddr *cliaddr, socklen_t clilen);
 /** Frees cli_t structure of specified client. Compresses global clietns array
  * by moving following clinets' entries closer to beginning.
  *
- * @parma id client id to remove
+ * @param id client id to remove
  */
 void free_cli(int id);
 
@@ -44,7 +44,7 @@ void sigchld_server();
 void cleanup_server();
 
 /** Creates necessary dirs with 755 mode
- * @retrun -1 on error, 1 on success
+ * @return -1 on error, 1 on success
  */
 int creat_dirs();
 

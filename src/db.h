@@ -101,7 +101,7 @@ int db_set_cc_desc(id_t cli_id, const char *desc);
  * @param cli_id client id
  * @return -1 on error and prints error massage to log. 1 on success
  */
-int db_add_active_cli(id_t id);
+int db_add_active_cli(id_t cli_id);
 
 /** Sets client's current program in active_clients table
  *
