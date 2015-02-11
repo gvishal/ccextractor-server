@@ -3,14 +3,14 @@
 
 #include <sys/types.h>
 
-/** Forks client process. in created process: sets signals, 
+/** Forks client process. in created process: sets signal handlers, 
  * connects to db, handles clietns' commands.
  *
  * @param fd client socked descriptor
  * @param listenfd server coket that accept connections (to close in clild)
  * @param h host name c-string
  * @param s port number c-string
- * @return client process pid on success, -1 otherwise in parent process
+ * @return in parent process: client pid on success, -1 otherwise 
  */
 // TODO: pass cli_t struct???
 pid_t fork_client(int fd, int listenfd, char *h, char *s);
