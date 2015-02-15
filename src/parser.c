@@ -249,6 +249,7 @@ int set_pr(char *new_name)
 	if (was_null && new_name != NULL
 			&& now - cur_pr.report_time < cfg.pr_report_time)
 	{
+	    /* the same program. just received it's name */
 		cur_pr.name = new_name;
 
 		if (cfg.store_cc && db_set_pr_name(cli_id, cur_pr.id, cur_pr.name) < 0)
@@ -432,6 +433,7 @@ int append_to_srt(const char *line)
 		return -1;
 
 #define T_LEN 30 /* lol */
+    /* TODO: why static? */
 	static char start[T_LEN] = {0};
 	static char end[T_LEN] = {0};
 	static char cc_buf[BUFFER_SIZE] = {0};
@@ -690,6 +692,7 @@ void cleanup_parser()
 		cur_pr.id = 0;
 	}
 
+/* TODO: not nessesary  */
 	if (buf.fp != NULL)
 	{
 		fclose(buf.fp);
