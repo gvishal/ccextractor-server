@@ -15,8 +15,8 @@
 #define DFT_PASSW_LEN 10
 #define DFT_LOG_STDERR 0
 #define DFT_ARCHIVE_DIR "./ccfiles"
-#define DFT_BUF_MAX_LINES 40
-#define DFT_BUF_MIN_LINES 30
+#define DFT_BUF_MAX_LINES 200 
+#define DFT_BUF_MIN_LINES 100 
 #define DFT_CCEXTRACTOR_PATH "./ccextractor"
 #define DFT_CCE_OUTPUT_DIR "./ccextractorio"
 #define DFT_DB_HOST "localhost"
@@ -24,7 +24,7 @@
 #define DFT_DB_PASSWORD NULL
 #define DFT_DB_DBNAME "ccrepository"
 #define DFT_PR_TIMEOUT 7200
-#define DFT_PR_REPORT_TIME 1 * 60
+#define DFT_PR_REPORT_TIME 60
 #define DFT_MYSQL_TZ "+00:00"
 #define DFT_ENV_TZ "UTC"
 #define DFT_LOG_VERBOSE_LVL 3
